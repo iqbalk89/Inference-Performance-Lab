@@ -27,6 +27,36 @@
 | Docker Compose | 2.36.0 | Installed |
 | VS Code | 1.121.0 (`x64`) | Installed |
 
+## Python Virtual Environment
+
+The repository uses a project-local virtual environment at `.venv/`. It was
+created and verified with Python 3.13.2 and is excluded from Git.
+
+Create or recreate it:
+
+```bash
+python3 -m venv .venv
+```
+
+Activate it on macOS or Linux:
+
+```bash
+source .venv/bin/activate
+```
+
+Verify the active interpreter:
+
+```bash
+python --version
+python -c "import sys; print(sys.executable)"
+```
+
+Leave the environment:
+
+```bash
+deactivate
+```
+
 ## VS Code Extensions
 
 - Python (`ms-python.python`)
@@ -49,6 +79,9 @@ Docker Desktop reported:
 - Architecture: `x86_64`
 - Allocated CPUs: 8 logical CPUs
 - Allocated memory: approximately 7.66 GiB
+
+The `.venv` environment was also verified as isolated from the base Python
+installation. No third-party Python packages have been installed yet.
 
 ## Installation Issues
 

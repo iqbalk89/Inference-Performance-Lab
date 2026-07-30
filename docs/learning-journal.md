@@ -79,6 +79,12 @@ docker run --rm hello-world
 
 # Inspect the repository
 git status
+
+# Create and use the project virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+python --version
+deactivate
 ```
 
 #### Ideas
@@ -92,7 +98,7 @@ git status
 #### Next Steps
 
 - Review and commit the Session 1 repository.
-- Create an isolated Python environment.
+- Use the verified `.venv` environment for project-specific Python packages.
 - Select a project Python version based on inference-library compatibility.
 - Run a minimal Python program and automated test.
 - Try a small CPU-compatible language model locally.
