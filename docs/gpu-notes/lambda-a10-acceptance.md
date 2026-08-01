@@ -145,7 +145,17 @@ Future Lambda instances should run:
 ```
 
 The script installs the verified official CLI alongside Nsight Compute and
-prints the resulting GPU and profiler versions.
+verifies CUDA-enabled PyTorch. On a new image, run the complete automated
+acceptance check:
+
+```bash
+./scripts/bootstrap_lambda_gpu.sh --validate
+```
+
+This captures short Nsight Systems and Nsight Compute reports under the ignored
+`profile-results/` directory and fails if expected artifacts are absent. See the
+[Lambda GPU Instance Runbook](lambda-instance-runbook.md) for the complete
+launch-to-termination workflow and the bootstrap's intentional boundaries.
 
 ## Saved Artifacts
 
@@ -177,3 +187,15 @@ Lambda's A10 environment is accepted for Phase 1 GPU work because:
 
 The original Lambda-package importer issue has been resolved in the reusable
 bootstrap workflow.
+
+## Automated Bootstrap Validation
+
+After adding the `--validate` mode, the complete bootstrap was rerun on this
+accepted A10 environment. It completed successfully and produced non-empty
+Nsight Systems and Nsight Compute reports plus a readable Nsight Systems
+statistics export. The rerun also confirmed that the installer is idempotent.
+
+Lambda's `ubuntu` account permits individual commands through noninteractive
+sudo but does not permit the generic `sudo -v` credential-refresh check. The
+bootstrap therefore tests access with `sudo -n true` and invokes each required
+privileged command directly.

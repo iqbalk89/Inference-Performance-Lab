@@ -83,3 +83,7 @@ environment, and GitHub repository have been initialized and verified.
 Phase 1 is beginning with GPU foundations and inference fundamentals. CUDA and
 GPU profiling will run on remote NVIDIA hardware. See the
 [Phase 1 Plan](docs/phase-1-plan.md) for the hardware-adjusted roadmap.
+
+Remote GPU sessions follow the
+[Lambda GPU Instance Runbook](docs/gpu-notes/lambda-instance-runbook.md), which
+covers launch, bootstrap validation, artifact preservation, and shutdown.
