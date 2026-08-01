@@ -71,18 +71,55 @@ Tensor Core, and bandwidth metrics.
 Nsight Compute profiled a CUDA kernel over eight replay passes and generated a
 valid `.ncu-rep` report. It did not produce `ERR_NVGPUCTRPERM`.
 
+### CPU Sampling and Scheduling
+
+The VM uses `perf_event_paranoid=4`. An ordinary `ubuntu` user therefore cannot
+access `perf_event_open`, CPU sampling, or scheduling events. Running Nsight
+Systems with `sudo` provides the required privilege:
+
+| Environment check | Ordinary user | With `sudo` |
+| --- | --- | --- |
+| `perf_event_open` | Fail | OK |
+| Sampling trigger | Fail | OK |
+| Process-tree CPU profiling | Fail | OK |
+| System-wide CPU profiling | Fail | OK |
+
+A combined elevated trace was captured with:
+
+```bash
+sudo nsys profile \
+  --trace=cuda,nvtx,osrt \
+  --sample=process-tree \
+  --backtrace=dwarf \
+  --cpuctxsw=process-tree \
+  --gpu-metrics-devices=0 \
+  --gpu-metrics-frequency=1000 \
+  --output=nsys-combined-accepted \
+  python3 gpu_smoke_test.py --iterations 100
+```
+
+The resulting report contained:
+
+| Record type | Rows in SQLite export |
+| --- | ---: |
+| CPU sampling call-chain entries | 30,258 |
+| Scheduler events | 1,722 |
+| OS runtime call-chain entries | 4,109 |
+| GPU Metrics records | 102,827 |
+| CUDA kernel records | 107 |
+
+The CPU lacks Intel Last Branch Record support, so DWARF backtraces were
+selected explicitly. This does not prevent CPU call-stack sampling.
+
+After elevated collection, return report ownership to the normal account:
+
+```bash
+sudo chown ubuntu:ubuntu nsys-combined-accepted.nsys-rep
+```
+
+No persistent reduction of `kernel.perf_event_paranoid` is required.
+
 ## Limitations Discovered
-
-### CPU Sampling
-
-`nsys status --environment` reported:
-
-- `perf_event_paranoid=4`
-- `perf_event_open` unavailable
-- CPU process-tree and system-wide sampling unavailable
-
-CUDA tracing and NVIDIA GPU counter collection still worked when CPU sampling
-and context-switch tracing were disabled.
 
 ### Resolved: Nsight Systems Report Importer
 
@@ -118,6 +155,9 @@ directory before instance termination:
 - Basic Nsight Systems CUDA trace
 - Nsight Systems GPU Metrics trace
 - Corrected, viewable Nsight Systems report
+- Combined CPU sampling, scheduling, CUDA, NVTX, OS runtime, and GPU Metrics
+  report
+- SQLite export used to verify combined trace contents
 - Nsight Compute report
 
 Raw profiler artifacts are kept out of Git. Reproducible scripts and summarized
@@ -132,6 +172,8 @@ Lambda's A10 environment is accepted for Phase 1 GPU work because:
 - Nsight Systems can collect CUDA activity.
 - Nsight Systems can access GA10x GPU Metrics.
 - Nsight Compute can access per-kernel hardware counters.
+- Nsight Systems can collect CPU call stacks and scheduling events when run
+  with `sudo`.
 
 The original Lambda-package importer issue has been resolved in the reusable
 bootstrap workflow.

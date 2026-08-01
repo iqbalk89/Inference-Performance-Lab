@@ -46,6 +46,11 @@ CUDA and NVIDIA drivers must not be installed on the Mac. GPU claims and
 measurements will only be recorded when they are produced on the remote NVIDIA
 host.
 
+The first remote environment has been accepted on a Lambda On-Demand Cloud A10
+instance. CUDA, GPU Metrics, Nsight Compute counters, and elevated CPU
+call-stack sampling were verified. See
+[Lambda A10 Environment Acceptance](gpu-notes/lambda-a10-acceptance.md).
+
 ## Part A — GPU and Environment
 
 ### Learn

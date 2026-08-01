@@ -49,3 +49,7 @@ echo "Nsight Systems:"
 echo
 echo "Nsight Compute:"
 ncu --version
+
+echo
+echo "Use sudo with nsys when collecting CPU samples or scheduling events."
+echo "The Lambda image sets kernel.perf_event_paranoid=4 for ordinary users."
