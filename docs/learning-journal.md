@@ -112,3 +112,63 @@ Add a few sentences after reviewing this entry:
 - What surprised me:
 - What remains unclear:
 - What I want to remember:
+
+## Phase 1 — GPU Foundation and Inference Fundamentals
+
+### Checkpoint — Remote GPU Acceptance
+
+**Date:** August 1, 2026
+
+#### Goals
+
+- Select a remote NVIDIA environment suitable for Phase 1.
+- Verify CUDA-enabled PyTorch and NVIDIA profiling access.
+- Make future disposable instances reproducible.
+
+#### Things I Learned
+
+- The Intel Mac remains the development and analysis machine; NVIDIA-specific
+  execution must occur on remote Linux hardware.
+- A Lambda A10 exposes approximately 23 GB of usable VRAM and supports the
+  counters needed for this phase.
+- GPU Metrics and Nsight Compute counters are different from CPU call-stack
+  sampling. The latter relies on Linux `perf_event_open` permissions.
+- Lambda's `perf_event_paranoid=4` blocks ordinary-user CPU sampling, but
+  elevated Nsight Systems collection works without permanently weakening that
+  setting.
+- A profiler can collect data but still fail to generate a usable report when
+  its importer libraries are broken. Installing NVIDIA's official current CLI
+  resolved the observed `LIBSSH_4_9_0` mismatch.
+- Disposable GPU instances need two forms of reproducibility: versioned setup
+  automation and a disciplined procedure for preserving results before
+  termination.
+
+#### Useful Commands
+
+```bash
+# Install and verify the base remote GPU tooling
+./scripts/bootstrap_lambda_gpu.sh
+
+# Run the complete automated profiler acceptance check
+./scripts/bootstrap_lambda_gpu.sh --validate
+
+# Confirm GPU processes, utilization, and memory
+nvidia-smi
+```
+
+#### Questions
+
+- Which small decoder-only model should be the first controlled workload?
+- Which Transformers version should be pinned alongside the existing CUDA
+  PyTorch installation?
+- What is the cleanest way to isolate Python dependencies without replacing
+  Lambda Stack's working CUDA build?
+- Which PyTorch Profiler views best expose prefill and decode behavior?
+
+#### Next Steps
+
+- Learn the foundational GPU concepts listed in the Phase 1 checkpoint.
+- Select and pin the first model and dependency environment.
+- Run model inference and record generation, utilization, and VRAM metadata.
+- Capture and inspect the first model-level PyTorch Profiler trace.
+- Use the validated Nsight workflow on the same model workload.

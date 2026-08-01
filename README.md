@@ -87,3 +87,5 @@ GPU profiling will run on remote NVIDIA hardware. See the
 Remote GPU sessions follow the
 [Lambda GPU Instance Runbook](docs/gpu-notes/lambda-instance-runbook.md), which
 covers launch, bootstrap validation, artifact preservation, and shutdown.
+The [Phase 1 Checkpoint](docs/phase-1-checkpoint.md) records completed work and
+the exact next learning and implementation steps.

@@ -50,6 +50,8 @@ The first remote environment has been accepted on a Lambda On-Demand Cloud A10
 instance. CUDA, GPU Metrics, Nsight Compute counters, and elevated CPU
 call-stack sampling were verified. See
 [Lambda A10 Environment Acceptance](gpu-notes/lambda-a10-acceptance.md).
+Current progress and the exact resumption point are recorded in the
+[Phase 1 Checkpoint](phase-1-checkpoint.md).
 
 ## Part A — GPU and Environment
 
@@ -228,7 +230,9 @@ definitions:
 
 ## Immediate Next Step
 
-Research and select a remote NVIDIA GPU environment. Evaluate candidates based
-on GPU model, VRAM, hourly cost, storage persistence, setup complexity, SSH and
-Docker support, profiler support, and the ability to stop resources when they
-are not in use.
+Run the first small decoder-only Hugging Face model directly through PyTorch on
+the accepted Lambda A10 environment. Pin the model and dependencies, record
+generation and memory metadata, observe `nvidia-smi`, and capture the first
+model-level PyTorch Profiler trace. Follow the
+[Phase 1 Checkpoint](phase-1-checkpoint.md) rather than repeating provider
+selection or profiler-access research.
