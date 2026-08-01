@@ -190,11 +190,12 @@ be reproduced. Raw measurements should remain separate from interpretation.
 
 ## Deliverables
 
-- [ ] Remote NVIDIA environment available
-- [ ] CUDA-enabled PyTorch verified
+- [x] Remote NVIDIA environment available
+- [x] CUDA-enabled PyTorch verified
 - [ ] First GPU model executed
-- [ ] GPU utilization and VRAM measurements captured
+- [x] GPU utilization and VRAM measurements captured
 - [ ] PyTorch Profiler trace captured
+- [x] Initial Nsight Systems and Nsight Compute traces captured
 - [ ] Nsight Systems introduction completed
 - [ ] Local or remotely accessible inference server
 - [ ] Latency and throughput benchmarks
