@@ -77,5 +77,9 @@ should be kept separate from interpretation.
 
 ## Current Status
 
-Phase 0 is in progress. The local development tools and repository structure
-have been initialized and verified.
+Phase 0 is complete: the local development tools, Docker workflow, virtual
+environment, and GitHub repository have been initialized and verified.
+
+Phase 1 is beginning with GPU foundations and inference fundamentals. CUDA and
+GPU profiling will run on remote NVIDIA hardware. See the
+[Phase 1 Plan](docs/phase-1-plan.md) for the hardware-adjusted roadmap.
