@@ -22,7 +22,7 @@ PyTorch, Nsight Systems, and Nsight Compute work required for Phase 1.
 | Python | 3.10.12 |
 | PyTorch | 2.7.0 |
 | PyTorch-compiled CUDA | 12.8 |
-| Nsight Systems | 2024.6.2.225 |
+| Nsight Systems | 2026.4.1.191 (official NVIDIA CLI) |
 | Nsight Compute | 2025.1.1.0 |
 
 The ephemeral public IP is intentionally not recorded.
@@ -44,8 +44,9 @@ not a controlled benchmark.
 
 ### Nsight Systems CUDA Trace
 
-Nsight Systems collected CUDA, NVTX, and GPU workload events into a raw
-`.qdstrm` trace. This confirms that CUDA tracing works on the instance.
+Nsight Systems collected CUDA, NVTX, and GPU workload events and generated a
+viewable `.nsys-rep` report. A statistics export successfully summarized CUDA
+kernels and CUDA API calls.
 
 ### Nsight Systems GPU Metrics
 
@@ -83,19 +84,31 @@ valid `.ncu-rep` report. It did not produce `ERR_NVGPUCTRPERM`.
 CUDA tracing and NVIDIA GPU counter collection still worked when CPU sampling
 and context-switch tracing were disabled.
 
-### Nsight Systems Report Importer
+### Resolved: Nsight Systems Report Importer
 
-Lambda's packaged Nsight Systems importer has an internal `libssh` symbol
-version mismatch:
+Lambda's preinstalled package repository supplied Nsight Systems 2024.6.2 with
+an internal `libssh` symbol version mismatch:
 
 ```text
 LIBSSH_4_9_0 not found
 ```
 
-The collector therefore produced raw `.qdstrm` files but could not convert them
-to `.nsys-rep` on this image. This is a package compatibility problem, not a GPU
-counter-permission failure. A future bootstrap environment should install a
-compatible Nsight Systems release or use a known-compatible container/image.
+That collector produced raw `.qdstrm` files but could not convert them to
+`.nsys-rep`.
+
+The issue was resolved by adding NVIDIA's official developer-tools repository
+and installing the separate `nsight-systems-cli` 2026.4.1 package. The corrected
+CLI produced `nsys-accepted.nsys-rep` and generated CUDA kernel and API
+statistics successfully.
+
+Future Lambda instances should run:
+
+```bash
+./scripts/bootstrap_lambda_gpu.sh
+```
+
+The script installs the verified official CLI alongside Nsight Compute and
+prints the resulting GPU and profiler versions.
 
 ## Saved Artifacts
 
@@ -104,6 +117,7 @@ directory before instance termination:
 
 - Basic Nsight Systems CUDA trace
 - Nsight Systems GPU Metrics trace
+- Corrected, viewable Nsight Systems report
 - Nsight Compute report
 
 Raw profiler artifacts are kept out of Git. Reproducible scripts and summarized
@@ -119,5 +133,5 @@ Lambda's A10 environment is accepted for Phase 1 GPU work because:
 - Nsight Systems can access GA10x GPU Metrics.
 - Nsight Compute can access per-kernel hardware counters.
 
-The Nsight Systems importer issue must be addressed in the reusable environment
-setup, but it does not disqualify the provider.
+The original Lambda-package importer issue has been resolved in the reusable
+bootstrap workflow.
