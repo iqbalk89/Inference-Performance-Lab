@@ -55,6 +55,11 @@ Current progress and the exact resumption point are recorded in the
 
 ## Part A — GPU and Environment
 
+Complete the concept-only
+[GPU Foundations Learning Guide](gpu-notes/phase-1-gpu-learning-guide.md) before
+launching the first model lab. It assigns the minimum required sections from
+official NVIDIA and PyTorch resources and defines the learning completion gate.
+
 ### Learn
 
 - GPU architecture

@@ -34,8 +34,10 @@ repeatable operating procedure is in the
 
 ### Next Learning Block
 
-Before or alongside the next GPU session, study these concepts at an
-introductory level:
+Before the next GPU session, complete the
+[GPU Foundations Learning Guide](gpu-notes/phase-1-gpu-learning-guide.md). It
+provides the minimum reading set, time budgets, required notes, and completion
+questions for these introductory concepts:
 
 1. GPU versus CPU parallelism
 2. Streaming Multiprocessors, CUDA cores, and Tensor Cores

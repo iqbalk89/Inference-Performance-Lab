@@ -89,5 +89,7 @@ Remote GPU sessions follow the
 covers launch, bootstrap validation, artifact preservation, and shutdown.
 The [Phase 1 Checkpoint](docs/phase-1-checkpoint.md) records completed work and
 the exact next learning and implementation steps.
+The [GPU Foundations Learning Guide](docs/gpu-notes/phase-1-gpu-learning-guide.md)
+is the required concept-only preparation before the first model lab.
 Deferred topics—including the on-device inference and quantization tracks—are
 kept in the [Learning and Engineering Backlog](docs/backlog.md).
