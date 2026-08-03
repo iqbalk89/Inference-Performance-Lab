@@ -112,6 +112,7 @@ The remote environment record must include:
 - KV cache
 - Prefill versus decode
 - Sampling
+- Numerical precision and quantization at a high level
 - Memory growth during inference
 - Time to first token versus throughput
 
@@ -177,6 +178,8 @@ Measure at least:
 - Test batch size where supported.
 - Measure KV-cache memory growth.
 - Compare prefill-heavy and decode-heavy workloads.
+- Establish the unquantized or half-precision baseline required for a later
+  controlled quantization comparison.
 - Write and review the first engineering report.
 
 ## Engineering Report Standard
@@ -224,9 +227,20 @@ definitions:
 
 ## Interview and Networking Status
 
-- Interview target: no applications or interviews during this phase.
+- Curriculum focus: build the server-side inference foundation rather than
+  redirecting Phase 1 around interview-specific tooling.
+- Interview preparation: an upcoming Palantir conversation may involve
+  on-device inference. Preserve that specialization in the backlog and prepare
+  targeted explanations without replacing the Phase 1 build sequence.
 - Networking: reconnect with contacts at OpenAI and NVIDIA to learn about their
   teams and work, not to request referrals.
+
+## Deferred Specializations
+
+On-device inference, detailed quantization experiments, and other future
+optimizations are recorded in the [Learning and Engineering Backlog](backlog.md).
+Quantization remains part of general inference education; only the controlled
+implementation comparison is deferred until a stable model baseline exists.
 
 ## Immediate Next Step
 
