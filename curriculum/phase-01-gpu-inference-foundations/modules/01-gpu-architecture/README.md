@@ -2,7 +2,7 @@
 
 **Type:** Concept-only
 
-**Time:** 10–14 hours, including exercises and concept-map lab
+**Time:** 16–20 hours, including exercises and concept-map lab
 
 **Cloud GPU required:** No
 
@@ -26,7 +26,7 @@ introduced by earlier lessons.
 
 | Lesson | Subject | Expected study time |
 | --- | --- | ---: |
-| [01](lessons/01-computing-and-parallelism-foundations.md) | Computing, CPU/GPU tradeoffs, parallelism, tensors, and transformer motivation | 60–90 min |
+| [01](lessons/01-computing-and-parallelism-foundations.md) | Computing, execution order, CPU/GPU tradeoffs, parallelism, matrices, tensors, and transformer motivation | 4–5 hr |
 | [02](lessons/02-gpu-execution-model.md) | Host/device execution, kernels, grids, blocks, threads, warps, SMs, divergence, and latency hiding | 2–3 hr |
 | [03](lessons/03-compute-units-and-tensor-cores.md) | Arithmetic pipelines, CUDA-core terminology, matrix multiplication, Tensor Cores, precision, and FLOPS | 90–120 min |
 | [04](lessons/04-gpu-memory-hierarchy.md) | Bits and bytes, registers, caches, VRAM, bandwidth, transfers, allocation, and inference memory estimates | 90–120 min |

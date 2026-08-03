@@ -1,389 +1,1905 @@
 # Lesson 01 — Computing and Parallelism Foundations
 
-## Why This Lesson Comes First
+**Estimated study time:** 4–5 hours across multiple sittings
 
-A GPU is not simply a faster CPU. It is a different design tradeoff. To
-understand that tradeoff, we first need a small vocabulary for programs,
-instructions, data, processors, memory, latency, throughput, and parallel work.
+**Prerequisites:** None
 
-No programming or computer-architecture background is assumed.
+## Chapter Purpose
 
-## 1. What a Computer Does
+A GPU is not simply a faster CPU. A CPU and a GPU are processors designed with
+different priorities. Understanding those priorities requires a foundation in
+how programs become executable work, how processors obtain data, which
+operations must occur in order, which operations may occur concurrently, and
+how latency differs from throughput.
 
-At the simplest useful level, a computer repeatedly:
+This chapter assumes no programming, computer-architecture, linear-algebra, or
+machine-learning background. It deliberately explains ideas that experienced
+engineers may take for granted.
 
-1. Obtains an instruction.
-2. Obtains the data required by that instruction.
-3. Performs the instruction.
-4. Stores or forwards the result.
+## Learning Objectives
 
-```mermaid
-flowchart LR
-    I[Instruction] --> P[Processor]
-    D[Input data] --> P
-    P --> R[Result]
-    R --> M[Memory or next instruction]
-```
+By the end of this chapter, you should be able to:
 
-An **instruction** is a small operation understood by a processor: add two
-numbers, compare two values, load data from memory, or store a result. A
-**program** is an organized sequence of instructions. **Data** is the
-information those instructions operate on.
+1. Distinguish source code, a program, an instruction, and data.
+2. Describe a simplified fetch → decode → execute cycle.
+3. Trace a list-addition operation through loads, arithmetic, and stores.
+4. Distinguish dependency order from the order selected by an implementation.
+5. Distinguish latency, throughput, capacity, concurrency, and parallelism.
+6. Explain the broad design priorities of CPUs and GPUs.
+7. Work through a small matrix multiplication and identify both its dependent
+   and independent operations.
+8. Explain why transformer inference creates useful GPU work.
+9. Explain at a high level why prefill and decode expose different amounts and
+   shapes of parallel work.
+10. Identify situations in which using a GPU can make a complete workload
+    slower rather than faster.
 
-Consider adding two lists:
+---
 
-```text
-A = [2, 4, 6, 8]
-B = [1, 3, 5, 7]
-C = [3, 7, 11, 15]
-```
+## 1. From a Human Idea to Processor Work
 
-Conceptually, the computer performs four independent additions. Independence
-is important: calculating `C[0]` does not require the result of `C[1]`.
+### 1.1 A computer transforms information
 
-## 2. Processor and Memory
-
-The **processor** performs instructions. **Memory** retains instructions and
-data. They are separate jobs.
+At a very high level, computing means transforming input information into
+output information according to a defined procedure.
 
 ```mermaid
 flowchart LR
-    CPU[Processor<br/>executes instructions]
-    MEM[Memory<br/>stores instructions and data]
-    CPU -- load data --> MEM
-    MEM -- return data --> CPU
-    CPU -- store result --> MEM
+    IN[Input information] --> PROC[Defined procedure]
+    PROC --> OUT[Output information]
 ```
 
-This separation creates a recurring performance problem: arithmetic units can
-only work when their required data has arrived. A processor with enormous
-arithmetic ability can still sit idle while waiting for memory.
+Examples:
 
-## 3. Latency and Throughput
+| Input | Procedure | Output |
+| --- | --- | --- |
+| Two numbers | Add them | Their sum |
+| Image pixels | Resize algorithm | Smaller image |
+| Prompt tokens | Transformer inference | Next-token scores |
+| Network request | Request handler | HTTP response |
 
-These terms describe different aspects of speed.
+The **procedure** is what a program describes. The processor performs the
+low-level operations needed to carry it out.
 
-- **Latency** is the time required for one unit of work to finish.
-- **Throughput** is the amount of work completed per unit time.
+### 1.2 Source code is written for humans and software tools
 
-Imagine a ferry:
+Suppose a programmer writes:
 
-- One crossing takes 20 minutes: that is crossing latency.
-- The ferry carries 100 cars per crossing: that contributes to throughput.
-- A speedboat may cross in 10 minutes but carry only 4 people.
-
-The analogy is imperfect, but it shows why lower latency does not always imply
-higher throughput.
-
-```text
-                 Latency for one trip     Capacity per trip
-Speedboat              10 min                   4 people
-Ferry                   20 min                 100 cars
+```python
+total = left + right
 ```
 
-A CPU core is designed to finish a complicated instruction stream with low
-latency. A GPU is designed to keep a very large amount of parallel work moving,
-producing high aggregate throughput.
+This is **source code**. It communicates an intention using the rules of the
+Python language. A physical processor does not directly understand the words
+`total`, `left`, or `right`. Other software must translate or interpret that
+intent and eventually arrange operations the processor understands.
 
-## 4. Sequential and Parallel Work
-
-### Sequential dependency
-
-Some steps depend on earlier results:
-
-```text
-x = 2
-y = x + 3       # requires x
-z = y * 4       # requires y
-answer = z - 1  # requires z
-```
-
-```mermaid
-flowchart LR
-    X[x = 2] --> Y[y = x + 3] --> Z[z = y × 4] --> A[answer = z - 1]
-```
-
-These operations form a dependency chain. Simply adding more processors cannot
-make every step happen simultaneously.
-
-### Independent parallel work
-
-Other operations can proceed independently:
-
-```mermaid
-flowchart LR
-    A1[A₁ + B₁] --> C1[C₁]
-    A2[A₂ + B₂] --> C2[C₂]
-    A3[A₃ + B₃] --> C3[C₃]
-    A4[A₄ + B₄] --> C4[C₄]
-```
-
-If four execution resources are available, these additions can potentially run
-at the same time. This is **data parallelism**: apply similar operations to
-different pieces of data.
-
-### Parallelism is available work, not guaranteed speed
-
-A task may contain one million independent operations, but performance still
-depends on:
-
-- The cost of preparing and scheduling the work
-- How quickly inputs reach the processor
-- Whether the operations match available hardware
-- Whether enough work exists to keep the hardware occupied
-- How results must be combined afterward
-
-## 5. Why CPUs Look the Way They Do
-
-A modern CPU contains a modest number of sophisticated cores. Each core is
-designed to handle changing control flow, operating-system work, application
-logic, and workloads where the next action may depend heavily on the previous
-one.
-
-CPU designs devote substantial hardware to capabilities such as:
-
-- Large caches that reduce average memory delay
-- Branch prediction that guesses which path code will take
-- Out-of-order execution that finds independent instructions dynamically
-- Powerful individual cores optimized for low-latency progress
-
-Simplified conceptual allocation:
-
-```text
-CPU die
-┌─────────────────────────────────────────┐
-│ Complex core │ Complex core │ Caches    │
-│ Complex core │ Complex core │ Control   │
-│ Branch prediction and scheduling logic │
-└─────────────────────────────────────────┘
-```
-
-This is not a literal floor plan. It illustrates the design priority: make a
-small number of instruction streams progress quickly and flexibly.
-
-CPUs are excellent for:
-
-- Operating systems
-- Web-server request routing
-- Parsing and tokenization
-- Complicated branching logic
-- Small computations without enough work to occupy a GPU
-- Coordinating other devices
-
-## 6. Why GPUs Look the Way They Do
-
-A GPU devotes much more of its design to parallel arithmetic throughput. It
-contains many Streaming Multiprocessors, which collectively manage a very large
-number of threads and arithmetic operations.
-
-```text
-GPU die — conceptual, not to scale
-┌─────────────────────────────────────────────────────┐
-│ SM │ SM │ SM │ SM │ SM │ SM │ SM │ SM │ ...      │
-│                                                     │
-│          Shared L2 cache and interconnect           │
-│                                                     │
-│              Memory controllers                     │
-└─────────────────────────────────────────────────────┘
-```
-
-GPUs make a deliberate trade:
-
-- Less emphasis on making one arbitrary thread finish as quickly as possible
-- More emphasis on keeping many threads and arithmetic pipelines busy
-
-They are especially useful when the same broad operation must be applied to
-many elements, as in graphics, simulation, and neural-network tensor
-operations.
-
-## 7. A Matrix Multiplication Example
-
-A matrix is a rectangular grid of numbers. Multiplying matrices produces many
-output values. Each output is formed from a row of the first matrix and a
-column of the second.
-
-```text
-          B                    C
-      ┌ 5  6 ┐             ┌ ?  ? ┐
-A  =  │      │      A×B =  │      │
-┌1 2┐ └ 7  8 ┘             └ ?  ? ┘
-└3 4┘
-
-C₀₀ = (1×5) + (2×7) = 19
-C₀₁ = (1×6) + (2×8) = 22
-C₁₀ = (3×5) + (4×7) = 43
-C₁₁ = (3×6) + (4×8) = 50
-```
-
-The four output cells can be calculated independently once the input matrices
-are available.
+The complete route varies by language and runtime. A simplified picture is:
 
 ```mermaid
 flowchart TD
-    A[Input matrices A and B]
-    A --> C00[Calculate C₀₀]
-    A --> C01[Calculate C₀₁]
-    A --> C10[Calculate C₁₀]
-    A --> C11[Calculate C₁₁]
-    C00 --> C[Output matrix C]
-    C01 --> C
-    C10 --> C
-    C11 --> C
+    IDEA[Human intention] --> SRC[Source code]
+    SRC --> LANG[Compiler, interpreter, or runtime]
+    LANG --> INST[Processor instructions]
+    INST --> HW[Processor execution]
+    HW --> RESULT[Result]
 ```
 
-Real transformer matrices may contain millions or billions of values. That
-creates a large supply of parallel arithmetic work.
+Python often involves an interpreter and compiled native libraries. PyTorch
+adds further dispatch and library layers. Lesson 06 explains that software
+stack in detail. For this chapter, the important distinction is:
 
-## 8. Why Transformers Contain GPU-Friendly Work
+> A source-code statement expresses what should happen. Processor instructions
+> are the much smaller operations used to make it happen.
 
-During inference, a transformer repeatedly performs operations on tensors.
-A **tensor** is a multidimensional collection of numbers together with a shape
-and data type.
+### 1.3 What is an instruction?
+
+An **instruction** is an encoded operation a particular processor architecture
+defines. Typical instruction categories include:
+
+- **Load:** copy data from memory into storage close to the processor.
+- **Store:** copy a result from processor-local storage into memory.
+- **Arithmetic:** add, subtract, multiply, or divide values.
+- **Logical:** combine or test bit patterns.
+- **Compare:** determine relationships such as equal, less than, or greater
+  than.
+- **Branch or jump:** select a different next instruction.
+
+One source statement can require several instructions. The exact instructions
+depend on language implementation, processor architecture, optimization, data
+type, and surrounding code.
+
+Conceptually, `total = left + right` might require:
+
+```text
+1. LOAD  the value of left  into a processor register.
+2. LOAD  the value of right into another register.
+3. ADD   the two register values.
+4. STORE the sum in the memory location associated with total.
+```
+
+This is a teaching model, not literal Python machine code. Python objects and
+runtime behavior add more steps. The model isolates the essential movement and
+arithmetic.
+
+### 1.4 What is data?
+
+**Data** is the encoded information instructions read or modify. It includes:
+
+- Numbers
+- Characters and text
+- Memory addresses
+- Images and audio samples
+- Tensor values
+- Model weights
+- Instructions themselves
+
+Everything is represented as bits in hardware. A data type tells software how
+to interpret a bit pattern—for example, as an integer or floating-point value.
+
+The same operation name can behave differently for different data types. Adding
+two integers, two floating-point values, and two Python strings are different
+operations even though source code may use `+` for each.
+
+### 1.5 What is a program?
+
+A **program** is more than a loose list of instructions. It is an organized
+description of:
+
+- Which operations should be performed
+- Which data they use
+- Which results become inputs to later operations
+- Which decisions alter the path
+- When repetition stops
+
+The order of a program is constrained by **dependencies**. If operation B needs
+the result of operation A, B cannot correctly finish before A produces that
+result.
+
+```mermaid
+flowchart LR
+    A[Read two inputs] --> B[Add inputs]
+    B --> C[Store sum]
+```
+
+The arrows mean “must happen before because the later step needs the earlier
+result.”
+
+### 1.6 A simplified instruction cycle
+
+A traditional introductory model says a processor repeatedly:
+
+1. **Fetches** the next instruction.
+2. **Decodes** what the instruction requests.
+3. **Obtains operands**, such as register values or data loaded from memory.
+4. **Executes** the requested operation.
+5. **Writes back** or stores the result.
+6. Selects the next instruction and repeats.
+
+```mermaid
+flowchart LR
+    F[Fetch instruction] --> D[Decode instruction]
+    D --> O[Obtain operands]
+    O --> E[Execute]
+    E --> W[Write result]
+    W --> N[Select next instruction]
+    N --> F
+```
+
+Real CPUs overlap, reorder, and pipeline parts of this process. Real GPUs issue
+instructions across groups of threads. The cycle remains a useful conceptual
+starting point because every arithmetic result still requires an operation and
+available input data.
+
+### 1.7 Complete worked example: adding two lists
+
+Consider elementwise list addition:
+
+```text
+Input A = [2, 4, 6, 8]
+Input B = [1, 3, 5, 7]
+Output C should become [3, 7, 11, 15]
+```
+
+The intended rule is:
+
+```text
+C[i] = A[i] + B[i]
+```
+
+Here, `i` is an **index** identifying one position. The output list `C` is not
+known in advance; the computer must calculate and store it.
+
+#### One possible sequential implementation
+
+```text
+for i from 0 through 3:
+    C[i] = A[i] + B[i]
+```
+
+For `i = 0`, a simplified execution story is:
+
+```text
+1. Determine where A[0] is stored.
+2. Load A[0], which is 2.
+3. Determine where B[0] is stored.
+4. Load B[0], which is 1.
+5. Add 2 + 1 to produce 3.
+6. Determine where C[0] should be stored.
+7. Store 3 in C[0].
+8. Advance i from 0 to 1.
+9. Check whether another iteration is required.
+```
+
+The processor then performs the equivalent work for `i = 1`, `i = 2`, and
+`i = 3`.
+
+```text
+Iteration 0: load 2, load 1, add →  3, store C[0]
+Iteration 1: load 4, load 3, add →  7, store C[1]
+Iteration 2: load 6, load 5, add → 11, store C[2]
+Iteration 3: load 8, load 7, add → 15, store C[3]
+```
+
+Within one iteration, some order is necessary:
+
+```mermaid
+flowchart LR
+    LA[Load A i] --> ADD[Add values]
+    LB[Load B i] --> ADD
+    ADD --> SC[Store C i]
+```
+
+The addition needs both input values. The store needs the sum. Therefore the
+store cannot correctly occur before the addition.
+
+#### Why the four additions are independent
+
+Now compare the four iterations:
+
+```mermaid
+flowchart LR
+    A0[Load A0 and B0] --> X0[Add] --> C0[Store C0]
+    A1[Load A1 and B1] --> X1[Add] --> C1[Store C1]
+    A2[Load A2 and B2] --> X2[Add] --> C2[Store C2]
+    A3[Load A3 and B3] --> X3[Add] --> C3[Store C3]
+```
+
+There are dependencies **within** each row, but no result arrow between rows:
+
+- Computing `C[0]` requires `A[0]` and `B[0]`.
+- Computing `C[1]` requires `A[1]` and `B[1]`.
+- `C[1]` does not require the value of `C[0]`.
+- `C[0]` does not require the value of `C[1]`.
+
+That is what independence means here. It does **not** mean the operations must
+run simultaneously. It means they may be scheduled in any order, or
+concurrently, without changing the mathematically correct result—provided each
+output position is written correctly.
+
+Possible valid execution orders include:
+
+```text
+Sequential:       C[0], C[1], C[2], C[3]
+Reverse:          C[3], C[2], C[1], C[0]
+Two at a time:    C[0] and C[1], then C[2] and C[3]
+All concurrently: C[0], C[1], C[2], and C[3]
+```
+
+The implementation and available hardware determine which schedule is used.
+
+#### Mathematical independence versus physical execution
+
+This distinction is foundational:
+
+- **Mathematical independence** describes which results depend on which other
+  results.
+- **Execution scheduling** describes when hardware actually performs ready
+  work.
+- **Parallel hardware** describes how much work can physically execute at once.
+
+Four independent additions on one simple arithmetic unit may still execute one
+after another. Four independent additions on suitable parallel hardware may
+execute together. One million independent additions may execute in many waves
+because hardware resources are finite.
+
+#### What if one output depended on the previous output?
+
+Consider a running sum:
+
+```text
+C[0] = A[0]
+C[1] = C[0] + A[1]
+C[2] = C[1] + A[2]
+C[3] = C[2] + A[3]
+```
+
+Now the dependency graph is a chain:
+
+```mermaid
+flowchart LR
+    C0[C0] --> C1[C1]
+    C1 --> C2[C2]
+    C2 --> C3[C3]
+```
+
+The straightforward algorithm cannot calculate `C[3]` before `C[2]`, because
+`C[3]` needs `C[2]`. This is fundamentally different from elementwise list
+addition.
+
+### Section 1 checkpoint
+
+You should now be able to explain:
+
+- Why source code is not identical to processor instructions
+- Why an addition often requires loads and a later store
+- Which ordering constraints exist inside one elementwise addition
+- Why different output elements are mathematically independent
+- Why independence permits parallel scheduling but does not guarantee it
+
+---
+
+## 2. Processor, Registers, and Memory
+
+### 2.1 Separate responsibilities
+
+A **processor** executes instructions. **Memory** retains encoded instructions
+and data. Neither job is useful alone: a processor needs data and instructions,
+while stored data does not transform itself.
+
+```mermaid
+flowchart LR
+    MEM[Memory<br/>instructions and data]
+    CPU[Processor<br/>executes operations]
+    MEM -- instruction and data loads --> CPU
+    CPU -- result stores --> MEM
+```
+
+### 2.2 Memory locations and addresses
+
+You can think of main memory as a very large collection of numbered storage
+locations. A number identifying a location is an **address**.
+
+```text
+Address      Stored value
+1000         2
+1004         4
+1008         6
+1012         8
+```
+
+The addresses are illustrative. A real layout depends on data type, runtime,
+alignment, and representation.
+
+For a compact fixed-width array, software can often find an element using a
+base address and an index:
+
+```text
+element address = base address + index × bytes per element
+```
+
+If `A` begins at address 1000 and each value occupies 4 bytes:
+
+```text
+A[0] address = 1000 + 0 × 4 = 1000
+A[1] address = 1000 + 1 × 4 = 1004
+A[2] address = 1000 + 2 × 4 = 1008
+```
+
+This address calculation is one of the steps hidden by a high-level expression
+such as `A[i]`.
+
+> Python lists are collections of references to Python objects and are more
+> complex than this compact-array picture. Tensors and low-level arrays more
+> closely resemble contiguous typed storage. The simplified model teaches the
+> memory relationship without pretending to describe Python object internals.
+
+### 2.3 Registers: the processor's immediate workspace
+
+Processors contain very small, very fast storage locations called
+**registers**. Arithmetic instructions generally operate on values available
+in registers or other processor-local pathways, not on an abstract variable
+name in source code.
+
+```mermaid
+flowchart LR
+    MEM[Memory] -- load --> R1[Register 1]
+    MEM -- load --> R2[Register 2]
+    R1 --> ALU[Arithmetic unit]
+    R2 --> ALU
+    ALU --> R3[Result register]
+    R3 -- store --> MEM
+```
+
+Registers are fast but scarce. Main memory is much larger but farther from
+execution.
+
+### 2.4 Why data movement matters
+
+Suppose an arithmetic unit can perform an addition in one unit of time, but
+obtaining the values takes many units of time. The arithmetic unit cannot add
+values it has not received.
+
+```text
+Time ───────────────────────────────────────────▶
+Load A:       [---------- waiting ----------]
+Load B:                    [----- waiting -----]
+Add:                                          [x]
+Store:                                          [----]
+```
+
+The one-step arithmetic is not the dominant cost. Data movement and waiting
+are.
+
+### 2.5 Caches: keeping likely-needed data closer
+
+Between registers and large memory, processors use **caches**: smaller, faster
+storage that retains recently or nearby accessed data. If required data is
+already in a cache, the processor may avoid a longer trip to main memory.
+
+```text
+Closest, smallest, usually lowest latency
+        Registers
+            ↓
+           Cache
+            ↓
+        Main memory
+Farthest, largest, usually higher latency
+```
+
+This hierarchy exists in different forms on CPUs and GPUs. Lesson 04 examines
+GPU registers, shared memory/L1, L2, and VRAM in detail.
+
+### 2.6 Waiting does not always mean total idleness
+
+Modern processors try to perform other useful work while one operation waits.
+A CPU may execute independent instructions out of order. A GPU may issue an
+instruction from another ready group of threads. These mechanisms do not make
+memory latency disappear. They attempt to **hide** it behind other work.
+
+```mermaid
+sequenceDiagram
+    participant WorkA as Work A
+    participant Processor
+    participant WorkB as Work B
+    WorkA->>Processor: Request data
+    Note over WorkA: Waiting
+    Processor->>WorkB: Execute independent ready work
+    WorkA-->>Processor: Data arrives
+    Processor->>WorkA: Resume
+```
+
+### 2.7 Capacity, bandwidth, and latency preview
+
+These are separate properties:
+
+- **Capacity:** how much data can be stored.
+- **Bandwidth:** how much data can be transferred per unit time.
+- **Latency:** how long one access or operation takes.
+
+A memory system can have large capacity and high bandwidth while an individual
+access still has meaningful latency. Lesson 04 develops these distinctions with
+calculations.
+
+### Section 2 checkpoint
+
+Explain why the statement “the processor adds the numbers” omits the critical
+questions of where the numbers are stored, how they reach the arithmetic unit,
+and where the result goes.
+
+---
+
+## 3. Latency, Throughput, Capacity, Concurrency, and Parallelism
+
+Performance discussions become confusing when these words are treated as
+synonyms. They answer different questions.
+
+### 3.1 Latency
+
+**Latency** is the elapsed time for one defined unit of work.
+
+Examples:
+
+- Time for one memory request
+- Time for one matrix multiplication
+- Time from an inference request arriving to its first generated token
+- Time for a complete response
+
+A latency statement must define start, end, and units:
+
+```text
+Poor:  “Latency is 40.”
+Better: “Warm end-to-end request latency is 40 milliseconds.”
+```
+
+### 3.2 Throughput
+
+**Throughput** is completed work divided by elapsed time.
+
+```text
+throughput = completed units / elapsed time
+```
+
+Examples:
+
+- Requests per second
+- Output tokens per second
+- Bytes transferred per second
+- Arithmetic operations per second
+
+If a server completes 240 requests in 60 seconds:
+
+```text
+throughput = 240 requests / 60 seconds = 4 requests per second
+```
+
+This does not reveal the latency experienced by each request. Some may have
+waited much longer than others.
+
+### 3.3 Capacity
+
+**Capacity** is how much can be held or accommodated, not how quickly work is
+completed.
+
+Examples:
+
+- 24 GB of VRAM
+- A queue that holds 1,000 requests
+- A batch containing 32 sequences
+
+Capacity can enable throughput, but it is not throughput.
+
+### 3.4 Concurrency and parallelism
+
+**Concurrency** means multiple tasks are in progress during overlapping periods
+of time. They do not necessarily execute at the same instant.
+
+**Parallelism** means multiple operations actually execute at the same time on
+different resources.
+
+One worker alternating between tasks creates concurrency without physical
+parallel execution:
+
+```text
+Time ───────────────────────────────────────────▶
+Worker 1: [Task A][Task B][Task A][Task B]
+```
+
+Two workers can execute in parallel:
+
+```text
+Time ───────────────────────────────────────────▶
+Worker 1: [──────────── Task A ────────────]
+Worker 2: [──────────── Task B ────────────]
+```
+
+Software discussions sometimes use these words loosely, but the distinction is
+useful when reasoning about hardware.
+
+### 3.5 Worked service example
+
+Imagine one worker takes 100 ms to process a request.
+
+With no overlap:
+
+```text
+Request A: [100 ms]
+Request B:          [100 ms]
+Request C:                   [100 ms]
+```
+
+Idealized throughput is 10 requests per second, and each request's service time
+is 100 ms, excluding queueing.
+
+Now imagine four workers process four requests simultaneously:
+
+```text
+Worker 1: [Request A: 100 ms]
+Worker 2: [Request B: 100 ms]
+Worker 3: [Request C: 100 ms]
+Worker 4: [Request D: 100 ms]
+```
+
+Four requests finish after approximately 100 ms. Aggregate throughput rises to
+about 40 requests per second while the service latency of each request remains
+about 100 ms.
+
+But if requests wait 80 ms for a batch to form, client-observed latency becomes
+approximately:
+
+```text
+80 ms queueing + 100 ms processing = 180 ms
+```
+
+Throughput improved while individual end-to-end latency worsened.
+
+### 3.6 The ferry analogy, completed carefully
+
+Imagine:
+
+```text
+Vehicle      Trip latency      Passengers per trip      Trips per hour
+Speedboat       10 min                  4                     6
+Ferry           20 min                100                     3
+```
+
+Idealized passenger throughput:
+
+```text
+Speedboat: 4 × 6   = 24 passengers/hour
+Ferry:     100 × 3 = 300 passengers/hour
+```
+
+The speedboat gives one passenger a shorter crossing latency. The ferry moves
+far more passengers per hour. This resembles the broad CPU/GPU tradeoff, but
+only as an analogy: processors do not literally wait to fill boats, and their
+workloads have dependencies and memory behavior.
+
+### 3.7 Why this matters for inference
+
+An inference system may optimize:
+
+- Time to first token for one user
+- Time per output token
+- Requests completed per second
+- Tokens generated per second across all users
+- Maximum concurrent sequences
+
+These goals can conflict. An engineer must state which metric matters.
+
+### Section 3 checkpoint
+
+Construct an example in which throughput increases but end-to-end latency also
+increases. Identify queueing time and processing time separately.
+
+---
+
+## 4. Dependencies, Order, and Parallel Work
+
+### 4.1 Dependency order
+
+An operation is **dependent** on another when it needs the earlier operation's
+result or when both operations access shared state in an order that affects
+correctness.
+
+Example:
+
+```text
+x = 2
+y = x + 3
+z = y × 4
+answer = z - 1
+```
+
+```mermaid
+flowchart LR
+    X[x = 2] --> Y[y = x + 3]
+    Y --> Z[z = y × 4]
+    Z --> A[answer = z - 1]
+```
+
+The straightforward chain must preserve this logical order. More processors
+cannot make `z` use a `y` that does not yet exist.
+
+### 4.2 Independent work
+
+Compare:
+
+```text
+p = 10 + 5
+q = 20 × 3
+```
+
+Neither calculation requires the other's result.
+
+```mermaid
+flowchart LR
+    P[p = 10 + 5]
+    Q[q = 20 × 3]
+```
+
+They may execute sequentially or in parallel. Both schedules are valid if there
+are no hidden side effects.
+
+### 4.3 A dependency graph
+
+Programs can be represented as a directed acyclic graph for a region of work:
+
+```text
+a = x + y
+b = p × q
+c = a - b
+d = c × 2
+```
+
+```mermaid
+flowchart TD
+    A[a = x + y] --> C[c = a - b]
+    B[b = p × q] --> C
+    C --> D[d = c × 2]
+```
+
+`a` and `b` may run in parallel. `c` waits for both. `d` waits for `c`.
+
+This graph contains parallel work and sequential stages. Most real programs are
+mixtures rather than purely sequential or purely parallel.
+
+### 4.4 Reduction: independent work followed by combination
+
+Suppose we want the sum of eight numbers.
+
+A sequential method forms a chain:
+
+```text
+(((((((a+b)+c)+d)+e)+f)+g)+h)
+```
+
+A tree method first forms independent pairs:
+
+```mermaid
+flowchart BT
+    A[a] --> AB[a+b]
+    B[b] --> AB
+    C[c] --> CD[c+d]
+    D[d] --> CD
+    E[e] --> EF[e+f]
+    F[f] --> EF
+    G[g] --> GH[g+h]
+    H[h] --> GH
+    AB --> L[(a+b)+(c+d)]
+    CD --> L
+    EF --> R[(e+f)+(g+h)]
+    GH --> R
+    L --> S[final sum]
+    R --> S
+```
+
+Each level has independent work, but levels depend on earlier levels. Parallel
+algorithms often restructure work to expose this kind of tree.
+
+### 4.5 Scheduling in waves
+
+Available parallelism may exceed physical resources.
+
+```text
+Ready operations:  [1][2][3][4][5][6][7][8]
+Execution slots:   [A][B]
+
+Wave 1: operations 1 and 2
+Wave 2: operations 3 and 4
+Wave 3: operations 5 and 6
+Wave 4: operations 7 and 8
+```
+
+The operations are independent, but only two execute simultaneously. GPUs use
+large-scale scheduling to process far more ready threads than can issue an
+instruction in one instant.
+
+### 4.6 Data parallelism
+
+**Data parallelism** applies the same broad operation to different data items.
+Elementwise list addition is a simple example:
+
+```text
+Operation rule: C[i] = A[i] + B[i]
+Different data: i = 0, 1, 2, 3, ...
+```
+
+Image filters, tensor elementwise functions, and many matrix operations expose
+data parallelism.
+
+### 4.7 Task parallelism
+
+**Task parallelism** executes different kinds of independent work:
+
+```text
+Task A: tokenize one request
+Task B: write logs
+Task C: prepare another response
+```
+
+CPU servers frequently exploit task parallelism. GPUs are especially designed
+for large groups of similarly structured data-parallel work, although they can
+execute diverse kernels over time.
+
+### 4.8 Parallel fraction limits total speedup
+
+If part of a task remains sequential, accelerating only the parallel part has a
+limit.
+
+Example:
+
+```text
+Original total time:      100 ms
+Sequential preparation:   40 ms
+Parallel calculation:     60 ms
+```
+
+Even if the 60 ms calculation became infinitely fast, the total could not drop
+below the remaining 40 ms preparation in this simplified scenario.
+
+This is the intuition behind Amdahl's law. You do not need its formula yet. The
+lesson is:
+
+> End-to-end speedup is limited by work that the optimization does not improve.
+
+### Section 4 checkpoint
+
+Given a sequence of operations, draw arrows only where a later result truly
+requires an earlier result. Identify which operations could be ready together
+and which must wait.
+
+---
+
+## 5. CPU Design Priorities
+
+### 5.1 What a CPU must handle
+
+A general-purpose CPU runs:
+
+- Operating-system code
+- Browser and application logic
+- File and network handling
+- Database queries
+- Python interpreters
+- Tokenization and request orchestration
+- Small and irregular calculations
+
+These workloads often include unpredictable decisions and limited parallelism.
+The CPU is designed to make a few complicated instruction streams progress
+quickly.
+
+### 5.2 CPU cores
+
+A **CPU core** is a sophisticated execution engine capable of running its own
+instruction stream. A multicore CPU has several such cores.
+
+```text
+Conceptual CPU
+┌──────────────────────────────────────────────────┐
+│ Core 0 │ Core 1 │ Core 2 │ Core 3 │ Shared cache │
+└──────────────────────────────────────────────────┘
+```
+
+The diagram is not a physical floor plan. Actual CPUs vary significantly.
+
+### 5.3 Branch prediction
+
+Programs frequently make decisions:
+
+```text
+if request_is_valid:
+    process_request
+else:
+    return_error
+```
+
+The processor may not know which path is needed until a comparison finishes.
+A **branch predictor** guesses the likely path so the CPU can begin preparing
+work instead of waiting. A correct prediction saves time. A wrong prediction
+requires discarding incorrectly prepared work and restarting on the correct
+path.
+
+```mermaid
+flowchart TD
+    B[Branch encountered] --> P[Predict path]
+    P --> S[Speculatively prepare instructions]
+    S --> C{Prediction correct?}
+    C -- Yes --> K[Keep progress]
+    C -- No --> D[Discard wrong-path work and recover]
+```
+
+This hardware is valuable for irregular control flow but consumes design area
+and power.
+
+### 5.4 Out-of-order execution
+
+Suppose instruction A waits for memory while independent instruction B is ready.
+An out-of-order CPU may execute B first, even if A appeared earlier in program
+order, while still preserving the program's observable correctness.
+
+```text
+Program order:       A(waiting), B(ready), C(depends on A)
+Possible execution:  B, wait/other work, A, C
+```
+
+This dynamically discovers instruction-level parallelism in a single thread.
+
+### 5.5 Caches and low-latency focus
+
+CPUs devote substantial resources to multi-level caches that keep likely-needed
+instructions and data close to each core. They also use complex scheduling,
+prediction, and speculative machinery.
+
+Simplified design-priority picture:
+
+```text
+CPU die — conceptual only
+┌────────────────────────────────────────────────────┐
+│ Sophisticated cores                                │
+│ Large cache hierarchy                              │
+│ Branch prediction and out-of-order scheduling      │
+│ Interfaces to memory and devices                   │
+└────────────────────────────────────────────────────┘
+```
+
+The priority is not “do little work.” It is:
+
+> Make a relatively small number of diverse, dependency-heavy instruction
+> streams advance with low latency.
+
+### 5.6 Why CPUs are still important in inference
+
+In an inference system, the CPU may:
+
+- Receive network requests
+- Validate parameters
+- Tokenize text
+- Allocate and prepare inputs
+- Run Python and server logic
+- Submit GPU operations
+- Select output tokens
+- Serialize and return responses
+- Record metrics and logs
+
+The GPU accelerates suitable numerical work. It does not eliminate the rest of
+the system.
+
+### Section 5 checkpoint
+
+Explain why branch prediction and out-of-order execution are useful for a CPU
+running irregular application logic, and why those capabilities represent a
+different design investment from maximizing parallel arithmetic throughput.
+
+---
+
+## 6. GPU Design Priorities
+
+### 6.1 Origins and generalization
+
+GPUs were developed to perform graphics workloads, where many pixels and
+vertices require similar mathematical treatment. Their massively parallel
+structure also suits simulations and neural-network tensor operations.
+
+Modern NVIDIA GPUs support general-purpose computing through CUDA. They contain
+many **Streaming Multiprocessors (SMs)**, which schedule and execute groups of
+GPU threads. Lesson 02 develops this execution model fully.
+
+### 6.2 Throughput-oriented design
+
+A GPU allocates substantial resources to:
+
+- Many arithmetic execution pathways
+- Scheduling many active thread groups
+- High aggregate device-memory bandwidth
+- Specialized matrix multiply-accumulate hardware
+- Hiding latency by switching among ready work
+
+```text
+GPU die — conceptual, not to scale
+┌──────────────────────────────────────────────────────┐
+│ SM │ SM │ SM │ SM │ SM │ SM │ SM │ SM │ ...       │
+│                                                      │
+│          Shared L2 cache and interconnect            │
+│                                                      │
+│              Memory controllers                      │
+└──────────────────────────────────────────────────────┘
+```
+
+### 6.3 The design tradeoff
+
+Broadly:
+
+- A CPU spends more resources making a few instruction streams fast and
+  flexible.
+- A GPU spends more resources keeping a large quantity of structured parallel
+  work moving.
+
+```text
+CPU priority                         GPU priority
+-----------------------------        -----------------------------
+Low latency for diverse work         High throughput for parallel work
+Sophisticated individual cores       Many SMs and execution pipelines
+Strong irregular control handling    Efficient similar operations on data
+Large low-latency caches              High aggregate memory bandwidth
+```
+
+This table describes priorities, not absolute capabilities. CPUs perform
+parallel work; GPUs handle control flow. The distinction is one of emphasis.
+
+### 6.4 GPU threads are lightweight logical workers
+
+A GPU program may define thousands or millions of logical threads. A thread
+describes one instance of work, such as “calculate output element `i`.” It does
+not mean the GPU contains one permanent physical core for every thread.
+
+Hardware schedules threads in groups and waves over finite execution resources.
+
+```text
+Logical threads:  [0][1][2][3][4][5] ... [999999]
+Physical GPU:      finite SMs and pipelines
+Execution:         scheduled over time in many groups
+```
+
+### 6.5 Hiding latency with many ready groups
+
+When one group waits for data, an SM can issue ready work from another group.
+
+```mermaid
+sequenceDiagram
+    participant W1 as Thread group 1
+    participant SM as SM scheduler
+    participant W2 as Thread group 2
+    W1->>SM: Waiting for memory
+    SM->>W2: Issue ready instruction
+    W1-->>SM: Data becomes ready
+    SM->>W1: Resume eligible work
+```
+
+This strategy requires enough ready work. A tiny workload may leave most GPU
+resources unused.
+
+### 6.6 Host and device cooperation
+
+In CUDA terminology:
+
+- The **host** is the CPU-side system.
+- The **device** is the GPU.
+
+```mermaid
+flowchart LR
+    subgraph Host
+      APP[Application / PyTorch]
+      RAM[System memory]
+    end
+    subgraph Device
+      GPU[GPU execution]
+      VRAM[Device memory]
+    end
+    APP -- submit work --> GPU
+    RAM <-- data transfers --> VRAM
+```
+
+The host prepares and submits work. The device performs GPU operations. Data
+may need to move between host RAM and GPU VRAM, which costs time.
+
+### 6.7 Why large tensors help
+
+If a tensor operation contains millions of independent or regularly structured
+output calculations, the GPU has a large pool of ready work. That allows it to:
+
+- Distribute blocks of work across many SMs
+- Keep many thread groups active
+- Hide some memory latency
+- Use specialized matrix hardware where eligible
+
+A four-element list is useful for understanding independence but is far too
+small to justify a real GPU launch by itself. The transformer case succeeds
+because the same idea scales to enormous tensor operations.
+
+### Section 6 checkpoint
+
+Explain why “a GPU runs many logical threads” does not mean “every thread owns a
+physical core,” and why a large pool of ready work helps the GPU hide waiting.
+
+---
+
+## 7. Matrix Multiplication, Step by Step
+
+### 7.1 Scalars, vectors, and matrices
+
+- A **scalar** is one value: `7`.
+- A **vector** is an ordered one-dimensional collection: `[2, 4, 6]`.
+- A **matrix** is a rectangular two-dimensional collection.
+
+```text
+Matrix A with 2 rows and 3 columns:
+
+┌ 1  2  3 ┐
+└ 4  5  6 ┘
+
+Shape: 2 × 3
+```
+
+The shape describes the number of entries along each dimension.
+
+### 7.2 The multiplication shape rule
+
+If:
+
+```text
+A has shape M × K
+B has shape K × N
+```
+
+then:
+
+```text
+C = A × B has shape M × N
+```
+
+The inner dimension `K` must match because each output uses a row of length `K`
+from A and a column of length `K` from B.
+
+```text
+(M × K) × (K × N) → (M × N)
+       matching K
+```
+
+### 7.3 Complete 2 × 2 example
+
+```text
+A = ┌ 1  2 ┐       B = ┌ 5  6 ┐
+    └ 3  4 ┘           └ 7  8 ┘
+
+C = A × B
+```
+
+Each output is a row-column dot product:
+
+```text
+C[0,0] = A row 0 · B column 0
+       = (1 × 5) + (2 × 7)
+       = 5 + 14
+       = 19
+
+C[0,1] = A row 0 · B column 1
+       = (1 × 6) + (2 × 8)
+       = 6 + 16
+       = 22
+
+C[1,0] = A row 1 · B column 0
+       = (3 × 5) + (4 × 7)
+       = 15 + 28
+       = 43
+
+C[1,1] = A row 1 · B column 1
+       = (3 × 6) + (4 × 8)
+       = 18 + 32
+       = 50
+```
+
+Result:
+
+```text
+C = ┌ 19  22 ┐
+    └ 43  50 ┘
+```
+
+### 7.4 Dependencies within one output
+
+For `C[0,0]`, the two products can be computed independently:
+
+```mermaid
+flowchart TD
+    P1[1 × 5 = 5] --> S[5 + 14 = 19]
+    P2[2 × 7 = 14] --> S
+```
+
+The final sum must wait for both products. With a longer dot product, partial
+sums form a reduction. The calculation contains parallel multiplication and a
+dependent accumulation structure.
+
+Hardware often uses fused multiply-accumulate instructions and tiled algorithms
+rather than literally creating this exact graph, but the data dependencies are
+the same.
+
+### 7.5 Independence across output cells
+
+Once A and B are available, each output cell can be computed without needing
+another output cell:
+
+```mermaid
+flowchart TD
+    IN[Input matrices A and B]
+    IN --> C00[Compute C00]
+    IN --> C01[Compute C01]
+    IN --> C10[Compute C10]
+    IN --> C11[Compute C11]
+    C00 --> OUT[Completed C]
+    C01 --> OUT
+    C10 --> OUT
+    C11 --> OUT
+```
+
+The final matrix is complete only after all output cells are ready, but their
+calculations expose parallelism.
+
+### 7.6 Scaling the example
+
+If C has shape 4,096 × 4,096, it contains:
+
+```text
+4,096 × 4,096 = 16,777,216 output elements
+```
+
+If each output is a dot product of length 4,096, there is an enormous amount of
+multiply-accumulate work. Efficient GPU libraries divide matrices into tiles,
+reuse input values through the memory hierarchy, and distribute work across
+SMs.
+
+```text
+Large matrices
+      ↓ divide into tiles
+Thread blocks process output tiles
+      ↓ distributed across SMs
+Many multiply-accumulate operations
+      ↓
+Completed output matrix
+```
+
+Lesson 03 explains general arithmetic pipelines and Tensor Cores. Lesson 04
+explains why tiling and reuse reduce expensive data movement.
+
+### 7.7 Matrix multiplication is parallel but not order-free
+
+It would be incorrect to say “all matrix operations happen in any order.”
+Instead:
+
+- Output cells are broadly independent from one another.
+- Products within a dot product can be formed independently.
+- Products must be combined to produce the output.
+- Input data must be available before it is used.
+- The final consumer must wait for required outputs.
+- Floating-point regrouping can introduce small numerical differences because
+  finite-precision addition is not perfectly associative.
+
+Parallel algorithms preserve required dependencies while choosing an efficient
+valid schedule.
+
+### Section 7 checkpoint
+
+For one 2 × 2 result cell, identify the loads, multiplications, additions, and
+store. Then explain which work can overlap across the four result cells.
+
+---
+
+## 8. Why Transformer Inference Contains GPU-Friendly Work
+
+### 8.1 What is inference?
+
+**Inference** means using an already-trained model to produce outputs from new
+inputs. For a decoder-only language model, inference repeatedly predicts a next
+token based on the tokens seen so far.
+
+Training adjusts model weights. Inference primarily reads those weights and
+uses them in numerical operations.
+
+### 8.2 What is a tensor?
+
+A **tensor** is a multidimensional collection of values with properties such as:
+
+- **Shape:** number of positions along each dimension
+- **Data type:** representation used for each value
+- **Device:** where its storage resides
+- **Layout or strides:** how logical positions map to memory
 
 Examples:
 
 ```text
-Scalar: 7                         shape: []
-Vector: [2, 4, 6]                 shape: [3]
-Matrix: [[1, 2], [3, 4]]          shape: [2, 2]
-Token-state tensor                shape: [batch, tokens, hidden_size]
+Scalar: 7                              shape: []
+Vector: [2, 4, 6]                      shape: [3]
+Matrix: [[1, 2], [3, 4]]               shape: [2, 2]
+Token states                           shape: [batch, tokens, hidden_size]
 ```
 
-Transformer layers contain large linear transformations, attention operations,
-normalization, and elementwise operations. The large linear transformations
-reduce to matrix multiplication and related operations, exposing substantial
-parallelism.
+If a token-state tensor has shape `[2, 128, 4096]`:
+
+- `2` means two sequences in the batch.
+- `128` means 128 token positions per sequence.
+- `4096` means each token position is represented by 4,096 numerical features.
+
+Total values:
+
+```text
+2 × 128 × 4096 = 1,048,576 values
+```
+
+The data type determines bytes per value. Lesson 04 turns this into memory
+estimates.
+
+### 8.3 Token embeddings
+
+Text is first converted into token IDs. An embedding lookup maps each token ID
+to a learned vector.
 
 ```mermaid
 flowchart LR
-    T[Token representations] --> QKV[Large linear transformations]
-    QKV --> ATT[Attention calculations]
-    ATT --> PROJ[Output projection]
-    PROJ --> MLP[Feed-forward linear layers]
-    MLP --> NEXT[Next layer]
+    T[Text] --> IDS[Token IDs]
+    IDS --> E[Embedding lookup]
+    E --> V[Vector for each token]
 ```
 
-The CPU still matters. It may tokenize input, run Python, schedule work, launch
-GPU operations, and serve network requests. GPU acceleration is cooperation
-between host and device, not total replacement of the CPU.
+The model does not directly calculate on English words. It calculates on
+numerical tensors.
 
-## 9. Prefill and Decode: An Early Preview
+### 8.4 Linear transformations
 
-You will study these deeply in Module 03, but they help explain GPU use.
-
-### Prefill
-
-The model processes the prompt's tokens and creates internal state, including
-the KV cache. Many prompt-token calculations can be organized into large
-parallel operations.
+A transformer repeatedly applies learned weight matrices to token-state
+vectors. In simplified form:
 
 ```text
-Prompt: [token₁ token₂ token₃ ... tokenₙ]
-                 │
-                 ▼
-        large tensor operations
-                 │
-                 ▼
-        first next-token logits + cache
+output = input × weights + bias
 ```
 
-### Decode
+For many token positions and a batch, these become large matrix operations.
 
-The model selects a token, appends it, and repeats. One request usually advances
-one new token per decode iteration.
+Example shapes:
+
+```text
+Input token states:  [256 token positions, 4096 features]
+Weight matrix:       [4096 input features, 4096 output features]
+Output states:       [256 token positions, 4096 output features]
+```
+
+This operation calculates millions of output values, each involving many
+multiply-accumulate operations. It offers abundant structured parallel work.
+
+### 8.5 Attention at a first-pass level
+
+Attention creates query, key, and value tensors through linear transformations,
+calculates relationships between token positions, combines information, and
+projects the result.
 
 ```mermaid
 flowchart LR
-    S[Existing sequence + cache] --> F[One model step]
-    F --> N[Choose one next token]
-    N --> U[Update sequence and cache]
-    U --> F
+    X[Token states] --> Q[Query projection]
+    X --> K[Key projection]
+    X --> V[Value projection]
+    Q --> SCORE[Attention scores]
+    K --> SCORE
+    SCORE --> MIX[Weighted combination]
+    V --> MIX
+    MIX --> O[Output projection]
 ```
 
-Decode still uses large model matrices, but batch-one decode provides less
-parallel work across tokens and repeatedly needs model weights. This is one
-reason prefill and decode can have different bottlenecks.
+This is a structural preview, not a complete attention lesson. Module 03 will
+explain causal masking and the KV cache.
 
-## 10. When a GPU May Not Help
+### 8.6 Feed-forward layers
 
-A GPU may be a poor choice when:
+Transformer blocks also contain feed-forward networks, often with an expansion
+to a larger intermediate dimension followed by projection back to the hidden
+dimension. These are dominated by large linear operations plus elementwise
+activation functions.
 
-- The workload is tiny
-- Operations are strongly sequential
-- The program branches unpredictably
-- Transferring data costs more than computing it
-- The operation lacks an efficient GPU implementation
-- The GPU cannot hold the required data
+```mermaid
+flowchart LR
+    H[Hidden states] --> UP[Large up-projection]
+    UP --> ACT[Elementwise activation]
+    ACT --> DOWN[Down-projection]
+    DOWN --> R[Output states]
+```
 
-Worked thought experiment:
+### 8.7 Not every transformer operation is equally GPU-friendly
+
+Different operations have different characteristics:
+
+- Large matrix multiplication can expose high parallelism and data reuse.
+- Elementwise operations expose parallelism but may perform little math per
+  byte moved.
+- Normalization requires reductions and elementwise work.
+- Token selection and Python control flow can be small or CPU-oriented.
+- One-token decode creates smaller operation shapes than processing many prompt
+  tokens together.
+
+Therefore “transformers use matrix multiplication” is only the beginning of a
+performance explanation.
+
+### 8.8 The CPU-GPU pipeline
+
+A simplified inference request crosses both processors:
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant CPU
+    participant GPU
+    Client->>CPU: Send prompt
+    CPU->>CPU: Validate and tokenize
+    CPU->>GPU: Submit tensor operations
+    GPU->>GPU: Execute model kernels
+    GPU-->>CPU: Return required results
+    CPU->>CPU: Select/decode token and manage request
+    CPU-->>Client: Return output
+```
+
+Frameworks may keep much of the generation loop and token selection on device,
+and implementations vary. The key point is that end-to-end inference includes
+more than GPU arithmetic.
+
+### Section 8 checkpoint
+
+Explain how text becomes numerical tensor work and identify at least three
+different operation types in a transformer block.
+
+---
+
+## 9. Prefill and Decode: A Careful Preview
+
+This section provides only the performance foundation. Module 03 develops the
+full mechanics.
+
+### 9.1 Autoregressive generation has an unavoidable sequence
+
+A decoder-only language model generates one next token, appends it, then uses
+the expanded sequence to generate another.
+
+```mermaid
+flowchart LR
+    S0[Prompt] --> T1[Generate token 1]
+    T1 --> T2[Generate token 2]
+    T2 --> T3[Generate token 3]
+```
+
+Token 3 depends on the selected token 2, which depends on token 1. Across decode
+iterations, there is a sequential dependency.
+
+### 9.2 Prefill
+
+During **prefill**, the model processes the existing prompt tokens and builds
+the internal attention state needed for subsequent generation.
 
 ```text
-CPU calculation:                  20 microseconds
-Copy input to GPU:               100 microseconds
-Launch and run GPU work:          10 microseconds
-Copy result back:                100 microseconds
-Total GPU path:                  210 microseconds
+Prompt tokens: [t0, t1, t2, t3, ... tN]
+                       │
+                       ▼
+      Process prompt through all model layers
+                       │
+                       ▼
+      Next-token logits + key/value state for prompt
 ```
 
-The GPU arithmetic was faster, but the complete path was slower. Performance
-engineering measures the whole relevant boundary.
+The model uses causal attention: a token cannot use information from a later
+token. However, the known prompt tokens are all already available. GPU kernels
+can organize many prompt-position calculations into large tensor operations
+while applying a causal mask to preserve the information restriction.
 
-## 11. Common Misconceptions
+This is subtle:
+
+> Causal information flow does not require the GPU to run one separate complete
+> model pass for each prompt token during prefill.
+
+The prompt's token dimension creates substantial parallel work, even though the
+mathematics prevents earlier positions from attending to later ones.
+
+### 9.3 Decode
+
+During **decode**, the system produces new tokens iteratively.
+
+One simplified iteration:
+
+```text
+1. Use the newest token state and existing cache.
+2. Execute the model layers.
+3. Produce logits for the next token.
+4. Select one token according to the decoding policy.
+5. Append the selected token.
+6. Update the cache.
+7. Repeat unless a stop condition is reached.
+```
+
+```mermaid
+flowchart TD
+    S[Current sequence and cache] --> M[One model decode step]
+    M --> L[Next-token logits]
+    L --> CHOOSE[Select token]
+    CHOOSE --> UPDATE[Append token and update cache]
+    UPDATE --> STOP{Stop?}
+    STOP -- No --> M
+    STOP -- Yes --> END[Return completion]
+```
+
+### 9.4 Parallel inside, sequential outside
+
+Each decode iteration contains large operations that run in parallel on the
+GPU. But the iterations themselves are ordered because the next selected token
+is not known until the current iteration finishes.
+
+```text
+Decode iteration 1: [many parallel GPU operations] → token 1
+Decode iteration 2:                               [many parallel GPU operations] → token 2
+Decode iteration 3:                                                               [many parallel GPU operations] → token 3
+```
+
+This pattern combines inner parallelism with outer sequential dependency.
+
+### 9.5 Why the shapes differ
+
+Simplified linear-operation shapes:
+
+```text
+Prefill input: [many prompt positions, hidden size]
+Decode input:  [one new position, hidden size]  # per sequence at batch 1
+```
+
+The weights are large in both cases. Prefill can reuse them across many prompt
+positions in one operation. Batch-one decode has less token-position work per
+iteration and repeatedly needs weights as it produces tokens one at a time.
+
+This helps motivate—but does not universally prove—the common observation:
+
+- Prefill often uses compute resources more effectively.
+- Small-batch decode is often sensitive to memory bandwidth and launch latency.
+
+Profiler evidence is required for a specific model and system.
+
+### 9.6 Batching changes decode parallelism
+
+If multiple sequences decode together, one iteration can process one new token
+position for each sequence:
+
+```text
+Batch 1: [sequence A newest token]
+
+Batch 4: [sequence A newest token]
+         [sequence B newest token]
+         [sequence C newest token]
+         [sequence D newest token]
+```
+
+This gives the GPU more work per weight load and can improve aggregate
+throughput, while queueing and larger batches can affect per-request latency.
+
+### Section 9 checkpoint
+
+Explain the phrase “decode is parallel inside each iteration but sequential
+across generated tokens.” Then explain why prefill can process known prompt
+positions in large tensor operations without violating causal attention.
+
+---
+
+## 10. When GPU Acceleration Does Not Improve the Whole Workload
+
+### 10.1 End-to-end time includes more than arithmetic
+
+A GPU path may include:
+
+1. CPU preparation
+2. Device-memory allocation
+3. Host-to-device transfer
+4. Kernel submission
+5. GPU queueing and execution
+6. Synchronization
+7. Device-to-host transfer
+8. CPU post-processing
+
+```mermaid
+flowchart LR
+    PREP[CPU preparation] --> H2D[Transfer to GPU]
+    H2D --> LAUNCH[Launch]
+    LAUNCH --> EXEC[GPU execution]
+    EXEC --> D2H[Transfer result]
+    D2H --> POST[CPU post-processing]
+```
+
+Optimizing only GPU arithmetic helps only the portion of time it occupies.
+
+### 10.2 Complete numerical example
+
+Suppose a tiny calculation takes 20 microseconds on the CPU.
+
+Possible GPU path:
+
+```text
+Prepare and copy input to device:       100 μs
+Submit GPU kernel:                       15 μs
+Wait and execute GPU arithmetic:         10 μs
+Copy required result to host:           100 μs
+Total:                                  225 μs
+```
+
+Although the GPU arithmetic took only 10 μs, the complete GPU path took 225 μs,
+which is slower than the 20 μs CPU path.
+
+Speedup:
+
+```text
+speedup = old time / new time
+        = 20 μs / 225 μs
+        ≈ 0.089×
+```
+
+A value below 1 means a slowdown.
+
+### 10.3 Amortizing fixed overhead
+
+If the same transfer and launch overhead applies to a much larger calculation,
+useful GPU work can dominate:
+
+```text
+CPU calculation:                     50,000 μs
+
+GPU path:
+transfer + launch overhead:             215 μs
+GPU execution:                         2,000 μs
+total:                                 2,215 μs
+
+speedup ≈ 50,000 / 2,215 ≈ 22.6×
+```
+
+The GPU is valuable because the workload is large enough to amortize overhead
+and exploit parallelism.
+
+### 10.4 Common reasons a GPU may not help
+
+#### Too little work
+
+Most execution resources remain unused, while launch overhead stays.
+
+#### Strong sequential dependencies
+
+Later work cannot begin until earlier results exist.
+
+#### Frequent transfers
+
+Moving data between host and device can dominate calculation.
+
+#### Irregular branching
+
+Groups of GPU threads following different paths may execute inefficiently.
+
+#### Inefficient or missing kernels
+
+Hardware capability matters only when software supplies an implementation that
+uses it effectively.
+
+#### Insufficient memory capacity
+
+If required data does not fit, the system may fail or move data repeatedly
+through slower paths.
+
+#### Synchronization and CPU gaps
+
+The GPU may sit idle while the CPU prepares work or waits unnecessarily.
+
+### 10.5 Correctness and cost also matter
+
+The fastest option may not be best if it:
+
+- Produces unacceptable numerical error
+- Requires expensive hardware for a small gain
+- Complicates deployment or reliability
+- Uses excessive energy
+- Violates latency objectives while maximizing throughput
+
+Performance engineering optimizes an objective under constraints. It does not
+seek speed without context.
+
+### Section 10 checkpoint
+
+For any proposed GPU acceleration, list the complete end-to-end stages and
+identify which costs are fixed, which grow with input size, and which could
+overlap.
+
+---
+
+## 11. Common Misconceptions and Corrections
+
+### “An instruction is one line of source code.”
+
+One source statement can require many processor instructions and runtime calls.
+Conversely, optimization can combine or eliminate conceptual source operations.
+
+### “Independent operations always execute simultaneously.”
+
+Independence permits concurrent scheduling. Physical execution depends on
+available resources, the scheduler, and the implementation.
+
+### “The order written in source code is always the exact execution order.”
+
+Dependencies and observable behavior must be preserved, but processors,
+compilers, and runtimes may reorder independent work.
+
+### “Parallel means there is no ordering.”
+
+Parallel algorithms contain dependency boundaries. Matrix outputs may be
+independent while each output still requires products and accumulation.
 
 ### “A GPU has more cores, so it is always faster.”
 
-Core labels are not directly comparable across CPU and GPU architectures.
-Speed depends on workload shape, data movement, implementation, and the metric
-being optimized.
+CPU and GPU “core” labels are not directly comparable. Performance depends on
+workload shape, implementation, data movement, precision, and the measured
+boundary.
 
-### “Parallel means every operation happens simultaneously.”
+### “A GPU thread is a physical core.”
 
-Hardware has finite resources. Parallel work is scheduled in waves, and
-dependencies still impose order.
+A thread is a logical instance of a GPU program. Many logical threads are
+scheduled over finite physical execution resources.
 
 ### “The GPU runs the entire Python program.”
 
-Ordinary Python runs on the CPU. Framework code asks CUDA libraries and the
-driver to schedule specific operations on the GPU.
+Ordinary Python runs on the CPU. Frameworks and CUDA libraries submit selected
+operations to the GPU.
+
+### “High GPU utilization proves good performance.”
+
+A high-level activity sample does not reveal which resources are busy, whether
+work is efficient, or whether the application meets its latency and throughput
+goals.
 
 ### “High throughput means every request has low latency.”
 
-Batching can increase total work completed per second while making an
-individual request wait longer.
+Batching and queueing can improve aggregate throughput while increasing the
+time experienced by an individual request.
+
+### “If a model fits in VRAM, it should run quickly.”
+
+Fit is a capacity question. Runtime also depends on bandwidth, compute,
+scheduling, kernels, and request shape.
+
+---
+
+## Chapter Summary
+
+1. Human-readable source code is translated or interpreted into lower-level
+   operations.
+2. Instructions operate on encoded data; arithmetic requires input values to be
+   available near execution.
+3. A simplified operation often follows load → compute → store.
+4. Dependencies determine required logical order.
+5. Independence makes parallel scheduling possible but does not guarantee
+   simultaneous execution.
+6. CPUs prioritize low-latency progress for a modest number of diverse,
+   dependency-heavy instruction streams.
+7. GPUs prioritize aggregate throughput for a large supply of structured
+   parallel work.
+8. Matrix multiplication contains parallel work across outputs and reductions
+   within each output.
+9. Transformers repeatedly apply large tensor operations, giving GPUs useful
+   parallel numerical work.
+10. Prefill and decode combine parallel GPU kernels with different tensor shapes
+    and sequential dependencies.
+11. End-to-end GPU speed depends on preparation, data movement, launch,
+    execution, synchronization, and post-processing—not arithmetic alone.
+
+---
 
 ## Vocabulary
 
-- **Instruction:** a primitive operation understood by a processor
-- **Program:** an organized sequence of instructions
-- **Processor:** hardware that executes instructions
-- **Memory:** hardware that retains data and instructions
-- **Latency:** time for one unit of work to finish
-- **Throughput:** work completed per unit time
-- **Dependency:** a requirement for an earlier result
-- **Parallelism:** work that can progress concurrently
-- **Tensor:** a shaped multidimensional collection of values
-- **Host:** the CPU and its system environment in CUDA terminology
-- **Device:** the GPU in CUDA terminology
+| Term | Meaning |
+| --- | --- |
+| Address | A number identifying a memory location |
+| Arithmetic intensity | Arithmetic work performed relative to bytes moved; developed in Lesson 05 |
+| Bandwidth | Data transferred per unit time |
+| Branch | An instruction that can select a different next path |
+| Cache | Smaller, faster storage retaining likely-needed data near execution |
+| Capacity | Amount of data or work that can be held |
+| Concurrency | Multiple tasks in progress over overlapping time periods |
+| Data | Encoded information read or modified by instructions |
+| Data parallelism | Applying similar operations to different data items |
+| Dependency | A relationship requiring one operation or result before another |
+| Device | The GPU in CUDA terminology |
+| Dtype | The representation and interpretation of each tensor value |
+| Host | The CPU-side system in CUDA terminology |
+| Index | A position used to select an element in a collection |
+| Inference | Using a trained model to produce outputs for new inputs |
+| Instruction | An encoded operation defined by a processor architecture |
+| Latency | Elapsed time for one defined unit of work |
+| Matrix | A rectangular two-dimensional collection of values |
+| Parallelism | Multiple operations physically executing at the same time |
+| Processor | Hardware that executes instructions |
+| Program | Organized operations, data relationships, control flow, and repetition |
+| Register | Very small, fast processor-local storage |
+| Reduction | Combining multiple values into fewer values, such as a sum |
+| Source code | Human-readable program representation written in a programming language |
+| Tensor | A multidimensional collection of values with shape and dtype |
+| Throughput | Completed work per unit time |
+| Vector | An ordered one-dimensional collection of values |
+
+---
 
 ## Knowledge Check
 
-Answer without copying sentences from the lesson:
+Answer in your own words without copying chapter sentences.
 
-1. What separate jobs do a processor and memory perform?
-2. Give your own example of latency versus throughput.
-3. Why can the four output cells in the 2×2 matrix example be computed in
-   parallel?
-4. What makes part of a workload inherently sequential?
-5. What broad design tradeoff distinguishes CPUs from GPUs?
-6. Why do transformer linear layers provide useful GPU work?
-7. Name three costs that can offset faster GPU arithmetic.
-8. Why does the CPU remain involved in GPU inference?
-9. At a high level, why might prefill expose more parallel work than
-   single-request decode?
-10. Explain why “more cores” is not enough evidence that one processor will run
-    a workload faster.
+### Programs and execution
+
+1. Why is `total = left + right` not itself a literal processor instruction?
+2. Describe the conceptual load → add → store sequence.
+3. What does an instruction decoder need to determine?
+4. What is the difference between source code, a program, an instruction, and
+   data?
+5. Why did the chapter warn that a compact-array memory example is not a
+   literal description of a Python list?
+
+### Elementwise list addition
+
+6. List the complete conceptual steps for calculating `C[2] = A[2] + B[2]`.
+7. Which steps inside that calculation must be ordered?
+8. Why is calculating `C[2]` independent of calculating `C[0]`?
+9. Give four valid schedules for calculating four independent output elements.
+10. Why does independence not guarantee simultaneous execution?
+11. Modify the example so each output depends on the previous output.
+
+### Processor and memory
+
+12. What separate responsibilities belong to processor, registers, cache, and
+    main memory?
+13. Why can a fast arithmetic unit remain idle?
+14. Explain capacity, bandwidth, and latency with separate examples.
+15. What does latency hiding accomplish, and what does it not accomplish?
+
+### Performance terms
+
+16. Define the boundaries and units for one latency metric and one throughput
+    metric relevant to inference.
+17. Give an example of concurrency without physical parallel execution.
+18. Construct a case where throughput improves while request latency worsens.
+19. Why is batch capacity not the same as throughput?
+
+### Dependencies and parallelism
+
+20. Draw a dependency graph containing two independent operations followed by
+    one operation that requires both results.
+21. Why does a tree reduction expose more parallel work than a simple running
+    sum?
+22. Explain why independent work may execute in waves.
+23. What limits total speedup when a significant part of the workload remains
+    sequential?
+
+### CPU and GPU design
+
+24. What problems do branch prediction and out-of-order execution address?
+25. State the broad CPU/GPU design tradeoff without saying that either processor
+    is universally better.
+26. Why is a GPU thread not equivalent to a physical CPU core?
+27. Why does a GPU benefit from many ready thread groups?
+28. List five CPU responsibilities in an inference service.
+
+### Matrices and transformers
+
+29. Multiply the matrices below and show every product and sum:
+
+    ```text
+    A = ┌ 2  1 ┐     B = ┌ 3  4 ┐
+        └ 0  5 ┘         └ 6  2 ┘
+    ```
+
+30. Identify dependencies within one matrix output and independence across
+    outputs.
+31. For shapes `(M × K) × (K × N)`, what is the output shape and why must K
+    match?
+32. Explain how text becomes numerical tensor work.
+33. Name three transformer operation categories and describe their broad work.
+
+### Prefill, decode, and whole-system reasoning
+
+34. Why can prompt positions be processed in large tensor operations during
+    causal prefill?
+35. Why must generated decode tokens be produced in sequence?
+36. Explain “decode is parallel inside each iteration but sequential across
+    generated tokens.”
+37. Why can prefill and batch-one decode have different bottlenecks?
+38. List every major stage in a complete CPU-to-GPU-to-CPU operation.
+39. Using the chapter's 20 μs CPU and 225 μs GPU example, explain why faster GPU
+    arithmetic did not produce faster end-to-end execution.
+40. What evidence would you need before claiming a workload should move from CPU
+    to GPU?
+
+---
+
+## Drawing Exercises
+
+Without looking at the chapter, draw:
+
+1. The source code → software translation → processor instruction path.
+2. The load → arithmetic → store path through memory, registers, and an
+   arithmetic unit.
+3. The dependency graph for four independent list outputs.
+4. A dependency graph with parallel branches followed by a join.
+5. The host/device inference relationship.
+6. The prefill/decode relationship, showing both inner parallelism and outer
+   sequential dependency.
+
+Compare your diagrams with the chapter and correct missing arrows. The arrows
+are the lesson: they state which component supplies data or which result must
+exist first.
 
 ## Ready to Continue When
 
-You can explain, without notes, why a GPU is a high-throughput parallel
-processor rather than a universally faster CPU.
+You can narrate the full list-addition example from source-level intent through
+address calculation, loads, arithmetic, stores, loop control, dependency
+relationships, and possible schedules. You should also be able to explain why
+the same principles scale from four list elements to millions of tensor values
+without claiming that all independent operations execute at the same instant.
