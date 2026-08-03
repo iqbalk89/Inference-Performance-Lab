@@ -6,8 +6,16 @@
 
 Phase 1 Part A is in progress. The remote GPU platform and profiling access are
 accepted, but model-level inference work has not started yet. The next session
-should begin with the first small decoder-only model—not more provider research
-or environment troubleshooting.
+should complete the concept-only GPU architecture module before beginning the
+first small decoder-only model—not repeat provider research or environment
+troubleshooting.
+
+The canonical resumption path is:
+
+1. [Module 01 — GPU Architecture](../curriculum/phase-01-gpu-inference-foundations/modules/01-gpu-architecture/README.md)
+2. [Module 01 exercises](../curriculum/phase-01-gpu-inference-foundations/modules/01-gpu-architecture/exercises.md)
+3. [Module 01 concept-map lab](../curriculum/phase-01-gpu-inference-foundations/modules/01-gpu-architecture/lab.md)
+4. [Module 02 — First Model and Profiling](../curriculum/phase-01-gpu-inference-foundations/modules/02-first-model-and-profiling/README.md)
 
 ## Completed
 
@@ -35,7 +43,7 @@ repeatable operating procedure is in the
 ### Next Learning Block
 
 Before the next GPU session, complete the
-[GPU Foundations Learning Guide](gpu-notes/phase-1-gpu-learning-guide.md). It
+[GPU Architecture module](../curriculum/phase-01-gpu-inference-foundations/modules/01-gpu-architecture/README.md). It
 provides the minimum reading set, time budgets, required notes, and completion
 questions for these introductory concepts:
 

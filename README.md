@@ -49,6 +49,7 @@ verified environment.
 | Path | Purpose |
 | --- | --- |
 | `benchmarks/` | Repeatable performance tests and benchmark definitions |
+| `curriculum/` | Canonical phase → module → lesson/exercises/lab learning path |
 | `docker/` | Dockerfiles, Compose files, and container configuration |
 | `docs/` | Environment, architecture, GPU, reading, and learning notes |
 | `experiments/` | Focused investigations with documented results |
@@ -81,15 +82,17 @@ Phase 0 is complete: the local development tools, Docker workflow, virtual
 environment, and GitHub repository have been initialized and verified.
 
 Phase 1 is beginning with GPU foundations and inference fundamentals. CUDA and
-GPU profiling will run on remote NVIDIA hardware. See the
-[Phase 1 Plan](docs/phase-1-plan.md) for the hardware-adjusted roadmap.
+GPU profiling will run on remote NVIDIA hardware. Start at the
+[Curriculum Index](curriculum/README.md), then follow the numbered
+[Phase 1 modules](curriculum/phase-01-gpu-inference-foundations/README.md).
 
 Remote GPU sessions follow the
 [Lambda GPU Instance Runbook](docs/gpu-notes/lambda-instance-runbook.md), which
 covers launch, bootstrap validation, artifact preservation, and shutdown.
 The [Phase 1 Checkpoint](docs/phase-1-checkpoint.md) records completed work and
-the exact next learning and implementation steps.
-The [GPU Foundations Learning Guide](docs/gpu-notes/phase-1-gpu-learning-guide.md)
-is the required concept-only preparation before the first model lab.
+the exact resumption point. The
+[GPU Architecture module](curriculum/phase-01-gpu-inference-foundations/modules/01-gpu-architecture/README.md)
+is the required concept-only preparation before the first model lab; its
+directory contains the corresponding exercises and concept-map lab.
 Deferred topics—including the on-device inference and quantization tracks—are
 kept in the [Learning and Engineering Backlog](docs/backlog.md).
