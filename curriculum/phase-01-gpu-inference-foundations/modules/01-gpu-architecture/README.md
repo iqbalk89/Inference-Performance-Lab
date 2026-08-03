@@ -2,7 +2,7 @@
 
 **Type:** Concept-only
 
-**Time:** 2–3 hours
+**Time:** 10–14 hours, including exercises and concept-map lab
 
 **Cloud GPU required:** No
 
@@ -19,95 +19,44 @@ Explain:
 - NVIDIA driver, CUDA runtime, PyTorch, and GPU responsibilities
 - The distinct roles of `nvidia-smi` and the three profilers
 
-## Minimum Resources
+## Required Lesson Sequence
 
-Read only the assigned sections.
+Read these repository-authored lessons in order. Each assumes only the material
+introduced by earlier lessons.
 
-1. [NVIDIA GPU Performance Background](https://docs.nvidia.com/deeplearning/performance/dl-performance-gpu-background/index.html): Sections 1–4. **45–60 minutes.**
-2. [CUDA Programming Model](https://docs.nvidia.com/cuda/cuda-programming-guide/01-introduction/programming-model.html): kernels, threads/blocks, warps/SIMT, memory hierarchy, and heterogeneous programming. Skip clusters and kernel implementation. **25–35 minutes.**
-3. [CUDA Compatibility introduction](https://docs.nvidia.com/deploy/cuda-compatibility/latest/index.html) and the explanatory text above NVIDIA's [driver/toolkit matrix](https://docs.nvidia.com/datacenter/tesla/drivers/cuda-toolkit-driver-and-architecture-matrix.html). Do not memorize version tables. **10–15 minutes.**
-4. [`nvidia-smi` documentation](https://docs.nvidia.com/deploy/nvidia-smi/index.html): search for `FB Memory Usage`, `Utilization`, `Processes`, and `--loop`. **10–15 minutes.**
-5. [PyTorch CUDA asynchronous execution](https://docs.pytorch.org/docs/stable/notes/cuda.html#asynchronous-execution) and the introduction/options in the [PyTorch Profiler recipe](https://docs.pytorch.org/tutorials/recipes/recipes/profiler_recipe.html). Do not run the example yet. **20–25 minutes.**
-6. [Nsight Systems basic CUDA trace](https://docs.nvidia.com/nsight-systems/UserGuide/index.html#cuda-trace): read only the introduction. **10–15 minutes.**
+| Lesson | Subject | Expected study time |
+| --- | --- | ---: |
+| [01](lessons/01-computing-and-parallelism-foundations.md) | Computing, CPU/GPU tradeoffs, parallelism, tensors, and transformer motivation | 60–90 min |
+| [02](lessons/02-gpu-execution-model.md) | Host/device execution, kernels, grids, blocks, threads, warps, SMs, divergence, and latency hiding | 2–3 hr |
+| [03](lessons/03-compute-units-and-tensor-cores.md) | Arithmetic pipelines, CUDA-core terminology, matrix multiplication, Tensor Cores, precision, and FLOPS | 90–120 min |
+| [04](lessons/04-gpu-memory-hierarchy.md) | Bits and bytes, registers, caches, VRAM, bandwidth, transfers, allocation, and inference memory estimates | 90–120 min |
+| [05](lessons/05-performance-limiters.md) | Latency, compute and memory limits, arithmetic intensity, prefill, decode, and batching | 75–90 min |
+| [06](lessons/06-cuda-software-stack-and-observability.md) | PyTorch, CUDA, drivers, asynchronous execution, streams, `nvidia-smi`, and profilers | 75–90 min |
 
-## Lessons
+Use the [lesson index](lessons/README.md) to resume. Do not read all six in one
+sitting. Complete the knowledge check at the end of each lesson before moving
+on.
 
-### 1. CPU and GPU Roles
+## Supplemental Primary References
 
-CPUs emphasize flexible, latency-sensitive execution. GPUs expose much more
-parallel arithmetic throughput but need sufficient parallel work. Transformer
-linear layers and attention create large matrix operations, while a single
-decode step offers less parallel work than prompt processing or batching.
+The lessons are the required material. Consult these official sources when a
+lesson instructs you to verify a definition or when you want the authoritative
+version:
 
-### 2. Execution Hierarchy
-
-```text
-GPU
-└── Streaming Multiprocessors
-    ├── Warp schedulers
-    ├── Arithmetic execution pipelines
-    ├── Tensor Cores
-    ├── Registers
-    └── Shared memory / L1
-```
-
-A kernel launch creates a grid of thread blocks. Blocks are scheduled onto SMs,
-and threads execute in groups of 32 called warps. Divergent branches within a
-warp can require multiple paths to execute.
-
-### 3. CUDA Execution Units and Tensor Cores
-
-General CUDA arithmetic pipelines execute ordinary arithmetic instructions.
-Tensor Cores accelerate supported matrix multiply-accumulate operations for
-specific types and shapes. A workload running on CUDA does not automatically
-use Tensor Cores efficiently.
-
-### 4. Memory Hierarchy
-
-Registers and shared memory are small and close to execution. L2 is shared
-across the GPU. VRAM is much larger but farther from execution. Model weights,
-activations, KV cache, input/output tensors, and temporary workspaces consume
-VRAM.
-
-### 5. Performance Limits
-
-- Too little parallel work can be latency-limited.
-- Enough work with high operations per byte can be compute-limited.
-- Enough work with low operations per byte can be memory-bandwidth-limited.
-
-Prefill typically creates large parallel operations. Single-request decoding
-repeatedly reads weights and KV-cache data for one token and is often sensitive
-to memory bandwidth.
-
-### 6. Software and Observation Stack
-
-```text
-Model / inference engine
-        ↓
-PyTorch and CUDA libraries
-        ↓
-CUDA runtime and driver APIs
-        ↓
-NVIDIA driver
-        ↓
-GPU
-```
-
-`nvidia-smi` reports the maximum CUDA version supported by the driver, not
-necessarily the CUDA version used to build PyTorch.
-
-| Tool | Primary question |
-| --- | --- |
-| `nvidia-smi` | Is the device active, what memory is allocated, and which processes exist? |
-| PyTorch Profiler | Which framework operations consume time and memory? |
-| Nsight Systems | How do CPU activity, CUDA calls, transfers, kernels, and idle gaps interact? |
-| Nsight Compute | Why does a specific GPU kernel perform as it does? |
+1. [NVIDIA GPU Performance Background](https://docs.nvidia.com/deeplearning/performance/dl-performance-gpu-background/index.html), Sections 1–4
+2. [CUDA Programming Model](https://docs.nvidia.com/cuda/cuda-programming-guide/01-introduction/programming-model.html)
+3. [CUDA Compatibility](https://docs.nvidia.com/deploy/cuda-compatibility/latest/index.html)
+4. [`nvidia-smi` documentation](https://docs.nvidia.com/deploy/nvidia-smi/index.html)
+5. [PyTorch CUDA semantics](https://docs.pytorch.org/docs/stable/notes/cuda.html#asynchronous-execution)
+6. [PyTorch Profiler recipe](https://docs.pytorch.org/tutorials/recipes/recipes/profiler_recipe.html)
+7. [Nsight Systems CUDA trace](https://docs.nvidia.com/nsight-systems/UserGuide/index.html#cuda-trace)
 
 ## Required Work
 
-1. Complete [exercises.md](exercises.md).
-2. Complete the concept-map [lab.md](lab.md).
-3. Record unresolved questions in `docs/learning-journal.md`.
+1. Read all six lessons and complete their embedded knowledge checks.
+2. Complete [exercises.md](exercises.md) as a closed-notes integration check.
+3. Complete the concept-map [lab.md](lab.md).
+4. Record unresolved questions in `docs/learning-journal.md`.
 
 ## Completion Gate
 
