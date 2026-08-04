@@ -738,19 +738,19 @@ A tree method first forms independent pairs:
 
 ```mermaid
 flowchart BT
-    A[a] --> AB[a+b]
+    A["a"] --> AB["a + b"]
     B[b] --> AB
-    C[c] --> CD[c+d]
+    C["c"] --> CD["c + d"]
     D[d] --> CD
-    E[e] --> EF[e+f]
+    E["e"] --> EF["e + f"]
     F[f] --> EF
-    G[g] --> GH[g+h]
+    G["g"] --> GH["g + h"]
     H[h] --> GH
-    AB --> L[(a+b)+(c+d)]
+    AB --> L["(a + b) + (c + d)"]
     CD --> L
-    EF --> R[(e+f)+(g+h)]
+    EF --> R["(e + f) + (g + h)"]
     GH --> R
-    L --> S[final sum]
+    L --> S["final sum"]
     R --> S
 ```
 
