@@ -1,5 +1,8 @@
 # Lesson 01 — Computing and Parallelism Foundations
 
+**Lesson lab:** After reading and completing the checkpoints, use the
+[interactive visual lab](lab/README.md) to manipulate the concepts yourself.
+
 **Estimated study time:** 4–5 hours across multiple sittings
 
 **Prerequisites:** None

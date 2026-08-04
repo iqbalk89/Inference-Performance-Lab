@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Lesson 01 Visual Foundations Lab</title>
+  <style>
+    :root{--bg:#07111f;--panel:#111d31;--line:#334963;--text:#f8fafc;--muted:#b8c6d9;--cyan:#22d3ee;--purple:#a78bfa;--green:#4ade80;--amber:#fbbf24;--red:#fb7185}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#10213b,var(--bg) 45%);color:var(--text);font:16px/1.55 system-ui,-apple-system,sans-serif}header,main{max-width:1180px;margin:auto;padding:30px}header{padding-top:55px}h1{font-size:clamp(32px,5vw,54px);line-height:1.05;margin:0 0 14px}h2{font-size:28px;margin:0 0 8px}h3{margin:12px 0 8px}.lede,.note{color:var(--muted)}nav{display:flex;flex-wrap:wrap;gap:8px;margin:25px 0}nav a,button{background:#19304c;color:var(--text);border:1px solid #466584;border-radius:9px;padding:9px 13px;text-decoration:none;cursor:pointer}button:hover,nav a:hover{border-color:var(--cyan)}section{background:linear-gradient(145deg,#111d31,#0c1729);border:1px solid var(--line);border-radius:20px;margin:24px 0;padding:26px;box-shadow:0 12px 35px #0005}.station{color:var(--cyan);font-weight:750;text-transform:uppercase;letter-spacing:.08em}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}.card{background:#101a2b;border:1px solid var(--line);border-radius:14px;padding:16px}.controls{display:flex;flex-wrap:wrap;gap:14px;align-items:end;margin:18px 0}.control{display:grid;gap:4px}.control label{color:var(--muted);font-size:13px}.control input,.control select{background:#07111f;color:var(--text);border:1px solid #466584;border-radius:7px;padding:8px}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.cells{display:grid;gap:5px;align-items:stretch}.cell{min-width:48px;min-height:45px;border:1px solid #5b7998;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#16314a;text-align:center;padding:4px}.cell.ready{border-color:var(--amber);box-shadow:0 0 0 2px #fbbf2444}.cell.done{background:#14532d;border-color:var(--green)}.cell.blocked{background:#3f2430;border-color:var(--red)}.cell.selected{background:#5b21b6;border-color:#ddd6fe;box-shadow:0 0 0 2px #a78bfa55}.cell.masked{background:repeating-linear-gradient(135deg,#303642,#303642 8px,#1d2430 8px,#1d2430 16px);color:#cbd5e1}.axis{color:var(--muted);font-size:13px}.result{border-left:4px solid var(--cyan);padding:10px 14px;background:#0a1526;margin:12px 0}.legend{display:flex;flex-wrap:wrap;gap:16px;color:var(--muted);font-size:13px}.dot{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px}.tensor-sheet{border:2px solid var(--cyan);border-radius:10px;padding:12px;background:#0f3545;box-shadow:9px -9px 0 #25334a;margin:12px}.matrix-wrap{overflow:auto}.matrix{border-collapse:separate;border-spacing:4px}.matrix th{font-weight:400;color:var(--muted);font-size:12px}.matrix td{width:62px;height:52px;text-align:center;border:1px solid #52708e;border-radius:5px;background:#15324c;cursor:pointer}.matrix td.rowpick,.matrix td.colpick{background:#92400e;border-color:var(--amber)}.matrix td.outpick{background:#166534;border-color:var(--green)}.wave{display:flex;gap:7px;margin:9px 0;align-items:center}.slot{width:90px;padding:10px;text-align:center;border-radius:7px;background:#164e63;border:1px solid var(--cyan)}.token-row{display:flex;gap:8px;flex-wrap:wrap}.token{padding:10px 14px;border-radius:8px;background:#155e75;border:1px solid var(--cyan)}.token.generated{background:#5b21b6;border-color:var(--purple)}.token.unknown{background:#303642;border:2px dashed var(--amber)}.attention-grid{display:grid;grid-template-columns:130px repeat(4,1fr);gap:4px}.attention-grid>div{padding:10px;text-align:center;border-radius:5px}.attention-grid .head{color:var(--muted)}.bar{height:24px;background:var(--green);border-radius:5px;min-width:2px}.costbar{display:grid;gap:6px}.segment{padding:9px;border-radius:6px;color:#08111f;font-weight:700}.warn{border:1px solid var(--amber);background:#3a2a0d;padding:12px;border-radius:9px}.pass{color:var(--green)}.fail{color:var(--red)}footer{color:var(--muted);text-align:center;padding:40px}@media(max-width:700px){header,main{padding:18px}.attention-grid{grid-template-columns:90px repeat(4,1fr)}.cell{min-width:35px}}
+    .cell{flex-direction:column}
+  </style>
+</head>
+<body>
+<header>
+  <div class="station">GPU Architecture · Lesson 01</div>
+  <h1>Visual Foundations of Inference</h1>
+  <p class="lede">Manipulate tiny, labeled models of execution, tensors, matrix multiplication, attention, prefill, decode, and offload cost. These are conceptual simulations—not measurements of your Mac or an NVIDIA GPU.</p>
+  <nav><a href="#deps">1 Dependencies</a><a href="#tensor">2 Tensors</a><a href="#matmul">3 Matrices</a><a href="#waves">4 GPU waves</a><a href="#attention">5 Attention</a><a href="#generation">6 Prefill/decode</a><a href="#cost">7 Cost</a></nav>
+</header>
+<main>
+  <section id="deps">
+    <div class="station">Station 1</div><h2>Dependency scheduler</h2>
+    <p>Only an operation whose inputs are available is <em>ready</em>. Predict the next ready set, then advance one scheduling wave.</p>
+    <div id="depGraph" class="cells" style="grid-template-columns:repeat(4,1fr)"></div>
+    <div class="controls"><button id="depStep">Run next ready wave</button><button id="depReset">Reset</button></div>
+    <div id="depExplain" class="result"></div>
+    <div class="legend"><span><i class="dot" style="background:#fbbf24"></i>ready</span><span><i class="dot" style="background:#14532d"></i>complete</span><span><i class="dot" style="background:#3f2430"></i>waiting on a dependency</span></div>
+  </section>
+
+  <section id="tensor">
+    <div class="station">Station 2</div><h2>Tensor explorer</h2>
+    <p>Build a rank-3 token-state tensor. A sheet is a batch item, a row is a token position, and a cell is one feature value.</p>
+    <div class="controls">
+      <div class="control"><label>Batch axis</label><input id="tb" type="range" min="1" max="3" value="2"><output id="tbO"></output></div>
+      <div class="control"><label>Token axis</label><input id="tt" type="range" min="1" max="6" value="4"><output id="ttO"></output></div>
+      <div class="control"><label>Feature axis</label><input id="th" type="range" min="1" max="6" value="3"><output id="thO"></output></div>
+      <div class="control"><label>Data type</label><select id="dtype"><option value="4">FP32 · 4 bytes</option><option value="2" selected>FP16/BF16 · 2 bytes</option><option value="1">INT8 · 1 byte</option></select></div>
+    </div>
+    <div class="grid"><div id="tensorVisual" class="card"></div><div class="card"><h3>Metadata</h3><div id="tensorMeta" class="mono"></div><p class="note">Click a cell. Its label is <span class="mono">H[batch, token, feature]</span>. Dtype and device are metadata, not axes.</p></div></div>
+  </section>
+
+  <section id="matmul">
+    <div class="station">Station 3</div><h2>Matrix microscope</h2>
+    <p>Select any green output cell. The corresponding row of X and column of W will be highlighted. Every output cell is a row–column dot product.</p>
+    <div class="grid matrix-wrap"><div><h3>X · [3 tokens, 2 input features]</h3><table id="mx" class="matrix"></table></div><div><h3>W · [2 input, 4 output features]</h3><table id="mw" class="matrix"></table></div><div><h3>Y = XW · [3 tokens, 4 output features]</h3><table id="my" class="matrix"></table></div></div>
+    <div id="matEq" class="result mono"></div>
+    <p class="note">The selected cell depends on all products in its dot product. Other output cells do not depend on this selected output cell and expose parallel work.</p>
+  </section>
+
+  <section id="waves">
+    <div class="station">Station 4</div><h2>Finite GPU waves</h2>
+    <p>A program can describe more logical tiles than hardware can run at once. Change the work quantity and teaching slots.</p>
+    <div class="controls"><div class="control"><label>Logical output tiles</label><input id="tiles" type="range" min="1" max="20" value="13"><output id="tilesO"></output></div><div class="control"><label>Available teaching slots</label><input id="slots" type="range" min="1" max="8" value="4"><output id="slotsO"></output></div></div>
+    <div id="wavesVisual"></div><div id="wavesResult" class="result"></div>
+    <div class="warn"><strong>Boundary:</strong> a tile is not a CUDA core, and a slot is not a complete model of an SM. This station demonstrates finite scheduling capacity and waves only.</div>
+  </section>
+
+  <section id="attention">
+    <div class="station">Station 5</div><h2>Attention: scores, mask, and value mixing</h2>
+    <p>Select the query row being updated. Q/K dot products create scores. The causal mask makes future positions contribute zero. Remaining weights mix V rows.</p>
+    <div class="controls"><div class="control"><label>Query position</label><select id="query"><option value="0">0 · The</option><option value="1" selected>1 · sky</option><option value="2">2 · is</option><option value="3">3 · blue</option></select></div><label><input id="maskToggle" type="checkbox" checked> Apply causal mask</label></div>
+    <div id="attGrid" class="attention-grid"></div>
+    <div class="grid"><div class="card"><h3>Normalized weights</h3><div id="weightBars"></div></div><div class="card"><h3>Weighted V mixture</h3><div id="valueMix" class="mono"></div></div></div>
+    <div id="leakWarning" class="result"></div>
+  </section>
+
+  <section id="generation">
+    <div class="station">Station 6</div><h2>Prefill, decode, and KV-cache growth</h2>
+    <p>Start with four user-supplied token IDs. Prefill processes them together and caches their K/V rows. Each decode step turns one unknown position into a known generated token.</p>
+    <div id="genTokens" class="token-row"></div>
+    <div class="controls"><button id="prefillBtn">Run prefill</button><button id="decodeBtn" disabled>Run one decode step</button><button id="genReset">Reset</button></div>
+    <div class="grid"><div class="card"><h3>Current stage</h3><div id="genStage"></div></div><div class="card"><h3>Teaching KV cache</h3><div id="cacheRows" class="mono"></div></div></div>
+  </section>
+
+  <section id="cost">
+    <div class="station">Station 7</div><h2>End-to-end offload cost</h2>
+    <p>Compare the complete paths—not CPU compute against GPU arithmetic alone. Values are hypothetical microseconds.</p>
+    <div class="controls">
+      <div class="control"><label>CPU compute</label><input id="cpuT" type="range" min="5" max="500" value="80"><output id="cpuTO"></output></div>
+      <div class="control"><label>Host → device</label><input id="h2dT" type="range" min="0" max="200" value="70"><output id="h2dTO"></output></div>
+      <div class="control"><label>Launch</label><input id="launchT" type="range" min="0" max="100" value="20"><output id="launchTO"></output></div>
+      <div class="control"><label>GPU arithmetic</label><input id="gpuT" type="range" min="1" max="300" value="25"><output id="gpuTO"></output></div>
+      <div class="control"><label>Device → host</label><input id="d2hT" type="range" min="0" max="200" value="70"><output id="d2hTO"></output></div>
+    </div>
+    <div class="grid"><div class="card"><h3>CPU path</h3><div id="cpuBar" class="costbar"></div></div><div class="card"><h3>GPU path</h3><div id="gpuBar" class="costbar"></div></div></div><div id="costResult" class="result"></div>
+  </section>
+</main>
+<footer>Lesson 01 teaching simulation · values and schedules are illustrative · validate real hardware with measurement tools</footer>
+<script>
+const $=id=>document.getElementById(id), clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+
+// 1 — dependencies
+const ops=[{n:'Load A',d:[]},{n:'Load B',d:[]},{n:'Multiply A',d:[0]},{n:'Multiply B',d:[1]},{n:'Add products',d:[2,3]},{n:'Store result',d:[4]}];let completed=new Set();
+function depRender(){const ready=ops.map((o,i)=>!completed.has(i)&&o.d.every(d=>completed.has(d)));$('depGraph').innerHTML=ops.map((o,i)=>`<div class="cell ${completed.has(i)?'done':ready[i]?'ready':'blocked'}">${i+1}. ${o.n}<br><small>${completed.has(i)?'complete':ready[i]?'ready':`waits for ${o.d.map(d=>d+1).join(', ')}`}</small></div>`).join('');$('depExplain').textContent=ready.some(Boolean)?`Ready now: ${ready.flatMap((v,i)=>v?[ops[i].n]:[]).join(' and ')}.`:'All operations are complete.'}
+$('depStep').onclick=()=>{const ready=ops.map((o,i)=>!completed.has(i)&&o.d.every(d=>completed.has(d)));ready.forEach((v,i)=>v&&completed.add(i));depRender()};$('depReset').onclick=()=>{completed=new Set();depRender()};depRender();
+
+// 2 — tensors
+function tensorRender(){const b=+$('tb').value,t=+$('tt').value,h=+$('th').value,bytes=+$('dtype').value;[$('tbO').value,$('ttO').value,$('thO').value]=[b,t,h];let html='';for(let bi=0;bi<b;bi++){html+=`<div class="tensor-sheet"><strong>batch ${bi}</strong><div class="cells" style="grid-template-columns:repeat(${h},1fr)">`;for(let ti=0;ti<t;ti++)for(let hi=0;hi<h;hi++)html+=`<button class="cell tensorCell" data-i="${bi},${ti},${hi}">${bi}${ti}${hi}</button>`;html+='</div></div>'}$('tensorVisual').innerHTML=html;const values=b*t*h;$('tensorMeta').innerHTML=`rank = 3<br>shape = [${b}, ${t}, ${h}]<br>token vectors = ${b} × ${t} = ${b*t}<br>scalar values = ${b} × ${t} × ${h} = ${values}<br>raw storage = ${values} × ${bytes} bytes = ${values*bytes} bytes<br>device = conceptual (browser CPU)`;document.querySelectorAll('.tensorCell').forEach(el=>el.onclick=()=>{document.querySelectorAll('.tensorCell').forEach(x=>x.classList.remove('selected'));el.classList.add('selected');$('tensorMeta').innerHTML+=`<br><br>selected H[${el.dataset.i}]`})}
+['tb','tt','th','dtype'].forEach(id=>$(id).oninput=tensorRender);tensorRender();
+
+// 3 — matmul
+const X=[[1,2],[3,4],[5,6]],W=[[1,0,2,1],[0,1,1,2]],Y=X.map(r=>W[0].map((_,j)=>r.reduce((s,v,k)=>s+v*W[k][j],0)));let pick=[1,2];
+function matrixTable(id,data,kind){$(id).innerHTML=data.map((r,i)=>`<tr>${r.map((v,j)=>`<td data-r="${i}" data-c="${j}" class="${kind==='x'&&i===pick[0]?'rowpick':kind==='w'&&j===pick[1]?'colpick':kind==='y'&&i===pick[0]&&j===pick[1]?'outpick':''}">${v}</td>`).join('')}</tr>`).join('')}
+function matRender(){matrixTable('mx',X,'x');matrixTable('mw',W,'w');matrixTable('my',Y,'y');const [i,j]=pick,parts=X[i].map((v,k)=>`(${v}×${W[k][j]})`);$('matEq').textContent=`Y[${i},${j}] = X row ${i} · W column ${j} = ${parts.join(' + ')} = ${Y[i][j]}`;document.querySelectorAll('#my td').forEach(td=>td.onclick=()=>{pick=[+td.dataset.r,+td.dataset.c];matRender()})}matRender();
+
+// 4 — waves
+function wavesRender(){const n=+$('tiles').value,s=+$('slots').value;$('tilesO').value=n;$('slotsO').value=s;const waves=Math.ceil(n/s);let html='';for(let w=0;w<waves;w++){html+=`<div class="wave"><strong>wave ${w+1}</strong>`;for(let q=0;q<s;q++){const tile=w*s+q;html+=tile<n?`<div class="slot">tile ${tile}</div>`:`<div class="slot" style="opacity:.18">idle</div>`}html+='</div>'}$('wavesVisual').innerHTML=html;$('wavesResult').textContent=`${n} logical tiles ÷ ${s} available slots → ${waves} scheduling wave${waves===1?'':'s'}. At most ${s} tiles are shown active at once.`}['tiles','slots'].forEach(id=>$(id).oninput=wavesRender);wavesRender();
+
+// 5 — attention
+const names=['The','sky','is','blue'],Q=[[1,0],[0,1],[1,1],[2,1]],K=[[1,0],[0,1],[1,1],[1,2]],V=[[2,1],[1,3],[0,2],[3,1]];
+function softmax(a){const m=Math.max(...a.filter(Number.isFinite)),e=a.map(x=>Number.isFinite(x)?Math.exp(x-m):0),z=e.reduce((p,c)=>p+c,0);return e.map(x=>x/z)}
+function attentionRender(){const qi=+$('query').value,masked=$('maskToggle').checked,raw=K.map(k=>Q[qi][0]*k[0]+Q[qi][1]*k[1]),scores=raw.map((v,j)=>masked&&j>qi?-Infinity:v),weights=softmax(scores);$('attGrid').innerHTML=`<div></div>${names.map(n=>`<div class="head">KEY ${n}</div>`).join('')}<div class="head">QUERY ${names[qi]}</div>${scores.map((s,j)=>`<div class="${Number.isFinite(s)?'cell':'cell masked'}">${Number.isFinite(s)?`score ${s}`:'−∞ blocked'}</div>`).join('')}`;$('weightBars').innerHTML=weights.map((w,j)=>`<div style="display:grid;grid-template-columns:55px 1fr 55px;gap:8px;align-items:center;margin:8px"><span>${names[j]}</span><div class="bar" style="width:${Math.max(1,w*100)}%"></div><span>${w.toFixed(3)}</span></div>`).join('');const out=[0,1].map(f=>weights.reduce((s,w,j)=>s+w*V[j][f],0));$('valueMix').innerHTML=weights.map((w,j)=>`${w.toFixed(3)} × V${j} [${V[j]}]`).join('<br>')+`<br><br>attention output ≈ [${out.map(x=>x.toFixed(3)).join(', ')}]`;$('leakWarning').innerHTML=masked?`<strong>Causal rule:</strong> query position ${qi} may use positions 0–${qi}. Larger positions receive exactly zero weight.`:`<strong class="fail">Mask disabled for demonstration:</strong> query position ${qi} can now receive information from future positions. During next-token training, this can leak target information.`}
+['query','maskToggle'].forEach(id=>$(id).onchange=attentionRender);attentionRender();
+
+// 6 — generation
+const prompt=['The','sky','is','blue'],generated=['because','light','scatters'];let genState=0;
+function genRender(){const known=[...prompt,...generated.slice(0,genState)];$('genTokens').innerHTML=known.map((t,i)=>`<div class="token ${i>=prompt.length?'generated':''}">${t}<br><small>position ${i} · known</small></div>`).join('')+`<div class="token unknown">?<br><small>position ${known.length} · unknown</small></div>`;if(genState===0){$('genStage').innerHTML='Before prefill: the four prompt IDs are known. No generated token has been selected.';$('cacheRows').innerHTML='empty';$('prefillBtn').disabled=false;$('decodeBtn').disabled=true}else{const covered=prompt.length+genState-1;$('genStage').innerHTML=genState===1?'Prefill complete: prompt processed; logits selected <b>because</b>.':'Decode complete: one more token selected; the known boundary moved right.';$('cacheRows').innerHTML=`cached positions: 0–${covered-1}<br>K rows: K0–K${covered-1}<br>V rows: V0–V${covered-1}<br><br>selected and ready to process: position ${covered}`;$('prefillBtn').disabled=true;$('decodeBtn').disabled=genState>=generated.length}}
+$('prefillBtn').onclick=()=>{genState=1;genRender()};$('decodeBtn').onclick=()=>{genState++;genRender()};$('genReset').onclick=()=>{genState=0;genRender()};genRender();
+
+// 7 — cost
+function costRender(){const cpu=+$('cpuT').value,parts=[+$('h2dT').value,+$('launchT').value,+$('gpuT').value,+$('d2hT').value],labels=['host → device','launch','GPU arithmetic','device → host'],colors=['#67e8f9','#c4b5fd','#86efac','#fbbf24'],gpu=parts.reduce((a,b)=>a+b,0);['cpuT','h2dT','launchT','gpuT','d2hT'].forEach(id=>$(id+'O').value=$(id).value+' μs');$('cpuBar').innerHTML=`<div class="segment" style="background:#67e8f9;width:100%">CPU compute · ${cpu} μs</div>`;$('gpuBar').innerHTML=parts.map((p,i)=>`<div class="segment" style="background:${colors[i]};width:${Math.max(8,p/gpu*100)}%">${labels[i]} · ${p} μs</div>`).join('');const win=gpu<cpu;$('costResult').innerHTML=`Complete CPU path: <b>${cpu} μs</b> · complete GPU path: <b>${gpu} μs</b> · <strong class="${win?'pass':'fail'}">GPU path ${win?'wins':'loses'} by ${Math.abs(cpu-gpu)} μs</strong>. GPU arithmetic alone is ${parts[2]} μs and is not the full measured boundary.`}
+['cpuT','h2dT','launchT','gpuT','d2hT'].forEach(id=>$(id).oninput=costRender);costRender();
+  </script>
+</body>
+</html>
