@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="820" viewBox="0 0 1400 820" role="img" aria-labelledby="title desc">
+  <title id="title">Matrix multiplication and parallel output work</title>
+  <desc id="desc">The figure shows input token matrix X multiplied by weight matrix W, the calculation for output cells, and output tiles assigned to logical GPU worker groups across SMs.</desc>
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111827"/><stop offset="1" stop-color="#312e81"/>
+    </linearGradient>
+    <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#a5b4fc"/></marker>
+    <style>
+      .t { font:700 32px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; fill:#f8fafc }
+      .h { font:700 19px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; fill:#fff }
+      .b { font:400 15px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; fill:#e2e8f0 }
+      .m { font:600 15px ui-monospace,SFMono-Regular,Menlo,monospace; fill:#f8fafc }
+      .s { font:400 13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; fill:#cbd5e1 }
+      .a { stroke:#a5b4fc; stroke-width:4; fill:none; marker-end:url(#arr2) }
+    </style>
+  </defs>
+  <rect width="1400" height="820" rx="24" fill="url(#bg2)"/>
+  <text x="55" y="58" class="t">How token-vector matrix multiplication exposes parallel output work</text>
+  <text x="55" y="90" class="b">Teaching example: 3 token rows × 2 features, multiplied by 2 input features × 4 output features.</text>
+
+  <!-- Matrix X -->
+  <text x="80" y="150" class="h">Token-state matrix X (3 × 2)</text>
+  <text x="80" y="180" class="s">Rows represent prompt token positions.</text>
+  <g transform="translate(90 210)">
+    <rect width="90" height="55" fill="#075985" stroke="#7dd3fc"/><rect x="90" width="90" height="55" fill="#0c4a6e" stroke="#7dd3fc"/>
+    <rect y="55" width="90" height="55" fill="#0c4a6e" stroke="#7dd3fc"/><rect x="90" y="55" width="90" height="55" fill="#075985" stroke="#7dd3fc"/>
+    <rect y="110" width="90" height="55" fill="#075985" stroke="#7dd3fc"/><rect x="90" y="110" width="90" height="55" fill="#0c4a6e" stroke="#7dd3fc"/>
+    <text x="31" y="34" class="m">1</text><text x="121" y="34" class="m">2</text>
+    <text x="31" y="89" class="m">3</text><text x="121" y="89" class="m">4</text>
+    <text x="31" y="144" class="m">5</text><text x="121" y="144" class="m">6</text>
+  </g>
+
+  <text x="310" y="300" class="t">×</text>
+
+  <!-- Matrix W -->
+  <text x="375" y="150" class="h">Weight matrix W (2 × 4)</text>
+  <text x="375" y="180" class="s">Transforms 2 input features into 4.</text>
+  <g transform="translate(390 238)">
+    <rect width="70" height="55" fill="#7c3aed" stroke="#c4b5fd"/><rect x="70" width="70" height="55" fill="#6d28d9" stroke="#c4b5fd"/><rect x="140" width="70" height="55" fill="#7c3aed" stroke="#c4b5fd"/><rect x="210" width="70" height="55" fill="#6d28d9" stroke="#c4b5fd"/>
+    <rect y="55" width="70" height="55" fill="#6d28d9" stroke="#c4b5fd"/><rect x="70" y="55" width="70" height="55" fill="#7c3aed" stroke="#c4b5fd"/><rect x="140" y="55" width="70" height="55" fill="#6d28d9" stroke="#c4b5fd"/><rect x="210" y="55" width="70" height="55" fill="#7c3aed" stroke="#c4b5fd"/>
+    <text x="25" y="34" class="m">1</text><text x="95" y="34" class="m">0</text><text x="165" y="34" class="m">2</text><text x="235" y="34" class="m">1</text>
+    <text x="25" y="89" class="m">0</text><text x="95" y="89" class="m">1</text><text x="165" y="89" class="m">1</text><text x="235" y="89" class="m">2</text>
+  </g>
+
+  <text x="715" y="300" class="t">=</text>
+
+  <!-- Matrix Y -->
+  <text x="775" y="150" class="h">Output Y = XW (3 × 4)</text>
+  <text x="775" y="180" class="s">Twelve output cells can be calculated independently once X and W are available.</text>
+  <g transform="translate(800 210)">
+    <rect width="90" height="55" fill="#166534" stroke="#86efac"/><rect x="90" width="90" height="55" fill="#15803d" stroke="#86efac"/><rect x="180" width="90" height="55" fill="#166534" stroke="#86efac"/><rect x="270" width="90" height="55" fill="#15803d" stroke="#86efac"/>
+    <rect y="55" width="90" height="55" fill="#15803d" stroke="#86efac"/><rect x="90" y="55" width="90" height="55" fill="#166534" stroke="#86efac"/><rect x="180" y="55" width="90" height="55" fill="#15803d" stroke="#86efac"/><rect x="270" y="55" width="90" height="55" fill="#166534" stroke="#86efac"/>
+    <rect y="110" width="90" height="55" fill="#166534" stroke="#86efac"/><rect x="90" y="110" width="90" height="55" fill="#15803d" stroke="#86efac"/><rect x="180" y="110" width="90" height="55" fill="#166534" stroke="#86efac"/><rect x="270" y="110" width="90" height="55" fill="#15803d" stroke="#86efac"/>
+    <text x="32" y="34" class="m">1</text><text x="122" y="34" class="m">2</text><text x="212" y="34" class="m">4</text><text x="302" y="34" class="m">5</text>
+    <text x="32" y="89" class="m">3</text><text x="122" y="89" class="m">4</text><text x="212" y="89" class="m">10</text><text x="302" y="89" class="m">11</text>
+    <text x="32" y="144" class="m">5</text><text x="122" y="144" class="m">6</text><text x="212" y="144" class="m">16</text><text x="302" y="144" class="m">17</text>
+  </g>
+
+  <!-- Cell calculation -->
+  <rect x="70" y="440" width="590" height="145" rx="18" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
+  <text x="95" y="474" class="h">Inside one output cell: dependent steps</text>
+  <text x="95" y="511" class="m">Y[1,2] = X row 1 · W column 2</text>
+  <text x="95" y="542" class="m">       = (3 × 2) + (4 × 1) = 6 + 4 = 10</text>
+  <text x="95" y="570" class="s">Products need input values; the cell result needs the products to be accumulated.</text>
+
+  <!-- Parallel assignment -->
+  <rect x="700" y="440" width="630" height="300" rx="18" fill="#1e293b" stroke="#4ade80" stroke-width="2"/>
+  <text x="725" y="474" class="h">Across output tiles: available parallel work</text>
+  <text x="725" y="507" class="s">Real kernels group cells into tiles; this figure shows four teaching tiles.</text>
+  <g transform="translate(745 540)">
+    <rect width="120" height="65" rx="10" fill="#166534"/><text x="26" y="30" class="m">tile 0</text><text x="15" y="51" class="s">rows 0–1</text>
+    <rect x="140" width="120" height="65" rx="10" fill="#15803d"/><text x="166" y="30" class="m">tile 1</text><text x="155" y="51" class="s">rows 0–1</text>
+    <rect y="85" width="120" height="65" rx="10" fill="#15803d"/><text x="26" y="115" class="m">tile 2</text><text x="16" y="136" class="s">row 2</text>
+    <rect x="140" y="85" width="120" height="65" rx="10" fill="#166534"/><text x="166" y="115" class="m">tile 3</text><text x="156" y="136" class="s">row 2</text>
+    <path d="M280 32 H350" class="a"/><path d="M280 117 H350" class="a"/>
+    <rect x="370" y="0" width="100" height="65" rx="10" fill="#3730a3"/><text x="399" y="29" class="m">SM 0</text><text x="386" y="50" class="s">finite slots</text>
+    <rect x="370" y="85" width="100" height="65" rx="10" fill="#4338ca"/><text x="399" y="114" class="m">SM 1</text><text x="386" y="135" class="s">finite slots</text>
+  </g>
+  <text x="725" y="718" class="s">Independent tiles may run concurrently; finite hardware still schedules waves.</text>
+
+  <path d="M 665 365 C 700 390, 760 395, 810 405" class="a"/>
+</svg>

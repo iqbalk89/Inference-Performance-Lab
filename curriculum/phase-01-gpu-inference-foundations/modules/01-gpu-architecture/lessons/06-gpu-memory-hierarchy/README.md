@@ -1,4 +1,4 @@
-# Lesson 04 — GPU Memory Hierarchy
+# Lesson 06 — GPU Memory Hierarchy
 
 ## Why this lesson matters
 

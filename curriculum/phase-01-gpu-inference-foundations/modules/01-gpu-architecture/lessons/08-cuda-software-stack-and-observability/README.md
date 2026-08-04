@@ -1,4 +1,4 @@
-# Lesson 06 — CUDA Software Stack and GPU Observability
+# Lesson 08 — CUDA Software Stack and GPU Observability
 
 ## Purpose
 

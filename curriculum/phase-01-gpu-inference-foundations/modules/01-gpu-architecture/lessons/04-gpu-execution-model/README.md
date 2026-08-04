@@ -1,8 +1,8 @@
-# Lesson 02 — The GPU Execution Model
+# Lesson 04 — The GPU Execution Model
 
 **Estimated study time:** 2–3 hours
 
-**Prerequisite:** Lesson 01
+**Prerequisite:** Lessons 01–03
 
 **Purpose:** Build a mental model of how work travels from a CPU program to
 thousands of GPU threads.

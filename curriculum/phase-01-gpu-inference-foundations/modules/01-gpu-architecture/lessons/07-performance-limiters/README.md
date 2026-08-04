@@ -1,4 +1,4 @@
-# Lesson 05 — Why GPU Workloads Become Slow
+# Lesson 07 — Why GPU Workloads Become Slow
 
 ## Purpose
 

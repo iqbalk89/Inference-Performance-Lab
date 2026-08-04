@@ -2,7 +2,7 @@
 
 **Type:** Concept-only
 
-**Time:** 16–20 hours, including exercises and concept-map lab
+**Time:** 22–28 hours, including exercises and concept-map lab
 
 **Cloud GPU required:** No
 
@@ -26,14 +26,16 @@ introduced by earlier lessons.
 
 | Lesson | Subject | Expected study time |
 | --- | --- | ---: |
-| [01](lessons/01-computing-and-parallelism-foundations/) | Computing, execution order, CPU/GPU tradeoffs, parallelism, matrices, tensors, and transformer motivation | 4–5 hr |
-| [02](lessons/02-gpu-execution-model/) | Host/device execution, kernels, grids, blocks, threads, warps, SMs, divergence, and latency hiding | 2–3 hr |
-| [03](lessons/03-compute-units-and-tensor-cores/) | Arithmetic pipelines, CUDA-core terminology, matrix multiplication, Tensor Cores, precision, and FLOPS | 90–120 min |
-| [04](lessons/04-gpu-memory-hierarchy/) | Bits and bytes, registers, caches, VRAM, bandwidth, transfers, allocation, and inference memory estimates | 90–120 min |
-| [05](lessons/05-performance-limiters/) | Latency, compute and memory limits, arithmetic intensity, prefill, decode, and batching | 75–90 min |
-| [06](lessons/06-cuda-software-stack-and-observability/) | PyTorch, CUDA, drivers, asynchronous execution, streams, `nvidia-smi`, and profilers | 75–90 min |
+| [01](lessons/01-computing-and-parallelism-foundations/) | Computing, dependencies, CPU/GPU tradeoffs, parallelism, and matrix multiplication | 3–4 hr |
+| [02](lessons/02-transformer-inference-foundations/) | Tokens, embeddings, hidden states, attention, Q/K/V, causal masking, prefill, decode, and KV cache | 4–6 hr |
+| [03](lessons/03-transformer-workloads-on-gpus/) | Matrix shapes, prefill/decode parallelism, batching, KV-cache traffic, and host/device mapping | 90–150 min |
+| [04](lessons/04-gpu-execution-model/) | Host/device execution, kernels, grids, blocks, threads, warps, SMs, divergence, and latency hiding | 2–3 hr |
+| [05](lessons/05-compute-units-and-tensor-cores/) | Arithmetic pipelines, CUDA-core terminology, matrix multiplication, Tensor Cores, precision, and FLOPS | 90–120 min |
+| [06](lessons/06-gpu-memory-hierarchy/) | Bits and bytes, registers, caches, VRAM, bandwidth, transfers, allocation, and inference memory estimates | 90–120 min |
+| [07](lessons/07-performance-limiters/) | Latency, compute and memory limits, arithmetic intensity, prefill, decode, and batching | 75–90 min |
+| [08](lessons/08-cuda-software-stack-and-observability/) | PyTorch, CUDA, drivers, asynchronous execution, streams, `nvidia-smi`, and profilers | 75–90 min |
 
-Use the [lesson index](lessons/README.md) to resume. Do not read all six in one
+Use the [lesson index](lessons/README.md) to resume. Do not read all eight in one
 sitting. Complete the knowledge check at the end of each lesson before moving
 on.
 
@@ -53,7 +55,7 @@ version:
 
 ## Required Work
 
-1. Read all six lesson `README.md` files and complete their embedded knowledge checks.
+1. Read all eight lesson `README.md` files and complete their embedded knowledge checks.
    Complete each lesson-local lab when one is provided.
 2. Complete [exercises.md](exercises.md) as a closed-notes integration check.
 3. Complete the concept-map [lab.md](lab.md).

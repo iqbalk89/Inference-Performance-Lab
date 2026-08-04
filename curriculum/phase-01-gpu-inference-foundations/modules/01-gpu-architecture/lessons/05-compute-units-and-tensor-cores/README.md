@@ -1,4 +1,4 @@
-# Lesson 03 — Compute Units and Tensor Cores
+# Lesson 05 — Compute Units and Tensor Cores
 
 ## What you will learn
 

@@ -38,7 +38,18 @@ Browser**. The file runs locally and makes no network requests.
 Keep [`worksheet.md`](worksheet.md) open beside it. Do not merely click through;
 predict each result before revealing or changing it.
 
-## Required Route
+## Staged Route
+
+The lab spans the first three lessons, but it is deliberately staged so the lab
+does not introduce transformer theory before its reading prerequisite:
+
+- **After Lesson 01:** complete Stations 1–4.
+- **After Lesson 02:** return for Stations 5–6.
+- **After Lesson 03:** complete Station 7, then repeat Stations 4–7 and explain
+  their GPU-performance implications.
+
+Do not attempt Station 5 or 6 before reading
+[Transformer Inference Foundations](../../02-transformer-inference-foundations/).
 
 Complete the seven stations in order:
 
@@ -73,6 +84,6 @@ The lab is complete when:
 - You can explain the KV cache without calling it a cache of words or answers.
 - You can identify the complete measured boundary in the offload-cost station.
 
-Return to the [Lesson 01 reading](../README.md) for any missed concept. Do not
-move to Lesson 02 until you can complete the final teach-back without notes.
-
+Return to the applicable reading for any missed concept. Complete the Lesson 01
+stations before moving to Lesson 02; complete the attention and generation
+stations only after Lesson 02 provides their algorithmic foundation.
