@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" role="img" aria-labelledby="title desc">
+  <title id="title">Prompt-to-GPU inference data flow</title>
+  <desc id="desc">Six frames show a prompt entering a CPU service, tokenization into IDs, transfer to GPU memory, embedding lookup, parallel transformer matrix operations, and next-token selection.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1220"/>
+      <stop offset="1" stop-color="#172554"/>
+    </linearGradient>
+    <linearGradient id="cpu" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0369a1"/>
+      <stop offset="1" stop-color="#0e7490"/>
+    </linearGradient>
+    <linearGradient id="gpu" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#15803d"/>
+      <stop offset="1" stop-color="#3f6212"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#93c5fd"/>
+    </marker>
+    <style>
+      .title { font: 700 34px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; fill:#f8fafc }
+      .subtitle { font: 400 17px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; fill:#cbd5e1 }
+      .frame-title { font: 700 19px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; fill:#fff }
+      .body { font: 400 15px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; fill:#e2e8f0 }
+      .small { font: 400 13px ui-monospace,SFMono-Regular,Menlo,monospace; fill:#dbeafe }
+      .number { font: 700 18px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; fill:#0f172a }
+      .label { font: 700 14px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; fill:#fef3c7 }
+      .arrow { stroke:#93c5fd; stroke-width:4; fill:none; marker-end:url(#arrow) }
+    </style>
+  </defs>
+  <rect width="1400" height="900" rx="24" fill="url(#bg)"/>
+  <text x="60" y="60" class="title">One inference step: from words to parallel GPU math</text>
+  <text x="60" y="92" class="subtitle">Illustrative model dimensions and token IDs are intentionally tiny; real models use much larger tensors.</text>
+
+  <!-- CPU zone -->
+  <rect x="40" y="125" width="640" height="710" rx="22" fill="#082f49" opacity="0.72" stroke="#38bdf8" stroke-width="2"/>
+  <text x="65" y="160" class="frame-title">HOST / CPU SIDE — control, validation, tokenization, orchestration</text>
+
+  <!-- Frame 1 -->
+  <g filter="url(#shadow)">
+    <rect x="70" y="190" width="580" height="145" rx="18" fill="url(#cpu)"/>
+    <circle cx="102" cy="222" r="19" fill="#fbbf24"/><text x="96" y="229" class="number">1</text>
+    <text x="135" y="225" class="frame-title">Request arrives</text>
+    <text x="95" y="263" class="body">Prompt:</text>
+    <rect x="160" y="243" width="420" height="42" rx="9" fill="#0c4a6e" stroke="#7dd3fc"/>
+    <text x="180" y="270" class="small">&quot;Why is the sky blue?&quot;</text>
+    <text x="95" y="313" class="body">CPU checks request shape, limits, and generation settings.</text>
+  </g>
+
+  <!-- Frame 2 -->
+  <g filter="url(#shadow)">
+    <rect x="70" y="370" width="580" height="205" rx="18" fill="url(#cpu)"/>
+    <circle cx="102" cy="402" r="19" fill="#fbbf24"/><text x="96" y="409" class="number">2</text>
+    <text x="135" y="405" class="frame-title">Tokenizer converts text to model symbols</text>
+    <text x="95" y="445" class="body">Illustrative token pieces:</text>
+    <text x="95" y="478" class="small">[&quot;Why&quot;, &quot; is&quot;, &quot; the&quot;, &quot; sky&quot;, &quot; blue&quot;, &quot;?&quot;]</text>
+    <text x="95" y="514" class="body">Tokenizer vocabulary lookup:</text>
+    <text x="95" y="546" class="small">token IDs = [812, 27, 279, 13180, 6437, 30]</text>
+    <text x="95" y="568" class="subtitle">IDs are hypothetical—not values from a named tokenizer.</text>
+  </g>
+
+  <!-- Frame 3 -->
+  <g filter="url(#shadow)">
+    <rect x="70" y="610" width="580" height="185" rx="18" fill="url(#cpu)"/>
+    <circle cx="102" cy="642" r="19" fill="#fbbf24"/><text x="96" y="649" class="number">3</text>
+    <text x="135" y="645" class="frame-title">CPU prepares and submits device work</text>
+    <text x="95" y="686" class="body">Creates/updates input tensors and generation state.</text>
+    <text x="95" y="719" class="body">CUDA-capable framework asks the driver to queue GPU operations.</text>
+    <text x="95" y="752" class="small">host token IDs  ──transfer if needed──▶  GPU VRAM</text>
+    <text x="95" y="780" class="subtitle">The CPU coordinates; it does not calculate the large model layers itself.</text>
+  </g>
+
+  <!-- GPU zone -->
+  <rect x="720" y="125" width="640" height="710" rx="22" fill="#14532d" opacity="0.60" stroke="#4ade80" stroke-width="2"/>
+  <text x="745" y="160" class="frame-title">DEVICE / GPU SIDE — tensor storage and parallel numerical kernels</text>
+
+  <!-- Frame 4 -->
+  <g filter="url(#shadow)">
+    <rect x="750" y="190" width="580" height="170" rx="18" fill="url(#gpu)"/>
+    <circle cx="782" cy="222" r="19" fill="#bef264"/><text x="776" y="229" class="number">4</text>
+    <text x="815" y="225" class="frame-title">Embedding lookup creates token vectors</text>
+    <text x="775" y="263" class="body">Each token ID selects one learned row from an embedding table.</text>
+    <text x="775" y="298" class="small">X = 6 token rows × 4 teaching features</text>
+    <text x="775" y="328" class="small">[ 0.2 -0.1  0.7  0.4 ]  ← vector for &quot;Why&quot;</text>
+    <text x="775" y="350" class="small">[ ... three more values ... ] × six rows</text>
+  </g>
+
+  <!-- Frame 5 -->
+  <g filter="url(#shadow)">
+    <rect x="750" y="395" width="580" height="235" rx="18" fill="url(#gpu)"/>
+    <circle cx="782" cy="427" r="19" fill="#bef264"/><text x="776" y="434" class="number">5</text>
+    <text x="815" y="430" class="frame-title">Transformer layers run parallel tensor operations</text>
+    <text x="775" y="470" class="small">Q = X × WQ     K = X × WK     V = X × WV</text>
+    <text x="775" y="505" class="body">Output cells are partitioned into tiles and logical GPU workers.</text>
+    <rect x="785" y="530" width="75" height="55" fill="#166534" stroke="#bbf7d0"/>
+    <rect x="860" y="530" width="75" height="55" fill="#15803d" stroke="#bbf7d0"/>
+    <rect x="935" y="530" width="75" height="55" fill="#166534" stroke="#bbf7d0"/>
+    <rect x="1010" y="530" width="75" height="55" fill="#15803d" stroke="#bbf7d0"/>
+    <text x="797" y="563" class="small">tile 0</text><text x="872" y="563" class="small">tile 1</text>
+    <text x="947" y="563" class="small">tile 2</text><text x="1022" y="563" class="small">tile 3</text>
+    <text x="775" y="611" class="subtitle">Finite SMs schedule additional ready tiles in waves.</text>
+  </g>
+
+  <!-- Frame 6 -->
+  <g filter="url(#shadow)">
+    <rect x="750" y="665" width="580" height="130" rx="18" fill="url(#gpu)"/>
+    <circle cx="782" cy="697" r="19" fill="#bef264"/><text x="776" y="704" class="number">6</text>
+    <text x="815" y="700" class="frame-title">Final projection produces next-token scores</text>
+    <text x="775" y="738" class="small">hidden state × vocabulary weights → logits</text>
+    <text x="775" y="770" class="body">Selection policy chooses one ID; tokenizer later decodes it to text.</text>
+  </g>
+
+  <!-- Cross-zone arrows -->
+  <path d="M 650 700 C 690 700, 705 275, 750 275" class="arrow"/>
+  <text x="662" y="470" class="label" transform="rotate(-74 662 470)">submit + transfer</text>
+  <path d="M 750 770 C 705 805, 690 805, 650 770" class="arrow"/>
+  <text x="745" y="868" class="subtitle">Generation repeats model execution and token selection until a stop condition.</text>
+</svg>

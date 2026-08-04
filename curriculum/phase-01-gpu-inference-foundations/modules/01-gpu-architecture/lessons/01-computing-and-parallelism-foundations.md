@@ -955,17 +955,444 @@ different design investment from maximizing parallel arithmetic throughput.
 
 ## 6. GPU Design Priorities
 
-### 6.1 Origins and generalization
+### 6.1 Terms Needed Before We Discuss GPU Inference
 
-GPUs were developed to perform graphics workloads, where many pixels and
-vertices require similar mathematical treatment. Their massively parallel
-structure also suits simulations and neural-network tensor operations.
+This section uses several machine-learning and NVIDIA terms that have not yet
+been introduced. Define them first; do not infer their meaning from their names.
 
-Modern NVIDIA GPUs support general-purpose computing through CUDA. They contain
-many **Streaming Multiprocessors (SMs)**, which schedule and execute groups of
-GPU threads. Lesson 02 develops this execution model fully.
+#### Token
 
-### 6.2 Throughput-oriented design
+A language model does not normally receive complete English words directly. A
+**token** is one unit produced by a model's tokenizer. Depending on the
+tokenizer and text, a token can represent:
+
+- A whole word
+- Part of a word
+- Punctuation
+- Whitespace combined with nearby text
+- A byte or character-like unit
+
+The exact split belongs to the selected tokenizer. For example, one tokenizer
+might split:
+
+```text
+"Why is the sky blue?"
+```
+
+into the illustrative pieces:
+
+```text
+["Why", " is", " the", " sky", " blue", "?"]
+```
+
+Another tokenizer may split the same text differently.
+
+#### Token ID
+
+The tokenizer owns a vocabulary: a mapping between token pieces and integer
+identifiers. A **token ID** is the integer the model uses to identify a token.
+
+```text
+Token piece       Hypothetical ID
+-----------       ---------------
+"Why"                  812
+" is"                   27
+" the"                 279
+" sky"              13,180
+" blue"              6,437
+"?"                     30
+```
+
+These numbers are intentionally hypothetical. Token IDs have meaning only in
+the vocabulary of a particular tokenizer and model.
+
+#### Tensor
+
+A **tensor** is a multidimensional collection of numerical values together with
+properties such as shape and data type. At this point, think of a tensor as a
+generalization of a number, list, or matrix:
+
+```text
+One number:                 scalar tensor
+One-dimensional list:       vector tensor
+Two-dimensional grid:       matrix tensor
+Three or more dimensions:   higher-dimensional tensor
+```
+
+Section 8 develops tensors in more detail. The definition appears here because
+GPU frameworks package model inputs, weights, and intermediate results as
+tensors.
+
+#### Embedding
+
+A token ID is only a category label; arithmetic on the number `812` would not
+capture the meaning of “Why.” An **embedding** maps each token ID to a learned
+vector of floating-point values.
+
+```mermaid
+flowchart LR
+    PIECE["Token piece: Why"] --> ID["Token ID: 812"]
+    ID --> LOOKUP["Embedding-table row lookup"]
+    LOOKUP --> VECTOR["Learned vector: 0.2, -0.1, 0.7, 0.4, ..."]
+```
+
+The real vector can contain thousands of values. The four-value vector above is
+only a teaching illustration.
+
+#### Model weights
+
+**Weights** are numerical parameters learned during training. During inference,
+the model repeatedly uses large weight tensors to transform input and
+intermediate tensors. Weight matrices encode learned transformations; they are
+not a database of human-readable sentences.
+
+#### CUDA
+
+**CUDA** is NVIDIA's software platform and programming model for using NVIDIA
+GPUs for general-purpose computation. CUDA supplies concepts and interfaces for
+activities such as:
+
+- Selecting a GPU
+- Allocating GPU memory
+- Moving data
+- Submitting functions for GPU execution
+- Ordering and synchronizing work
+- Using optimized numerical libraries
+
+CUDA is not the GPU itself, and it is not another name for a Tensor Core.
+Frameworks such as PyTorch use CUDA-enabled libraries and runtime interfaces so
+the application can ask an NVIDIA GPU to execute suitable operations. Lesson 06
+explains the CUDA software stack fully; this definition is enough for the
+request walkthrough below.
+
+#### GPU kernel
+
+A **kernel** is a function submitted for parallel execution on the GPU. A
+framework operation may launch one kernel, several kernels, or a fused kernel
+representing several conceptual operations.
+
+#### Streaming Multiprocessor
+
+A **Streaming Multiprocessor (SM)** is a major GPU processing unit that contains
+thread schedulers, registers, shared memory/cache resources, and several kinds
+of execution pipelines. A GPU contains multiple SMs. They collectively execute
+thread groups assigned by GPU hardware.
+
+Lesson 02 explains kernels, threads, blocks, warps, and SM scheduling in depth.
+
+### 6.2 Origins: From Graphics to General-Purpose Computation
+
+Graphics workloads repeatedly apply related calculations to many vertices,
+fragments, and pixels. For example, millions of output pixels may need colors
+computed from geometry, textures, lighting, and viewing information. That work
+contains large amounts of structured data parallelism.
+
+GPU designs evolved around this need for high aggregate arithmetic throughput.
+As GPU programmability increased, engineers used the same broad architecture
+for non-graphics workloads with similar parallel structure, including:
+
+- Physical simulation
+- Scientific computing
+- Image and video processing
+- Machine learning
+- Transformer inference
+
+CUDA is the NVIDIA platform that exposes NVIDIA GPUs for this
+general-purpose-computing use. The important chain is:
+
+```mermaid
+flowchart LR
+    GRAPHICS["Graphics requires similar calculations over many data items"]
+    GRAPHICS --> ARCH["GPU develops throughput-oriented parallel architecture"]
+    ARCH --> CUDA["CUDA exposes that architecture for general computation"]
+    CUDA --> ML["Frameworks use CUDA to run suitable machine-learning operations"]
+```
+
+### 6.3 The CPU/GPU Design Tradeoff — The Main Rule and the Nuance
+
+The main distinction is exactly the one you suspected:
+
+> **CPUs are primarily optimized for flexible control flow and low-latency
+> progress through a modest number of instruction streams. GPUs are primarily
+> optimized for high-throughput execution of large amounts of structured
+> parallel numerical work.**
+
+The earlier wording—“CPUs perform parallel work; GPUs handle control flow”—was
+not intended to reverse those roles. It attempted to say neither capability is
+exclusive, but it gave the exception too much emphasis and obscured the rule.
+
+Here is the corrected comparison:
+
+| Design concern | CPU emphasis | GPU emphasis |
+| --- | --- | --- |
+| Primary strength | Flexible application and control logic | Structured parallel numerical computation |
+| Individual execution resources | Fewer sophisticated cores | Many SMs containing many execution pathways |
+| Branching | Strong machinery for irregular and unpredictable branches | Supports branches, but divergence within thread groups can waste work |
+| Latency strategy | Make one/few threads advance quickly using caches, prediction, and out-of-order execution | Keep many thread groups available and issue other work while some groups wait |
+| Memory design emphasis | Large low-latency cache hierarchy | High aggregate device-memory bandwidth plus on-chip reuse |
+| Typical inference responsibilities | Networking, validation, tokenization, scheduling, orchestration | Embeddings and large tensor operations across model layers |
+
+#### Why the nuance still matters
+
+“CPU handles control; GPU handles parallel work” is a good first approximation,
+not an absolute boundary:
+
+- Modern CPUs have multiple cores and vector instructions, so they can execute
+  parallel numerical work.
+- GPUs execute instructions containing comparisons, loops, and branches, so
+  they do perform control flow.
+- A full inference engine may move token selection or generation bookkeeping to
+  the GPU to avoid synchronization.
+- Some small tensor operations may be faster on the CPU because GPU overhead
+  exceeds useful work.
+
+The accurate conclusion is asymmetric:
+
+```text
+PRIMARY DESIGN PRIORITY
+
+CPU ───────────────────────────────▶ flexible control + low thread latency
+GPU ───────────────────────────────▶ structured parallel throughput
+
+SECONDARY CAPABILITY
+
+CPU can perform parallel math.
+GPU can execute control-flow instructions.
+```
+
+The secondary capabilities do not erase the primary design priorities.
+
+### 6.4 Frame-by-Frame Walkthrough: One Prompt Reaches the GPU
+
+The following figure functions like six animation frames. Read it from the
+upper-left downward, then continue at the upper-right.
+
+![Six-frame prompt-to-GPU inference flow](assets/prompt-to-gpu-inference-flow.svg)
+
+The dimensions, vectors, and token IDs are deliberately tiny or hypothetical
+so the transformations can be seen. A real model uses its own tokenizer and
+weight tensors with much larger dimensions.
+
+#### Frame 1 — CPU receives and validates the request
+
+Suppose a client sends:
+
+```text
+Prompt: "Why is the sky blue?"
+Maximum new tokens: 20
+Sampling policy: deterministic greedy selection
+```
+
+Server code running on the CPU may:
+
+1. Parse the HTTP request.
+2. Confirm the prompt is a string.
+3. Check prompt and output limits.
+4. Confirm the requested model is ready.
+5. Choose the appropriate tokenizer and generation configuration.
+
+These are branching and orchestration tasks. They are natural CPU work.
+
+#### Frame 2 — CPU tokenizer converts text to token IDs
+
+Using the hypothetical mapping introduced in Section 6.1:
+
+```text
+Text:
+"Why is the sky blue?"
+
+Token pieces:
+["Why", " is", " the", " sky", " blue", "?"]
+
+Token IDs:
+[812, 27, 279, 13180, 6437, 30]
+```
+
+The position in the ID list preserves token order:
+
+```text
+position:    0     1     2       3      4    5
+token ID:  812    27   279   13180   6437   30
+```
+
+The model uses both token identity and position. Reordering these IDs changes
+the input sequence.
+
+#### Frame 3 — Framework prepares device work
+
+The framework represents the IDs as an integer tensor with a shape such as:
+
+```text
+input_ids shape = [batch size, token count]
+                = [1, 6]
+```
+
+If the tensor is in host memory and the model is on the GPU, the required input
+data is made available in GPU memory. The CPU-side framework then submits CUDA
+operations. The CPU does not send English words directly to arithmetic units;
+it submits operations over encoded tensors.
+
+#### Frame 4 — GPU performs embedding lookup
+
+The embedding table can be imagined as a large matrix:
+
+```text
+embedding_table shape = [vocabulary size, hidden size]
+```
+
+Each token ID selects one row. For teaching purposes, pretend the hidden size is
+only four:
+
+```text
+Token       Hypothetical embedding row
+-----       --------------------------------
+"Why"       [ 0.2, -0.1,  0.7,  0.4]
+" is"       [ 0.0,  0.5, -0.3,  0.8]
+" the"      [ 0.6,  0.2,  0.1, -0.4]
+" sky"      [ 0.9, -0.5,  0.3,  0.2]
+" blue"     [ 0.7,  0.1,  0.8, -0.2]
+"?"         [-0.1,  0.4,  0.0,  0.5]
+```
+
+Stacking the rows produces a token-state matrix `X`:
+
+```text
+X shape = [6 token positions, 4 hidden features]
+
+    feature 0  feature 1  feature 2  feature 3
+    ---------  ---------  ---------  ---------
+Why     0.2       -0.1        0.7        0.4
+ is     0.0        0.5       -0.3        0.8
+ the    0.6        0.2        0.1       -0.4
+ sky    0.9       -0.5        0.3        0.2
+ blue   0.7        0.1        0.8       -0.2
+ ?     -0.1        0.4        0.0        0.5
+```
+
+These values do not individually translate back into simple concepts such as
+“question” or “color.” Meaning is distributed across learned dimensions and
+transformations.
+
+#### Frame 5 — Transformer layers apply matrix operations
+
+A simplified linear transformation is:
+
+```text
+Y = X × W
+```
+
+If `X` has shape `[6, 4]` and a weight matrix `W` has shape `[4, 8]`, then:
+
+```text
+[6, 4] × [4, 8] → [6, 8]
+```
+
+`Y` contains 48 output values. Each output value is a dot product between one
+row of `X` and one column of `W`.
+
+The next figure uses even smaller integer matrices—three token rows, two input
+features, and four output features—so every output can be verified manually.
+
+![Matrix outputs divided into parallel GPU work](assets/parallel-matrix-output.svg)
+
+For one cell in that figure:
+
+```text
+X row 1       = [3, 4]
+W column 2    = [2, 1]
+
+Y[1,2] = (3 × 2) + (4 × 1)
+       = 6 + 4
+       = 10
+```
+
+Other output cells use other row/column combinations. Once input values are
+available, output cells do not require one another's final values. This creates
+available parallel work.
+
+Real GPU matrix kernels do not normally assign one simplistic standalone
+thread to each entire dot product. Efficient libraries divide matrices into
+**tiles**, assign tiles to thread blocks, cooperate across thread groups, reuse
+data, and use specialized instructions. The correct beginner insight is:
+
+```text
+Large output matrix
+        ↓ divide into tiles
+Many independent or regularly structured output regions
+        ↓ schedule blocks across finite SMs
+Many arithmetic operations execute concurrently and in waves
+```
+
+Transformer blocks repeat several large learned transformations. In attention,
+the model forms query, key, and value tensors using operations commonly written
+as:
+
+```text
+Q = X × WQ
+K = X × WK
+V = X × WV
+```
+
+The model then calculates attention relationships and applies additional
+projections and feed-forward layers. Section 8 introduces that flow; Module 03
+develops the mechanics fully.
+
+#### Frame 6 — Final projection produces next-token scores
+
+After all transformer layers, a final transformation produces one score for
+each token in the model vocabulary. These scores are called **logits**.
+
+Tiny illustration:
+
+```text
+Candidate token      Logit
+---------------      -----
+"Because"             8.2
+"The"                 6.9
+"Blue"                3.1
+"Car"                -1.4
+```
+
+A decoding policy converts logits into a next-token choice. If the chosen token
+is `"Because"`, the generated sequence becomes conceptually:
+
+```text
+"Why is the sky blue?" + "Because"
+```
+
+The model then performs another decode iteration to choose the following token.
+The generated answer emerges one selected token at a time—not as a complete
+sentence stored inside one matrix.
+
+### 6.5 CPU and GPU Activity Over Time
+
+The following sequence diagram emphasizes responsibility and ordering:
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant CPU as CPU service and framework
+    participant Driver as CUDA and NVIDIA driver
+    participant GPU
+    Client->>CPU: Prompt and generation settings
+    CPU->>CPU: Validate request
+    CPU->>CPU: Tokenize text into IDs
+    CPU->>CPU: Build input tensor and generation state
+    CPU->>Driver: Submit transfer and model operations
+    Driver->>GPU: Queue kernels and data movement
+    GPU->>GPU: Embedding lookup
+    GPU->>GPU: Parallel transformer tensor operations
+    GPU->>GPU: Final projection to logits
+    GPU-->>CPU: Make required result or selected ID available
+    CPU->>CPU: Decode ID to text and manage response
+    CPU-->>Client: Generated output
+```
+
+Implementations differ. Some keep token selection and more generation logic on
+the GPU to avoid repeated CPU synchronization. The diagram communicates the
+conceptual responsibilities, not a mandatory transfer after every token.
+
+### 6.6 Throughput-Oriented GPU Resources
 
 A GPU allocates substantial resources to:
 
@@ -986,60 +1413,46 @@ GPU die — conceptual, not to scale
 └──────────────────────────────────────────────────────┘
 ```
 
-### 6.3 The design tradeoff
+The GPU still has finite resources. A matrix with millions of logical output
+calculations is divided and scheduled across available hardware over time.
 
-Broadly:
-
-- A CPU spends more resources making a few instruction streams fast and
-  flexible.
-- A GPU spends more resources keeping a large quantity of structured parallel
-  work moving.
-
-```text
-CPU priority                         GPU priority
------------------------------        -----------------------------
-Low latency for diverse work         High throughput for parallel work
-Sophisticated individual cores       Many SMs and execution pipelines
-Strong irregular control handling    Efficient similar operations on data
-Large low-latency caches              High aggregate memory bandwidth
-```
-
-This table describes priorities, not absolute capabilities. CPUs perform
-parallel work; GPUs handle control flow. The distinction is one of emphasis.
-
-### 6.4 GPU threads are lightweight logical workers
+### 6.7 GPU Threads Are Logical Workers, Not Permanent Cores
 
 A GPU program may define thousands or millions of logical threads. A thread
-describes one instance of work, such as “calculate output element `i`.” It does
-not mean the GPU contains one permanent physical core for every thread.
-
-Hardware schedules threads in groups and waves over finite execution resources.
+describes one instance of work, such as “help calculate this output region.” It
+does not mean the GPU contains one permanent physical core for every thread.
 
 ```text
 Logical threads:  [0][1][2][3][4][5] ... [999999]
-Physical GPU:      finite SMs and pipelines
-Execution:         scheduled over time in many groups
+Physical GPU:      finite SMs and execution pipelines
+Execution:         logical work scheduled in groups and waves
 ```
 
-### 6.5 Hiding latency with many ready groups
+Lesson 02 explains how threads are grouped into blocks and warps. For now,
+separate the **quantity of described work** from the **quantity of physical
+hardware available at one instant**.
 
-When one group waits for data, an SM can issue ready work from another group.
+### 6.8 Hiding Latency With Many Ready Groups
+
+When one thread group waits for data, an SM can issue eligible instructions
+from another ready group.
 
 ```mermaid
 sequenceDiagram
     participant W1 as Thread group 1
     participant SM as SM scheduler
     participant W2 as Thread group 2
-    W1->>SM: Waiting for memory
-    SM->>W2: Issue ready instruction
-    W1-->>SM: Data becomes ready
-    SM->>W1: Resume eligible work
+    W1->>SM: Issue memory request and become ineligible
+    SM->>W2: Issue ready arithmetic instruction
+    W1-->>SM: Requested data becomes available
+    SM->>W1: Resume eligible instruction
 ```
 
-This strategy requires enough ready work. A tiny workload may leave most GPU
-resources unused.
+This does not shorten the memory access itself. It tries to keep execution
+resources productive during the wait. It requires enough independent ready
+groups; a tiny workload may leave much of the GPU unused.
 
-### 6.6 Host and device cooperation
+### 6.9 Host and Device Cooperation
 
 In CUDA terminology:
 
@@ -1049,38 +1462,52 @@ In CUDA terminology:
 ```mermaid
 flowchart LR
     subgraph Host
-      APP[Application / PyTorch]
-      RAM[System memory]
+      APP["Application and PyTorch"]
+      RAM["System memory"]
     end
     subgraph Device
-      GPU[GPU execution]
-      VRAM[Device memory]
+      GPU["GPU execution"]
+      VRAM["GPU device memory"]
     end
-    APP -- submit work --> GPU
-    RAM <-- data transfers --> VRAM
+    APP -- "submit CUDA work" --> GPU
+    RAM <-- "transfer data when required" --> VRAM
 ```
 
-The host prepares and submits work. The device performs GPU operations. Data
-may need to move between host RAM and GPU VRAM, which costs time.
+The host prepares and orchestrates work. The device performs submitted GPU
+operations. Data movement and synchronization are real costs, so efficient
+systems avoid unnecessary back-and-forth transfers.
 
-### 6.7 Why large tensors help
+### 6.10 Why Large Tensor Operations Help
 
+Now that **tensor** has been defined, we can state the connection precisely.
 If a tensor operation contains millions of independent or regularly structured
 output calculations, the GPU has a large pool of ready work. That allows it to:
 
-- Distribute blocks of work across many SMs
-- Keep many thread groups active
+- Divide output regions into blocks or tiles
+- Distribute blocks across many SMs
+- Keep multiple thread groups ready
 - Hide some memory latency
-- Use specialized matrix hardware where eligible
+- Reuse data within faster parts of the memory hierarchy
+- Use specialized matrix hardware when the operation, shape, dtype, and kernel
+  are eligible
 
-A four-element list is useful for understanding independence but is far too
-small to justify a real GPU launch by itself. The transformer case succeeds
-because the same idea scales to enormous tensor operations.
+A four-element list is useful for understanding independence but is too small
+to justify a real GPU launch by itself. Transformer layers apply the same broad
+principle at enormous scale.
 
-### Section 6 checkpoint
+### Section 6 Checkpoint
 
-Explain why “a GPU runs many logical threads” does not mean “every thread owns a
-physical core,” and why a large pool of ready work helps the GPU hide waiting.
+Without looking back, explain:
+
+1. CUDA, token, token ID, tensor, embedding, weight, kernel, and SM.
+2. The primary CPU/GPU design distinction and the non-exclusive nuance.
+3. The path from `"Why is the sky blue?"` to token IDs and an embedding matrix.
+4. How `Y = X × W` creates many output calculations that GPU kernels can divide
+   into tiles and schedule across SMs.
+5. Why logical GPU threads are not permanent physical cores.
+6. Why a large supply of ready work can hide memory latency.
+7. Why a real implementation may keep token selection on the GPU rather than
+   copying a result to the CPU after every iteration.
 
 ---
 
