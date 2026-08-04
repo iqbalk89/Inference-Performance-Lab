@@ -8,6 +8,7 @@
     :root{--bg:#07111f;--panel:#111d31;--line:#334963;--text:#f8fafc;--muted:#b8c6d9;--cyan:#22d3ee;--purple:#a78bfa;--green:#4ade80;--amber:#fbbf24;--red:#fb7185}
     *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#10213b,var(--bg) 45%);color:var(--text);font:16px/1.55 system-ui,-apple-system,sans-serif}header,main{max-width:1180px;margin:auto;padding:30px}header{padding-top:55px}h1{font-size:clamp(32px,5vw,54px);line-height:1.05;margin:0 0 14px}h2{font-size:28px;margin:0 0 8px}h3{margin:12px 0 8px}.lede,.note{color:var(--muted)}nav{display:flex;flex-wrap:wrap;gap:8px;margin:25px 0}nav a,button{background:#19304c;color:var(--text);border:1px solid #466584;border-radius:9px;padding:9px 13px;text-decoration:none;cursor:pointer}button:hover,nav a:hover{border-color:var(--cyan)}section{background:linear-gradient(145deg,#111d31,#0c1729);border:1px solid var(--line);border-radius:20px;margin:24px 0;padding:26px;box-shadow:0 12px 35px #0005}.station{color:var(--cyan);font-weight:750;text-transform:uppercase;letter-spacing:.08em}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}.card{background:#101a2b;border:1px solid var(--line);border-radius:14px;padding:16px}.controls{display:flex;flex-wrap:wrap;gap:14px;align-items:end;margin:18px 0}.control{display:grid;gap:4px}.control label{color:var(--muted);font-size:13px}.control input,.control select{background:#07111f;color:var(--text);border:1px solid #466584;border-radius:7px;padding:8px}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.cells{display:grid;gap:5px;align-items:stretch}.cell{min-width:48px;min-height:45px;border:1px solid #5b7998;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#16314a;text-align:center;padding:4px}.cell.ready{border-color:var(--amber);box-shadow:0 0 0 2px #fbbf2444}.cell.done{background:#14532d;border-color:var(--green)}.cell.blocked{background:#3f2430;border-color:var(--red)}.cell.selected{background:#5b21b6;border-color:#ddd6fe;box-shadow:0 0 0 2px #a78bfa55}.cell.masked{background:repeating-linear-gradient(135deg,#303642,#303642 8px,#1d2430 8px,#1d2430 16px);color:#cbd5e1}.axis{color:var(--muted);font-size:13px}.result{border-left:4px solid var(--cyan);padding:10px 14px;background:#0a1526;margin:12px 0}.legend{display:flex;flex-wrap:wrap;gap:16px;color:var(--muted);font-size:13px}.dot{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px}.tensor-sheet{border:2px solid var(--cyan);border-radius:10px;padding:12px;background:#0f3545;box-shadow:9px -9px 0 #25334a;margin:12px}.matrix-wrap{overflow:auto}.matrix{border-collapse:separate;border-spacing:4px}.matrix th{font-weight:400;color:var(--muted);font-size:12px}.matrix td{width:62px;height:52px;text-align:center;border:1px solid #52708e;border-radius:5px;background:#15324c;cursor:pointer}.matrix td.rowpick,.matrix td.colpick{background:#92400e;border-color:var(--amber)}.matrix td.outpick{background:#166534;border-color:var(--green)}.wave{display:flex;gap:7px;margin:9px 0;align-items:center}.slot{width:90px;padding:10px;text-align:center;border-radius:7px;background:#164e63;border:1px solid var(--cyan)}.token-row{display:flex;gap:8px;flex-wrap:wrap}.token{padding:10px 14px;border-radius:8px;background:#155e75;border:1px solid var(--cyan)}.token.generated{background:#5b21b6;border-color:var(--purple)}.token.unknown{background:#303642;border:2px dashed var(--amber)}.attention-grid{display:grid;grid-template-columns:130px repeat(4,1fr);gap:4px}.attention-grid>div{padding:10px;text-align:center;border-radius:5px}.attention-grid .head{color:var(--muted)}.bar{height:24px;background:var(--green);border-radius:5px;min-width:2px}.costbar{display:grid;gap:6px}.segment{padding:9px;border-radius:6px;color:#08111f;font-weight:700}.warn{border:1px solid var(--amber);background:#3a2a0d;padding:12px;border-radius:9px}.pass{color:var(--green)}.fail{color:var(--red)}footer{color:var(--muted);text-align:center;padding:40px}@media(max-width:700px){header,main{padding:18px}.attention-grid{grid-template-columns:90px repeat(4,1fr)}.cell{min-width:35px}}
     .cell{flex-direction:column}
+    .attention-flow{display:flex;align-items:center;gap:18px;padding:12px 0}.attention-flow>div{flex:0 0 auto}.flow-op{font-size:34px;font-weight:800;color:var(--cyan);padding-top:44px}.matrix td.att-query{background:#5b21b6;border-color:#c4b5fd}.matrix td.att-source{background:#92400e;border-color:#fde68a}.matrix td.att-result{background:#166534;border-color:#86efac}.matrix td.att-zero{background:repeating-linear-gradient(135deg,#303642,#303642 8px,#1d2430 8px,#1d2430 16px);color:#cbd5e1}.matrix .row-label{width:80px;color:var(--muted);background:transparent;border:none;text-align:right;padding-right:8px}.matrix .col-label{color:var(--muted);background:transparent;border:none;height:30px;font-size:12px}.matrix td.no-click{cursor:default}@media(max-width:900px){.attention-flow{align-items:flex-start}.flow-op{padding-top:75px}}
   </style>
 </head>
 <body>
@@ -59,8 +60,30 @@
     <div class="station">Station 5</div><h2>Attention: scores, mask, and value mixing</h2>
     <p>Select the query row being updated. Q/K dot products create scores. The causal mask makes future positions contribute zero. Remaining weights mix V rows.</p>
     <div class="controls"><div class="control"><label>Query position</label><select id="query"><option value="0">0 · The</option><option value="1" selected>1 · sky</option><option value="2">2 · is</option><option value="3">3 · blue</option></select></div><label><input id="maskToggle" type="checkbox" checked> Apply causal mask</label></div>
-    <div id="attGrid" class="attention-grid"></div>
-    <div class="grid"><div class="card"><h3>Normalized weights</h3><div id="weightBars"></div></div><div class="card"><h3>Weighted V mixture</h3><div id="valueMix" class="mono"></div></div></div>
+    <div class="card">
+      <h3>Stage A — Q × Kᵀ creates the complete score matrix</h3>
+      <p class="note">Rows of Q are destination/query positions. Columns of Kᵀ are source/key positions. One score cell is the dot product of one Q row and one Kᵀ column.</p>
+      <div class="attention-flow matrix-wrap">
+        <div><h3>Q <span class="axis">[4 query positions × 2 features]</span></h3><table id="attQ" class="matrix"></table></div>
+        <div class="flow-op">×</div>
+        <div><h3>Kᵀ <span class="axis">[2 features × 4 key positions]</span></h3><table id="attKT" class="matrix"></table></div>
+        <div class="flow-op">=</div>
+        <div><h3>Scores <span class="axis">[4 queries × 4 keys]</span></h3><table id="attScores" class="matrix"></table></div>
+      </div>
+      <div id="scoreEquations" class="result mono"></div>
+    </div>
+    <div class="card" style="margin-top:18px">
+      <h3>Stage B — selected score row → mask → softmax weights; weights × V → output</h3>
+      <p class="note">The weights select how much of each corresponding V row contributes. K is used to calculate weights; V is what gets mixed.</p>
+      <div class="attention-flow matrix-wrap">
+        <div><h3>Weights <span class="axis">[1 × 4 sources]</span></h3><table id="attWeights" class="matrix"></table></div>
+        <div class="flow-op">×</div>
+        <div><h3>V <span class="axis">[4 source positions × 2 value features]</span></h3><table id="attV" class="matrix"></table></div>
+        <div class="flow-op">=</div>
+        <div><h3>Output <span class="axis">[1 × 2 features]</span></h3><table id="attOutput" class="matrix"></table></div>
+      </div>
+      <div id="valueMix" class="result mono"></div>
+    </div>
     <div id="leakWarning" class="result"></div>
   </section>
 
@@ -109,7 +132,26 @@ function wavesRender(){const n=+$('tiles').value,s=+$('slots').value;$('tilesO')
 // 5 — attention
 const names=['The','sky','is','blue'],Q=[[1,0],[0,1],[1,1],[2,1]],K=[[1,0],[0,1],[1,1],[1,2]],V=[[2,1],[1,3],[0,2],[3,1]];
 function softmax(a){const m=Math.max(...a.filter(Number.isFinite)),e=a.map(x=>Number.isFinite(x)?Math.exp(x-m):0),z=e.reduce((p,c)=>p+c,0);return e.map(x=>x/z)}
-function attentionRender(){const qi=+$('query').value,masked=$('maskToggle').checked,raw=K.map(k=>Q[qi][0]*k[0]+Q[qi][1]*k[1]),scores=raw.map((v,j)=>masked&&j>qi?-Infinity:v),weights=softmax(scores);$('attGrid').innerHTML=`<div></div>${names.map(n=>`<div class="head">KEY ${n}</div>`).join('')}<div class="head">QUERY ${names[qi]}</div>${scores.map((s,j)=>`<div class="${Number.isFinite(s)?'cell':'cell masked'}">${Number.isFinite(s)?`score ${s}`:'−∞ blocked'}</div>`).join('')}`;$('weightBars').innerHTML=weights.map((w,j)=>`<div style="display:grid;grid-template-columns:55px 1fr 55px;gap:8px;align-items:center;margin:8px"><span>${names[j]}</span><div class="bar" style="width:${Math.max(1,w*100)}%"></div><span>${w.toFixed(3)}</span></div>`).join('');const out=[0,1].map(f=>weights.reduce((s,w,j)=>s+w*V[j][f],0));$('valueMix').innerHTML=weights.map((w,j)=>`${w.toFixed(3)} × V${j} [${V[j]}]`).join('<br>')+`<br><br>attention output ≈ [${out.map(x=>x.toFixed(3)).join(', ')}]`;$('leakWarning').innerHTML=masked?`<strong>Causal rule:</strong> query position ${qi} may use positions 0–${qi}. Larger positions receive exactly zero weight.`:`<strong class="fail">Mask disabled for demonstration:</strong> query position ${qi} can now receive information from future positions. During next-token training, this can leak target information.`}
+function attentionRender(){
+  const qi=+$('query').value,masked=$('maskToggle').checked;
+  const allScores=Q.map(q=>K.map(k=>q[0]*k[0]+q[1]*k[1]));
+  const selectedScores=allScores[qi].map((v,j)=>masked&&j>qi?-Infinity:v);
+  const weights=softmax(selectedScores);
+  const out=[0,1].map(f=>weights.reduce((sum,w,j)=>sum+w*V[j][f],0));
+  const headers=labels=>`<tr><td class="col-label"></td>${labels.map(x=>`<td class="col-label">${x}</td>`).join('')}</tr>`;
+
+  $('attQ').innerHTML=headers(['q feature 0','q feature 1'])+Q.map((row,i)=>`<tr><td class="row-label">q${i} · ${names[i]}</td>${row.map(v=>`<td class="no-click ${i===qi?'att-query':''}">${v}</td>`).join('')}</tr>`).join('');
+  $('attKT').innerHTML=headers(names.map((n,i)=>`k${i} · ${n}`))+[0,1].map(f=>`<tr><td class="row-label">k feature ${f}</td>${K.map(row=>`<td class="no-click att-source">${row[f]}</td>`).join('')}</tr>`).join('');
+  $('attScores').innerHTML=headers(names.map((n,i)=>`key ${i} · ${n}`))+allScores.map((row,i)=>`<tr><td class="row-label">query ${i} · ${names[i]}</td>${row.map((v,j)=>{const blocked=masked&&j>i;return `<td class="no-click ${blocked?'att-zero':i===qi?'att-result':''}">${blocked?'−∞':v}</td>`}).join('')}</tr>`).join('');
+
+  $('scoreEquations').innerHTML=`Selected Q row: q${qi} = [${Q[qi]}]<br>`+K.map((k,j)=>`score[${qi},${j}] = q${qi} · k${j} = (${Q[qi][0]}×${k[0]}) + (${Q[qi][1]}×${k[1]}) = ${allScores[qi][j]}${masked&&j>qi?' → masked to −∞':''}`).join('<br>');
+
+  $('attWeights').innerHTML=headers(names.map((n,i)=>`source ${i} · ${n}`))+`<tr><td class="row-label">weight</td>${weights.map((w,j)=>`<td class="no-click ${w===0?'att-zero':'att-result'}">${w.toFixed(3)}</td>`).join('')}</tr>`;
+  $('attV').innerHTML=headers(['value feature 0','value feature 1'])+V.map((row,j)=>`<tr><td class="row-label">v${j} · ${names[j]}</td>${row.map(v=>`<td class="no-click ${weights[j]===0?'att-zero':'att-source'}">${v}</td>`).join('')}</tr>`).join('');
+  $('attOutput').innerHTML=headers(['output feature 0','output feature 1'])+`<tr><td class="row-label">for q${qi}</td>${out.map(v=>`<td class="no-click att-result">${v.toFixed(3)}</td>`).join('')}</tr>`;
+  $('valueMix').innerHTML=`output feature 0 = ${weights.map((w,j)=>`${w.toFixed(3)}×${V[j][0]}`).join(' + ')} = ${out[0].toFixed(3)}<br>output feature 1 = ${weights.map((w,j)=>`${w.toFixed(3)}×${V[j][1]}`).join(' + ')} = ${out[1].toFixed(3)}<br><br><strong>Q and K created the weights. The weights multiplied the rows of V.</strong>`;
+  $('leakWarning').innerHTML=masked?`<strong>Causal rule:</strong> query position ${qi} may use key/value source positions 0–${qi}. In the selected score row, larger positions become −∞ and therefore receive weight 0.`:`<strong class="fail">Mask disabled for demonstration:</strong> query position ${qi} can now mix V rows from future positions. During next-token training, this can leak target information.`;
+}
 ['query','maskToggle'].forEach(id=>$(id).onchange=attentionRender);attentionRender();
 
 // 6 — generation
