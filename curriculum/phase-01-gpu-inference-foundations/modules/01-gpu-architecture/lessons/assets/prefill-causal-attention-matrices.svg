@@ -1,0 +1,105 @@
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="920" viewBox="0 0 1400 920" role="img" aria-labelledby="title desc">
+  <title id="title">Prefill causal-attention matrices</title>
+  <desc id="desc">Four prompt tokens form query and key matrices, whose product is a four by four score matrix. The upper triangle is labeled as masked future information.</desc>
+  <defs>
+    <style>text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#f8fafc}.title{font-size:32px;font-weight:700}.h{font-size:20px;font-weight:700}.m{font-size:15px}.sub{font-size:14px;fill:#cbd5e1}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:15px}.card{fill:#172033;stroke:#475569;stroke-width:2}.q{fill:#155e75;stroke:#67e8f9}.allow{fill:#166534;stroke:#86efac}.mask{fill:#3f3f46;stroke:#a1a1aa}</style>
+  </defs>
+  <rect width="1400" height="920" rx="28" fill="#0f172a"/>
+  <text x="45" y="55" class="title">Prefill: calculate known prompt rows together, then enforce causality</text>
+  <text x="45" y="84" class="sub">One hypothetical layer/head teaching slice. Scaling, softmax, batching, and real dimensions are omitted.</text>
+  <g transform="translate(45 125)">
+    <rect width="420" height="285" rx="18" class="card"/>
+    <text x="22" y="38" class="h">1. Prompt tokens are all known</text>
+    <text x="22" y="78" class="mono">position 0   "The"</text>
+    <text x="22" y="112" class="mono">position 1   " sky"</text>
+    <text x="22" y="146" class="mono">position 2   " is"</text>
+    <text x="22" y="180" class="mono">position 3   " blue"</text>
+    <text x="22" y="230" class="sub">Linear projections form Q, K, and V rows</text>
+    <text x="22" y="255" class="sub">for all four positions using matrix operations.</text>
+  </g>
+  <g transform="translate(490 125)">
+    <rect width="865" height="285" rx="18" class="card"/>
+    <text x="22" y="38" class="h">2. Hypothetical query and key vectors</text>
+    <text x="22" y="72" class="mono">Q [4 queries, 2 features]</text>
+    <text x="440" y="72" class="mono">K [4 keys, 2 features]</text>
+    <g class="mono">
+      <text x="22" y="112">The     [1, 0]</text>
+      <text x="22" y="146">sky     [0, 1]</text>
+      <text x="22" y="180">is      [1, 1]</text>
+      <text x="22" y="214">blue    [2, 1]</text>
+      <text x="440" y="112">The     [1, 0]</text>
+      <text x="440" y="146">sky     [0, 1]</text>
+      <text x="440" y="180">is      [1, 1]</text>
+      <text x="440" y="214">blue    [1, 2]</text>
+    </g>
+    <text x="22" y="260" class="mono">scores S = Q [4,2] &#xD7; K&#x1D40; [2,4] &#x2192; S [4,4]</text>
+  </g>
+  <g transform="translate(45 445)">
+    <rect width="1310" height="420" rx="18" class="card"/>
+    <text x="22" y="40" class="h">3. Score matrix after applying the causal mask</text>
+    <text x="430" y="72" class="m">KEY POSITION &#x2192; information source</text>
+    <g transform="translate(310 100)">
+      <text x="55" y="-10" class="m">The (0)</text>
+      <text x="175" y="-10" class="m">sky (1)</text>
+      <text x="295" y="-10" class="m">is (2)</text>
+      <text x="415" y="-10" class="m">blue (3)</text>
+      <text x="-280" y="42" class="m">QUERY The (0)</text>
+      <text x="-280" y="112" class="m">QUERY sky (1)</text>
+      <text x="-280" y="182" class="m">QUERY is (2)</text>
+      <text x="-280" y="252" class="m">QUERY blue (3)</text>
+      <g stroke-width="2">
+        <g class="allow">
+          <rect width="120" height="70"/>
+          <rect y="70" width="120" height="70"/>
+          <rect x="120" y="70" width="120" height="70"/>
+          <rect y="140" width="120" height="70"/>
+          <rect x="120" y="140" width="120" height="70"/>
+          <rect x="240" y="140" width="120" height="70"/>
+          <rect y="210" width="120" height="70"/>
+          <rect x="120" y="210" width="120" height="70"/>
+          <rect x="240" y="210" width="120" height="70"/>
+          <rect x="360" y="210" width="120" height="70"/>
+        </g>
+        <g class="mask">
+          <rect x="120" width="120" height="70"/>
+          <rect x="240" width="120" height="70"/>
+          <rect x="360" width="120" height="70"/>
+          <rect x="240" y="70" width="120" height="70"/>
+          <rect x="360" y="70" width="120" height="70"/>
+          <rect x="360" y="140" width="120" height="70"/>
+        </g>
+      </g>
+      <g class="h" text-anchor="middle">
+        <text x="60" y="44">1 &#x2713;</text>
+        <text x="180" y="44">&#x2212;&#x221E; &#xD7;</text>
+        <text x="300" y="44">&#x2212;&#x221E; &#xD7;</text>
+        <text x="420" y="44">&#x2212;&#x221E; &#xD7;</text>
+        <text x="60" y="114">0 &#x2713;</text>
+        <text x="180" y="114">1 &#x2713;</text>
+        <text x="300" y="114">&#x2212;&#x221E; &#xD7;</text>
+        <text x="420" y="114">&#x2212;&#x221E; &#xD7;</text>
+        <text x="60" y="184">1 &#x2713;</text>
+        <text x="180" y="184">1 &#x2713;</text>
+        <text x="300" y="184">2 &#x2713;</text>
+        <text x="420" y="184">&#x2212;&#x221E; &#xD7;</text>
+        <text x="60" y="254">2 &#x2713;</text>
+        <text x="180" y="254">1 &#x2713;</text>
+        <text x="300" y="254">3 &#x2713;</text>
+        <text x="420" y="254">4 &#x2713;</text>
+      </g>
+    </g>
+      <g transform="translate(870 75)">
+      <text x="0" y="28" class="m">&#x2713; green: same or earlier position&#x2014;allowed</text>
+      <text x="0" y="66" class="m">&#xD7; gray: future key position&#x2014;masked</text>
+      <text x="0" y="120" class="sub">Example unmasked score:</text>
+      <text x="0" y="150" class="mono">S[is, sky] = [1,1] &#xB7; [0,1]</text>
+      <text x="0" y="180" class="mono">             = 1</text>
+      <text x="0" y="230" class="sub">Rows are outputs being computed.</text>
+      <text x="0" y="255" class="sub">Columns are positions they may read.</text>
+        <text x="0" y="280" class="sub">The mask restricts information flow;</text>
+        <text x="0" y="305" class="sub">it does not require four complete,</text>
+        <text x="0" y="330" class="sub">sequential model invocations.</text>
+    </g>
+  </g>
+</svg>

@@ -1701,6 +1701,12 @@ A **tensor** is a multidimensional collection of values with properties such as:
 - **Device:** where its storage resides
 - **Layout or strides:** how logical positions map to memory
 
+More concretely, a tensor is a regular collection of same-data-type values that
+can be addressed with integer indices, plus metadata describing how to
+interpret and locate those values. A rank-3 tensor is not necessarily stored as
+a literal geometric cube. Its axes are a logical indexing organization; its
+underlying storage is commonly a one-dimensional region of memory.
+
 Examples:
 
 ```text
@@ -1722,8 +1728,94 @@ Total values:
 2 × 128 × 4096 = 1,048,576 values
 ```
 
-The data type determines bytes per value. Lesson 04 turns this into memory
-estimates.
+The word **dimension** is overloaded, so we will be precise:
+
+- An **axis** is one direction in which a tensor can be indexed.
+- The **size of an axis** is the number of positions along that axis.
+- The **rank** is the number of axes. Rank is not the number of stored values.
+- The **shape** lists the axis sizes in order.
+
+The following figure builds rank one axis at a time. Every colored square is
+one scalar value. Brackets in a shape describe axes; they are not matrix rows.
+
+![Scalar, vector, matrix, and rank-3 tensor with every axis labeled](assets/tensor-rank-and-shape.svg)
+
+#### Reading an index
+
+For the matrix below, the first index chooses a row and the second chooses a
+column:
+
+```text
+                 column 0   column 1   column 2
+                            axis 1 →
+row 0, axis 0 ↓      10         11         12
+row 1                20         21         22
+
+shape = [2 rows, 3 columns]
+matrix[1, 2] = 22
+       │  └──────── choose column 2
+       └─────────── choose row 1
+```
+
+A rank-3 tensor adds another index. It is often easiest to understand it as a
+stack of matrices. `T[batch, token, feature]` means:
+
+1. Choose a sequence from the batch.
+2. Choose a token position in that sequence.
+3. Choose one numerical feature belonging to that token position.
+
+#### Expanding `[2, 128, 4096]`
+
+![A two-sequence token-state tensor with token and hidden-feature axes expanded](assets/token-state-tensor-anatomy.svg)
+
+The picture deliberately cannot draw all 1,048,576 cells. Ellipses mean
+“positions omitted from the drawing,” not missing data. The tensor contains:
+
+```text
+2 sequences
+× 128 token positions in each sequence
+× 4,096 feature values for each token position
+= 1,048,576 scalar values
+```
+
+One particular scalar might be written:
+
+```text
+H[1, 5, 37]
+  │  │   └── feature 37
+  │  └────── token position 5
+  └───────── sequence 1 (the second sequence because indexing starts at 0)
+```
+
+The 4,096 values at `H[1, 5, :]` collectively represent the model's current
+state for that token position. Individual features generally do not have a
+simple fixed translation such as “feature 37 means blue.” Meaning is distributed
+across the vector and transformed from layer to layer.
+
+#### Shape is only part of a tensor's description
+
+Two tensors can have the same shape and still differ:
+
+| Property | Example | What it answers |
+| --- | --- | --- |
+| Shape | `[2, 128, 4096]` | How many positions exist along each axis? |
+| Data type | `float16` | How is each value encoded, and how many bytes does it use? |
+| Device | `cuda:0` | In which processor's attached memory does the storage reside? |
+| Stride | `[524288, 4096, 1]` | How far in storage must we move when an index increases by one? |
+
+For a contiguous row-major `[2, 128, 4096]` tensor, adjacent features are next
+to one another. Moving forward one token skips 4,096 stored values; moving
+forward one batch item skips `128 × 4096 = 524,288` values. Lesson 04 develops
+layout and memory consequences.
+
+The data type determines bytes per value. For example, if every value occupies
+2 bytes, the raw storage for this tensor is:
+
+```text
+1,048,576 values × 2 bytes/value = 2,097,152 bytes = 2 MiB
+```
+
+Lesson 04 turns this reasoning into broader memory estimates.
 
 ### 8.3 Token embeddings
 
@@ -1759,8 +1851,59 @@ Weight matrix:       [4096 input features, 4096 output features]
 Output states:       [256 token positions, 4096 output features]
 ```
 
-This operation calculates millions of output values, each involving many
-multiply-accumulate operations. It offers abundant structured parallel work.
+Before using the large numbers, examine a complete teaching example:
+
+![Fully labeled token-state by weight-matrix multiplication](assets/linear-transformation-from-tokens.svg)
+
+Here `X` contains three token positions with two input features each. `W`
+describes how two input features contribute to four output features. Therefore:
+
+```text
+X shape: [3 token positions, 2 input features]
+W shape: [2 input features, 4 output features]
+Y shape: [3 token positions, 4 output features]
+
+             shared dimension
+                    ┌─┴─┐
+[3 tokens, 2 input] × [2 input, 4 output] → [3 tokens, 4 output]
+ └ output rows ┘                         └── output columns ──┘
+```
+
+For example, output `Y[token 1, output feature 2]` uses row 1 of `X` and
+column 2 of `W`:
+
+```text
+X row 1 = [3, 4]
+W column 2 = [2, 1]
+Y[1, 2] = (3 × 2) + (4 × 1) = 10
+```
+
+The same shape rule applies to the realistic example:
+
+```text
+[256 token positions, 4096 input features]
+× [4096 input features, 4096 output features]
+→ [256 token positions, 4096 output features]
+```
+
+That output contains:
+
+```text
+256 × 4096 = 1,048,576 output values
+```
+
+Each output is a dot product of length 4,096, so forming all outputs requires
+approximately:
+
+```text
+1,048,576 outputs × 4,096 multiply-accumulate steps per output
+= 4,294,967,296 multiply-accumulate steps
+```
+
+This count describes mathematical work, not elapsed time or the number of
+physical GPU cores. Many output cells and tiles can be worked on concurrently;
+finite hardware schedules them in waves. The bias, if present, contributes one
+additional value to each output cell after the dot product.
 
 ### 8.5 Attention at a first-pass level
 
@@ -1847,6 +1990,20 @@ different operation types in a transformer block.
 This section provides only the performance foundation. Module 03 develops the
 full mechanics.
 
+### 9.0 Vocabulary for the Visualizations
+
+| Term | Meaning in this section |
+| --- | --- |
+| **Prefill** | The initial model processing of all already-known prompt tokens. |
+| **Decode iteration** | One pass that uses the current state to select one next token. |
+| **Logits** | Unnormalized numerical scores over candidate next tokens. |
+| **Causal mask** | A rule blocking a token position from reading future positions. |
+| **KV cache** | Previously computed key and value tensors retained per relevant layer and KV head so decode can reuse them. |
+
+The diagrams use small matrices from one teaching slice. A real transformer has
+many layers and attention heads, and implementations may arrange cache axes
+differently.
+
 ### 9.1 Autoregressive generation has an unavoidable sequence
 
 A decoder-only language model generates one next token, appends it, then uses
@@ -1890,6 +2047,39 @@ This is subtle:
 The prompt's token dimension creates substantial parallel work, even though the
 mathematics prevents earlier positions from attending to later ones.
 
+The following teaching example uses four prompt tokens. It shows the matrices
+that the compact phrase “causal attention” hides:
+
+![Prefill matrices with tokens, Q K transpose scores, causal mask, and contextual outputs labeled](assets/prefill-causal-attention-matrices.svg)
+
+Read the attention-score matrix by rows:
+
+- A **row** is the query position asking, “Which earlier positions matter to
+  me?”
+- A **column** is a key position that might supply information.
+- Cell `(i, j)` compares query position `i` with key position `j`.
+- Cells above the diagonal represent looking into the future and are blocked.
+- Cells on or below the diagonal are allowed.
+
+For four prompt positions, the allowed-pattern matrix is:
+
+```text
+                         KEY POSITION (information source)
+                       t0    t1    t2    t3
+QUERY t0 ("Why")       ✓     ×     ×     ×
+POSITION t1 (" sky")   ✓     ✓     ×     ×
+         t2 (" is")    ✓     ✓     ✓     ×
+         t3 (" blue")  ✓     ✓     ✓     ✓
+
+✓ = allowed to attend       × = masked future position
+```
+
+All four prompt tokens are known before prefill begins. A GPU can build `Q`,
+`K`, and `V` for all four positions in batched matrix operations, compute many
+score cells in parallel, and still set forbidden cells to an unusable value
+before normalization. Parallel calculation does not change which information
+each row is permitted to use.
+
 ### 9.3 Decode
 
 During **decode**, the system produces new tokens iteratively.
@@ -1916,6 +2106,33 @@ flowchart TD
     STOP -- No --> M
     STOP -- Yes --> END[Return completion]
 ```
+
+#### What changes in the matrices after one token is selected?
+
+![Decode matrix growth showing a new query row and cached key-value rows](assets/decode-kv-cache-matrix-growth.svg)
+
+Suppose prefill processed four prompt tokens and produced cached key and value
+rows for positions `t0` through `t3`. After the model selects new token `t4`:
+
+```text
+new token state Xnew:       [1 position, hidden_size]
+new query Qnew:             [1 position, head_size]
+cached keys Kcache:         [4 previous positions, head_size]
+new key Knew:               [1 position, head_size]
+combined keys:              [5 positions, head_size]
+
+attention scores:
+Qnew [1, head_size] × combined-Kᵀ [head_size, 5] → [1, 5]
+```
+
+Only one new query row is needed for the newest position. The cached key/value
+rows preserve information calculated for earlier positions, so they need not
+be regenerated from scratch in every layer. The newest position may attend to
+all five positions because none is in its future.
+
+The `[1, 5]` score row is not the entire model. Every layer and attention head
+has corresponding work, and linear projections still use large weight
+matrices. The small diagram isolates the sequence-dimension change.
 
 ### 9.4 Parallel inside, sequential outside
 
@@ -1951,6 +2168,26 @@ This helps motivate—but does not universally prove—the common observation:
 
 Profiler evidence is required for a specific model and system.
 
+The visual contrast is:
+
+```text
+PREFILL LINEAR OPERATION                    BATCH-1 DECODE LINEAR OPERATION
+
+many token rows                             one newest-token row
+┌──────────────────────┐                    ┌──────────────────────┐
+│ t0: 4096 features    │                    │ t128: 4096 features  │
+│ t1: 4096 features    │                    └──────────────────────┘
+│ ...                  │                              ×
+│ t127: 4096 features  │                    same large weight matrix
+└──────────────────────┘                              ↓
+          ×                                  one output-feature row
+same large weight matrix
+          ↓
+128 output-feature rows
+
+More rows let one operation reuse the same weights across more token positions.
+```
+
 ### 9.6 Batching changes decode parallelism
 
 If multiple sequences decode together, one iteration can process one new token
@@ -1967,6 +2204,20 @@ Batch 4: [sequence A newest token]
 
 This gives the GPU more work per weight load and can improve aggregate
 throughput, while queueing and larger batches can affect per-request latency.
+
+In matrix form, batch size changes the number of input rows:
+
+```text
+Batch 1 decode:  X [1 sequence, 4096 features] × W [4096, 4096]
+                 → Y [1 sequence, 4096 output features]
+
+Batch 4 decode:  X [4 sequences, 4096 features] × W [4096, 4096]
+                 → Y [4 sequences, 4096 output features]
+
+Each X row belongs to a different sequence's newest token. The sequences do not
+share attention histories; batching merely packages compatible work so kernels
+can process more rows together.
+```
 
 ### Section 9 checkpoint
 

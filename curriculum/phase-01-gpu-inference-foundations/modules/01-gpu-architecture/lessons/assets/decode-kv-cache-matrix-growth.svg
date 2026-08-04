@@ -1,0 +1,129 @@
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" role="img" aria-labelledby="title desc">
+  <title id="title">Decode using and growing a key-value cache</title>
+  <desc id="desc">Four cached token rows receive a fifth generated row. A one-row query multiplies five key rows to form five attention scores, which combine five value rows into one context row.</desc>
+  <defs>
+    <style>text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#f8fafc}.title{font-size:32px;font-weight:700}.h{font-size:20px;font-weight:700}.m{font-size:15px}.sub{font-size:14px;fill:#cbd5e1}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:15px}.card{fill:#172033;stroke:#475569;stroke-width:2}.old{fill:#166534;stroke:#86efac}.new{fill:#6d28d9;stroke:#c4b5fd;stroke-width:3}.arrow{stroke:#93c5fd;stroke-width:4;marker-end:url(#a)}</style>
+    <marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#93c5fd"/>
+    </marker>
+  </defs>
+  <rect width="1400" height="900" rx="28" fill="#0f172a"/>
+  <text x="45" y="55" class="title">Decode: compute one new row, read prior K/V rows, then append</text>
+  <text x="45" y="84" class="sub">One hypothetical layer/head slice. The cache stores numerical keys and values&#x2014;not words, logits, or model weights.</text>
+  <g transform="translate(45 125)">
+    <rect width="400" height="650" rx="18" class="card"/>
+    <text x="22" y="40" class="h">1. KV cache after prefill</text>
+    <text x="22" y="72" class="mono">Kcache [4 positions, 2 features]</text>
+    <g transform="translate(145 100)" stroke-width="2">
+      <g class="old">
+        <rect width="180" height="60"/>
+        <rect y="60" width="180" height="60"/>
+        <rect y="120" width="180" height="60"/>
+        <rect y="180" width="180" height="60"/>
+      </g>
+      <g class="mono" text-anchor="middle">
+        <text x="90" y="38">[1, 0]</text>
+        <text x="90" y="98">[0, 1]</text>
+        <text x="90" y="158">[1, 1]</text>
+        <text x="90" y="218">[1, 2]</text>
+      </g>
+    </g>
+    <g class="m">
+      <text x="22" y="138">t0 &#x201C;The&#x201D;</text>
+      <text x="22" y="198">t1 &#x201C; sky&#x201D;</text>
+      <text x="22" y="258">t2 &#x201C; is&#x201D;</text>
+      <text x="22" y="318">t3 &#x201C; blue&#x201D;</text>
+    </g>
+    <text x="22" y="385" class="mono">Vcache [4 positions, 2 features]</text>
+    <g transform="translate(145 410)" stroke-width="2">
+      <g class="old">
+        <rect width="180" height="45"/>
+        <rect y="45" width="180" height="45"/>
+        <rect y="90" width="180" height="45"/>
+        <rect y="135" width="180" height="45"/>
+      </g>
+      <g class="mono" text-anchor="middle">
+        <text x="90" y="30">[2, 1]</text>
+        <text x="90" y="75">[1, 3]</text>
+        <text x="90" y="120">[0, 2]</text>
+        <text x="90" y="165">[3, 1]</text>
+      </g>
+    </g>
+      <text x="22" y="610" class="sub">Real caches repeat this structure across</text>
+      <text x="22" y="632" class="sub">layers, batches, and KV heads.</text>
+  </g>
+  <g transform="translate(485 125)">
+    <rect width="400" height="650" rx="18" class="card"/>
+    <text x="22" y="40" class="h">2. New token creates one query</text>
+    <text x="22" y="80" class="mono">selected token t4: &#x201C; because&#x201D;</text>
+    <text x="22" y="120" class="mono">Qnew [1 position, 2 features]</text>
+    <rect x="70" y="145" width="260" height="65" class="new"/>
+    <text x="200" y="185" text-anchor="middle" class="mono">[2, 1]</text>
+    <text x="22" y="255" class="mono">Qnew [1,2] &#xD7; Kcombined&#x1D40; [2,5]</text>
+    <text x="22" y="288" class="mono">&#x2192; scores [1 query, 5 key positions]</text>
+    <g transform="translate(25 320)" stroke-width="2">
+      <g class="old">
+        <rect width="68" height="60"/>
+        <rect x="68" width="68" height="60"/>
+        <rect x="136" width="68" height="60"/>
+        <rect x="204" width="68" height="60"/>
+      </g>
+      <rect x="272" width="68" height="60" class="new"/>
+      <g class="m" text-anchor="middle">
+        <text x="34" y="37">t0</text>
+        <text x="102" y="37">t1</text>
+        <text x="170" y="37">t2</text>
+        <text x="238" y="37">t3</text>
+        <text x="306" y="37">t4</text>
+      </g>
+    </g>
+    <text x="22" y="430" class="mono">scores [1,5] &#xD7; Vcombined [5,2]</text>
+    <text x="22" y="463" class="mono">&#x2192; context [1 position, 2 features]</text>
+    <text x="22" y="520" class="sub">The newest query may read every prior row</text>
+    <text x="22" y="543" class="sub">and its own row; none is in its future.</text>
+    <text x="22" y="590" class="sub">Attention history grows, even though only</text>
+    <text x="22" y="613" class="sub">one new query row is created at batch 1.</text>
+  </g>
+  <g transform="translate(925 125)">
+    <rect width="430" height="650" rx="18" class="card"/>
+    <text x="22" y="40" class="h">3. Append new K and V rows</text>
+    <text x="22" y="78" class="mono">Kcombined [5 positions, 2 features]</text>
+    <g transform="translate(95 105)" stroke-width="2">
+      <g class="old">
+        <rect width="240" height="48"/>
+        <rect y="48" width="240" height="48"/>
+        <rect y="96" width="240" height="48"/>
+        <rect y="144" width="240" height="48"/>
+      </g>
+      <rect y="192" width="240" height="48" class="new"/>
+      <g class="m" text-anchor="middle">
+        <text x="120" y="31">cached t0</text>
+        <text x="120" y="79">cached t1</text>
+        <text x="120" y="127">cached t2</text>
+        <text x="120" y="175">cached t3</text>
+        <text x="120" y="223">append t4 K row</text>
+      </g>
+    </g>
+    <text x="22" y="390" class="mono">Vcombined [5 positions, 2 features]</text>
+    <g transform="translate(95 415)" stroke-width="2">
+      <g class="old">
+        <rect width="240" height="38"/>
+        <rect y="38" width="240" height="38"/>
+        <rect y="76" width="240" height="38"/>
+        <rect y="114" width="240" height="38"/>
+      </g>
+      <rect y="152" width="240" height="38" class="new"/>
+      <g class="m" text-anchor="middle">
+        <text x="120" y="26">cached t0</text>
+        <text x="120" y="64">cached t1</text>
+        <text x="120" y="102">cached t2</text>
+        <text x="120" y="140">cached t3</text>
+        <text x="120" y="178">append t4 V row</text>
+      </g>
+    </g>
+    <text x="22" y="630" class="sub">Next iteration reuses all five rows and adds t5.</text>
+  </g>
+  <line x1="445" y1="800" x2="925" y2="800" class="arrow"/>
+  <text x="685" y="840" text-anchor="middle" class="h">cache sequence length: 4 &#x2192; 5</text>
+</svg>
