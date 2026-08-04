@@ -244,795 +244,858 @@ physical GPU cores. Many output cells and tiles can be worked on concurrently;
 finite hardware schedules them in waves. The bias, if present, contributes one
 additional value to each output cell after the dot product.
 
-### 1.5 Attention at a first-pass level
+### 1.5 What comes next
 
-Attention creates query, key, and value tensors through linear transformations,
-calculates relationships between token positions, combines information, and
-projects the result.
-
-```mermaid
-flowchart LR
-    X[Token states] --> Q[Query projection]
-    X --> K[Key projection]
-    X --> V[Value projection]
-    Q --> SCORE[Attention scores]
-    K --> SCORE
-    SCORE --> MIX[Weighted combination]
-    V --> MIX
-    MIX --> O[Output projection]
-```
-
-This is a structural preview, not a complete attention lesson. Module 03 will
-explain causal masking and the KV cache.
-
-### 1.6 Feed-forward layers
-
-Transformer blocks also contain feed-forward networks, often with an expansion
-to a larger intermediate dimension followed by projection back to the hidden
-dimension. These are dominated by large linear operations plus elementwise
-activation functions.
-
-```mermaid
-flowchart LR
-    H[Hidden states] --> UP[Large up-projection]
-    UP --> ACT[Elementwise activation]
-    ACT --> DOWN[Down-projection]
-    DOWN --> R[Output states]
-```
-
-### 1.7 Not every transformer operation is equally GPU-friendly
-
-Different operations have different characteristics:
-
-- Large matrix multiplication can expose high parallelism and data reuse.
-- Elementwise operations expose parallelism but may perform little math per
-  byte moved.
-- Normalization requires reductions and elementwise work.
-- Token selection and Python control flow can be small or CPU-oriented.
-- One-token decode creates smaller operation shapes than processing many prompt
-  tokens together.
-
-Therefore “transformers use matrix multiplication” is only the beginning of a
-performance explanation.
-
-### 1.8 The CPU-GPU pipeline
-
-A simplified inference request crosses both processors:
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant CPU
-    participant GPU
-    Client->>CPU: Send prompt
-    CPU->>CPU: Validate and tokenize
-    CPU->>GPU: Submit tensor operations
-    GPU->>GPU: Execute model kernels
-    GPU-->>CPU: Return required results
-    CPU->>CPU: Select/decode token and manage request
-    CPU-->>Client: Return output
-```
-
-Frameworks may keep much of the generation loop and token selection on device,
-and implementations vary. The key point is that end-to-end inference includes
-more than GPU arithmetic.
-
-### Section 1 checkpoint
-
-Explain how text becomes numerical tensor work and identify at least three
-different operation types in a transformer block.
+The next three sections build one connected mental model in dependency order:
+attention first, then the prefill/decode timeline, then KV caching.
 
 ---
 
-## 2. Prefill and Decode: A Careful Preview
+## 2. Self-Attention, From Inputs to Outputs
 
-This section provides only the performance foundation. Module 03 develops the
-full mechanics.
+This section teaches one attention head completely before discussing inference
+stages. Attention is not a prefill-only operation: the model uses it during
+both prefill and decode.
 
-### 2.0 Start With Time: Which Tokens Exist Right Now?
+### 2.1 The problem attention solves
 
-Before defining prefill, separate two categories that the earlier version called
-“known” and “unknown” without enough explanation.
+A token begins a transformer layer as one row of numbers. That row contains the
+model's current representation of that position, but language requires context.
+For example, the representation of `"mice"` should be able to incorporate
+useful information from `"Cats"` and `" chase"`.
 
-Suppose the user submits this prompt:
-
-```text
-"The sky is blue"
-```
-
-After tokenization, assume the prompt contains four token pieces:
+Self-attention gives every **destination position** a controlled way to combine
+information from permitted **source positions**:
 
 ```text
-position       0        1       2        3
-token        "The"    " sky"  " is"   " blue"
+destination position i
+        │
+        ├── calculate one weight for every permitted source j
+        │
+        └── form a weighted sum of the source information
+                              │
+                              ▼
+                  contextual output for position i
 ```
 
-These are **known tokens** because their identities are already present in the
-request. The server does not need the model to guess them. It can immediately
-convert all four to token IDs and supply those IDs to the model.
+Those terms will remain consistent throughout the lesson:
 
-The token that should follow `" blue"` is **not yet known**. The request did not
-contain it, and the model has not selected it yet. We can draw the boundary at
-the instant the request arrives:
-
-```text
-ALREADY PROVIDED BY THE USER                  NOT SELECTED YET
-
-position 0   position 1   position 2   position 3   position 4
-  "The"       " sky"        " is"       " blue"         ?
-└──────────────── prompt tokens ────────────────┘    next token
-         known to the program now                     unknown now
-```
-
-“Known” does **not** mean that the model understands the token, that its answer
-is predetermined, or that the token came from training data. It means only:
-
-> **At this moment in this request, the program already has this token's ID.**
-
-After the model selects a token for position 4—suppose it selects
-`" because"`—that token becomes known and is appended to the sequence. Position
-5 is then the new unknown:
-
-```text
-[The] [ sky] [ is] [ blue] [ because] [?]
-                            newly known  next unknown
-```
-
-This boundary moves one position to the right after every generated token.
-
-![Known prompt tokens, the moving unknown boundary, prefill, and repeated decode steps](assets/known-tokens-prefill-decode-timeline.svg)
-
-### 2.1 The Two Stages of Generation
-
-Generation divides naturally at that boundary:
-
-| Stage | Input available at the start | What the stage accomplishes |
-| --- | --- | --- |
-| **Prefill** | All tokens supplied in the prompt | Processes the prompt, saves reusable attention information, and produces scores for the first token after the prompt. |
-| **Decode** | The prompt plus tokens generated so far | Selects one additional token, saves its reusable attention information, and repeats. |
-
-For our example:
-
-```text
-PREFILL
-input:   [The] [ sky] [ is] [ blue]
-output:  scores for position 4 + saved attention information for positions 0–3
-
-DECODE ITERATION 1
-select:  [ because] for position 4
-output:  scores for position 5 + add position 4 to saved attention information
-
-DECODE ITERATION 2
-select:  perhaps [ light] for position 5
-output:  scores for position 6 + add position 5 to saved attention information
-```
-
-The model does not secretly calculate the whole answer during prefill. It
-produces scores for one next-token decision. A decoding policy selects one
-token from those scores. Only then does the next decode iteration have its full
-input.
-
-### 2.2 Prefill, Slowly and Concretely
-
-**Prefill is the first model pass over the prompt tokens.** It does three things
-that matter for this chapter:
-
-1. It produces contextual representations for the prompt positions.
-2. It saves reusable key and value vectors for those positions in the KV cache.
-3. It produces logits used to select the first token after the prompt.
-
-To understand how, we must first understand attention mechanically. Do not
-begin with the metaphors “a query asks a question” or “a key advertises what it
-contains.” Those can become useful later, but they hide the actual calculation.
-
-#### 2.2.1 Attention's purpose: controlled information mixing
-
-Consider a sentence with a reference:
-
-```text
-"The animal did not cross the street because it was tired."
-```
-
-When a transformer updates the numerical representation at `"it"`, information
-from the earlier `"animal"` position may be useful. Attention is a mechanism
-that lets one position form a weighted mixture of numerical information from
-other permitted positions.
-
-```text
-current state at one token position
-                 +
-weighted information from permitted positions
-                 │
-                 ▼
-new, context-aware state at that token position
-```
-
-It does not copy English words into one another. It operates on learned vectors.
-
-#### 2.2.2 The prompt begins as one numerical row per token position
-
-Return to the four-token teaching prompt:
-
-```text
-position       0        1       2        3
-token        "The"    " sky"  " is"   " blue"
-```
-
-At the entrance to an attention layer, each position has a hidden-state vector:
-
-```text
-x0 = current numerical representation at position 0
-x1 = current numerical representation at position 1
-x2 = current numerical representation at position 2
-x3 = current numerical representation at position 3
-```
-
-Stacking them creates a matrix:
-
-```text
-Xprompt
-shape: [4 token positions, hidden_size]
-
-row 0: x0 for "The"
-row 1: x1 for " sky"
-row 2: x2 for " is"
-row 3: x3 for " blue"
-```
-
-All four rows can be prepared together because all four token IDs arrived in
-the user's prompt.
-
-#### 2.2.3 Q, K, and V are three calculated versions of each row
-
-The attention layer owns three learned weight matrices. It applies them to `X`:
-
-```text
-Q = X × WQ
-K = X × WK
-V = X × WV
-```
-
-This is the origin of Q, K, and V. They are three **sibling outputs derived
-from the same layer input**:
-
-```text
-                         ┌── × WQ ──▶ Q
-current layer input X ───┼── × WK ──▶ K
-                         └── × WV ──▶ V
-```
-
-Do not picture this as `Q → K → V`. Q does not create K, and K does not create
-V. The three projections can be calculated independently once `X` and the
-three weight matrices are available.
-
-#### Where does X come from?
-
-For the first transformer block, `X` is based on token embeddings plus
-position-related information and any preprocessing defined by the architecture.
-For a later block, `X` is the set of contextual hidden states produced by the
-preceding block. Therefore every transformer block receives its own input `X`
-and produces its own Q, K, and V.
-
-```text
-token IDs
-   │
-   ▼
-embeddings and position information
-   │
-   ▼
-X for transformer block 0 ──▶ Q0, K0, V0
-   │ block 0 output
-   ▼
-X for transformer block 1 ──▶ Q1, K1, V1
-   │
-   ▼
-and so on through the model
-```
-
-The rows of `X` are not raw token IDs. Each row is a numerical hidden state for
-one sequence position at the current depth of the model.
-
-#### Where do WQ, WK, and WV come from?
-
-`WQ`, `WK`, and `WV` are model parameters learned during training. Training
-adjusts their values so that the resulting attention behavior helps reduce the
-model's prediction error. When an already-trained model performs inference,
-these matrices are loaded with the model weights and normally remain fixed;
-inference uses them rather than learning them again.
-
-Some implementations store or calculate the three projections together using
-one combined matrix and then split the result:
-
-```text
-[Q | K | V] = X × WQKV
-```
-
-That is an implementation optimization. Conceptually it still represents three
-different learned projections with three different roles.
-
-#### Shape derivation
-
-For one attention head, suppose:
-
-```text
-X:   [T token positions, H hidden features]
-WQ:  [H hidden features, Dk query/key features]
-WK:  [H hidden features, Dk query/key features]
-WV:  [H hidden features, Dv value features]
-```
-
-Then matrix multiplication produces:
-
-```text
-Q = X × WQ  → [T, Dk]
-K = X × WK  → [T, Dk]
-V = X × WV  → [T, Dv]
-```
-
-Q and K must share `Dk` because a query row is dot-multiplied with a key row.
-Their corresponding feature coordinates occupy a compatible comparison space,
-but their values are not expected to be equal. V does not participate in that
-dot product and may conceptually use a different feature count `Dv`.
-
-This creates one query, key, and value row for every token position:
-
-```text
-position 0: q0, k0, v0
-position 1: q1, k1, v1
-position 2: q2, k2, v2
-position 3: q3, k3, v3
-```
-
-Here are the mechanical—not metaphorical—roles:
-
-| Vector | Exact role in the calculation |
+| Term | Meaning |
 | --- | --- |
-| **Query `qi`** | Represents destination position `i` on the left side of a dot product with every permitted key. It helps produce one score row. |
-| **Key `kj`** | Represents possible source position `j` on the right side of that dot product. Together, `qi` and `kj` produce score `S[i,j]`. |
-| **Value `vj`** | Represents the numerical source information at position `j`. It is multiplied by the normalized weight derived from `S[i,j]`. |
+| Destination/query position `i` | The row whose new output we are calculating. |
+| Source/key-value position `j` | A row that might contribute to that output. |
 
-Queries and keys determine **how much weight** a source receives. Values supply
-the **information multiplied by that weight**.
+### 2.2 One teaching prompt and its hidden-state matrix
+
+Assume tokenization gives three token pieces:
 
 ```text
-S = Q × Kᵀ                       query/key dot-product scores
-Smasked = apply_causal_mask(S)   forbid illegal source positions
-A = softmax(Smasked)             normalized attention weights
-O = A × V                        weighted mixture of value rows
+position       0          1          2
+token        "Cats"    " chase"    " mice"
 ```
 
-The shortest accurate summary is:
-
-> **Q and K mechanically produce attention scores and therefore determine the
-> weights. V supplies the numerical information those weights combine. All
-> three are separately projected from the same current hidden states X using
-> learned model parameters.**
-
-Q, K, and V are not English questions, database keys, or copies of token text.
-They are learned numerical projections. A layer learns useful projections
-during training.
-
-#### 2.2.4 A complete query-key comparison
-
-Suppose the query vector at the `"blue"` position is:
+At the entrance to one attention layer, stack one hidden-state row per position:
 
 ```text
-qblue = [2, 1]
+X = [ [1, 0],     ← x0, current state for "Cats"
+      [0, 1],     ← x1, current state for " chase"
+      [1, 1] ]    ← x2, current state for " mice"
+
+shape of X = [3 positions, 2 hidden features]
 ```
 
-Suppose the four key vectors are:
+These tiny values are invented so every calculation fits on the page. A real
+model might use thousands of hidden features, and no individual coordinate is
+guaranteed to have a simple English meaning.
+
+### 2.3 Where Q, K, and V come from
+
+The layer owns three learned weight matrices. The same input `X` is multiplied
+by each:
 
 ```text
-kThe  = [0, 1]
-ksky  = [2, 1]
-kis   = [1, 0]
-kblue = [1, 1]
+Q = XWQ       K = XWK       V = XWV
 ```
 
-The model takes a dot product with every permitted key. Before applying the
-causal mask, the four raw scores are:
+They are **sibling projections**. Q does not create K; K does not create V.
+During training, optimization learns the entries of `WQ`, `WK`, and `WV`.
+During ordinary inference, those weights are already loaded and fixed; the
+request-dependent matrices Q, K, and V are calculated from the current X.
+
+For this example, use:
 
 ```text
-qblue · kThe  = (2×0) + (1×1) = 1
-qblue · ksky  = (2×2) + (1×1) = 5
-qblue · kis   = (2×1) + (1×0) = 2
-qblue · kblue = (2×1) + (1×1) = 3
-
-source position:          The    sky    is    blue
-raw score from qblue:      1      5      2      3
+WQ = [ [1, 0],    WK = [ [1, 0],    WV = [ [1, 0],
+       [1, 1] ]          [0, 1] ]          [0, 2] ]
 ```
 
-In this hypothetical example, `qblue` and `ksky` have the largest dot product.
-That is all the phrase “the query matches the key” means here: a learned
-numerical comparison produced a relatively large score.
-
-Real attention normally scales these scores and applies softmax. Suppose the
-resulting weights are:
+The resulting projections are:
 
 ```text
-source position:          The    sky    is    blue
-attention weight:        0.05   0.60   0.10   0.25
+Q = [ [1, 0],     K = [ [1, 0],     V = [ [1, 0],
+      [1, 1],           [0, 1],           [0, 2],
+      [2, 1] ]          [1, 1] ]          [1, 2] ]
 ```
 
-The weights add to `1`. They are then applied to the value vectors:
+One row calculation is:
 
 ```text
-attention output for "blue"
-= 0.05 × vThe
-+ 0.60 × vsky
-+ 0.10 × vis
-+ 0.25 × vblue
+q1 = x1 WQ
+
+     [0, 1] × [ [1, 0], = [0×1 + 1×1, 0×0 + 1×1]
+                [1, 1] ]
+
+             = [1, 1]
 ```
 
-Notice the division of labor:
+The shapes generalize as follows:
 
 ```text
-qblue and the keys produced:  [0.05, 0.60, 0.10, 0.25]
-those weights selected/mixed: [vThe, vsky, vis, vblue]
+X [T,H] × WQ [H,Dk] → Q [T,Dk]
+X [T,H] × WK [H,Dk] → K [T,Dk]
+X [T,H] × WV [H,Dv] → V [T,Dv]
 ```
 
-The following figure traces those two separate stages:
+`T` is the number of token positions, `H` is hidden size, and `Dk` and `Dv`
+are per-head feature sizes. Q and K require compatible final dimensions because
+their rows will be dot-multiplied. Their numeric values do **not** need to
+match.
 
-![Query-key scoring followed by weighted value mixing](assets/qkv-scoring-and-value-mixing.svg)
+#### The exact mechanical roles
 
-The output is a new numerical vector for the `"blue"` position. It can contain
-context gathered from earlier positions, especially `"sky"` in this teaching
-example. An individual vector coordinate does not have to correspond to a
-human-readable concept.
+| Matrix | What its rows do |
+| --- | --- |
+| Q | A row `qi` sits on the destination side of comparisons and produces score row `i`. |
+| K | A row `kj` sits on the source side; `qi · kj` produces the score for source `j`. |
+| V | A row `vj` supplies source information that will be multiplied by the resulting weight. |
 
-#### 2.2.5 Why future-token leakage is a training problem
+The compact rule is:
 
-The complete training sentence is already stored in the training dataset:
+> **Q and K determine the weights. V supplies the vectors those weights mix.**
+
+![Every hidden-state row is projected independently into a query, key, and value row](assets/attention-qkv-origin.svg)
+
+### 2.4 Step 1: build the raw score matrix
+
+Attention compares every query row with every key row:
 
 ```text
-"The sky is blue"
+Sraw = QKᵀ
 ```
 
-Training creates next-token prediction examples from it:
+For example, score cell `[1,2]` is:
 
 ```text
-information that should be usable       target answer
-
-"The"                                  → " sky"
-"The sky"                              → " is"
-"The sky is"                           → " blue"
+Sraw[1,2] = q1 · k2
+          = [1,1] · [1,1]
+          = (1×1) + (1×1)
+          = 2
 ```
 
-Focus on the second example. The representation at position 1, `" sky"`, is
-used to predict the target at position 2, `" is"`.
-
-If query position 1 were allowed to use key/value position 2, it could inspect
-information derived from `" is"` while being trained to predict `" is"`:
+Its meaning is purely mechanical:
 
 ```text
-legal input for the prediction:   [The] [sky]
-target answer:                                 [is]
-
-illegal shortcut:
-position 1 representation ───────────────reads position 2 "is"
-                                                  │
-                                                  └── the answer leaked into its input
+row 1    = destination/query position " chase"
+column 2 = source/key position " mice"
+cell 2   = their unnormalized dot-product score
 ```
 
-The model could appear accurate during training by exploiting information that
-will not exist when it must generate new text. That is **future-token leakage**:
-
-> Information from the target or a still-later sequence position improperly
-> influences a representation that is supposed to predict without that future.
-
-#### 2.2.6 The causal mask removes the illegal shortcut
-
-The causal mask specifies which source positions each query row may use:
+Calculating every pair gives:
 
 ```text
-                           KEY/VALUE SOURCE POSITION
-                         0      1      2      3
-QUERY position 0       allow  block  block  block
-QUERY position 1       allow  allow  block  block
-QUERY position 2       allow  allow  allow  block
-QUERY position 3       allow  allow  allow  allow
+                           SOURCE / KEY POSITION j
+                         0 Cats   1 chase   2 mice
+DESTINATION / QUERY  0  [   1,       0,       1  ]
+POSITION i           1  [   1,       1,       2  ]
+                     2  [   2,       1,       3  ]
+
+Sraw shape = [3 query positions, 3 key positions]
+```
+
+A score is not yet a probability or a final weight.
+
+### 2.5 Step 2: scale the scores
+
+Scaled dot-product attention divides by the square root of the query/key
+feature count:
+
+```text
+Sscaled = QKᵀ / √Dk
+```
+
+Here, `Dk = 2`, so `1/√2 ≈ 0.707`:
+
+```text
+                     SOURCE / KEY POSITION
+                     Cats     chase    mice
+QUERY "Cats"        [0.707,   0.000,   0.707]
+QUERY " chase"      [0.707,   0.707,   1.414]
+QUERY " mice"       [1.414,   0.707,   2.121]
+```
+
+As feature count grows, an unscaled dot product tends to grow in magnitude.
+Large logits can make softmax extremely peaked. Division by `√Dk` controls that
+growth. Scaling does **not** make a row sum to one; softmax does that later.
+
+### 2.6 Step 3: apply the causal mask
+
+A decoder-only language model must predict left to right. Query position `i`
+may use source position `j` only when `j ≤ i`:
+
+```text
+                     SOURCE POSITION j
+                     0        1        2
+QUERY position 0   allow    block    block
+QUERY position 1   allow    allow    block
+QUERY position 2   allow    allow    allow
+```
+
+The mask adds a conceptually negative-infinite value to forbidden score cells:
+
+```text
+                     Cats     chase    mice
+QUERY "Cats"        [0.707,     −∞,      −∞]
+QUERY " chase"      [0.707,   0.707,     −∞]
+QUERY " mice"       [1.414,   0.707,   2.121]
+```
+
+#### What “future-token leakage” actually means
+
+During training, a complete text is available as a tensor so many next-token
+examples can be evaluated together:
+
+```text
+state built through position 0  → predict token at position 1
+state built through position 1  → predict token at position 2
+```
+
+If the state at position 1 could incorporate the actual token at position 2,
+the answer `" mice"` would influence the state used to predict `" mice"`.
+That is leakage: not data escaping a computer, but the target influencing a
+prediction that is supposed to be made without that target.
+
+All three prompt token IDs are present in the prefill input. “Present in the
+input” and “permitted to influence this query row” are different facts. The
+mask controls influence; it does not delete tokens from memory.
+
+![All prompt tokens exist, while the causal mask limits which source positions may influence each query row](assets/attention-causal-visibility.svg)
+
+### 2.7 Step 4: softmax converts each score row into weights
+
+Softmax is applied **separately to each query row**:
+
+```text
+softmax(z)i = exp(zi) / Σj exp(zj)
+```
+
+For query row 1:
+
+```text
+masked scores  = [0.707, 0.707, −∞]
+exponentials   ≈ [2.028, 2.028, 0]
+row sum        ≈ 4.056
+weights        = [0.500, 0.500, 0.000]
+```
+
+The permitted weights are nonnegative and sum to one. A masked `−∞` becomes
+zero after softmax, so that source cannot contribute.
+
+For all three rows:
+
+```text
+A ≈ [ [1.000, 0.000, 0.000],
+      [0.500, 0.500, 0.000],
+      [0.284, 0.140, 0.576] ]
+```
+
+### 2.8 Step 5: use the weights to mix V
+
+Now—and only now—V enters the weighted mixture:
+
+```text
+O = AV
 ```
 
 For query position 1:
 
 ```text
-may use:      positions 0 and 1
-may not use:  positions 2 and 3
+A1 = [0.5, 0.5, 0]
+
+V = [ [1,0],    ← v0 from source "Cats"
+      [0,2],    ← v1 from source " chase"
+      [1,2] ]   ← v2 from source " mice"
+
+o1 = 0.5[1,0] + 0.5[0,2] + 0[1,2]
+   = [0.5, 1.0]
 ```
 
-Suppose its unmasked scores were:
+The column index in A selects the V row with the same source position. Q and K
+are not averaged into O; their job was to create A.
+
+The complete output is:
 
 ```text
-source:          The    sky     is    blue
-raw score:        2      4       8      3
+O = AV
+
+o0 = 1.000[1,0]                              = [1.000, 0.000]
+o1 = 0.500[1,0] + 0.500[0,2]                 = [0.500, 1.000]
+o2 = 0.284[1,0] + 0.140[0,2] + 0.576[1,2]   ≈ [0.860, 1.432]
+
+O ≈ [ [1.000, 0.000],
+      [0.500, 1.000],
+      [0.860, 1.432] ]
 ```
 
-The causal mask conceptually replaces forbidden scores with negative infinity:
+![One complete row: query-key scores, causal masking, softmax weights, and weighted value mixing](assets/attention-one-row-ledger.svg)
+
+### 2.9 The complete equation
+
+The whole single-head operation is:
 
 ```text
-source:          The    sky     is    blue
-masked score:     2      4      −∞      −∞
+Attention(X)
+= softmax((XWQ)(XWK)ᵀ / √Dk + causal_mask)(XWV)
 ```
 
-After softmax, forbidden positions receive zero weight:
+Read it inside out:
+
+1. Project X into Q, K, and V.
+2. Compare Q with K to make score cells.
+3. Scale the scores.
+4. Mask illegal source positions.
+5. Apply row-wise softmax to obtain weights.
+6. Use the weights to mix V rows.
+
+### 2.10 Multiple heads: a bounded preview
+
+A real transformer commonly performs several attention heads in parallel. Each
+head owns its projections, calculates its attention output, and operates in a
+smaller feature space. The outputs are concatenated and projected:
 
 ```text
-source:          The    sky     is    blue
-attention weight: approximately 0.12, 0.88, 0, 0
+X ─┬─ head 0: Q0,K0,V0 → O0 ─┐
+   ├─ head 1: Q1,K1,V1 → O1 ─┼→ concatenate → ×WO → attention output
+   └─ ...                     ┘
 ```
 
-Therefore `vis` and `vblue` contribute nothing to the output for query position
-1. The mask blocks influence; it does not remove the tokens from server memory.
-
-![Prefill matrices with tokens, Q K transpose scores, causal mask, and contextual outputs labeled](assets/prefill-causal-attention-matrices.svg)
-
-#### 2.2.7 Known to the server is not the same as visible to a row
-
-This is the distinction that resolves the apparent contradiction during
-inference prefill:
-
-| Question | Meaning |
-| --- | --- |
-| Is the token **known to the server**? | Does its token ID already exist in the prompt input? |
-| Is the token **visible to this query row**? | Does the causal mask permit this row to use that token position's key and value? |
-
-All four prompt tokens are known to the server, so the GPU can construct all
-four Q/K/V rows using large matrix operations. But their permitted views differ:
-
-```text
-row 0 represents prefix: "The"
-row 1 represents prefix: "The sky"
-row 2 represents prefix: "The sky is"
-row 3 represents prefix: "The sky is blue"
-```
-
-Consequently:
-
-```text
-row 0 may read positions 0
-row 1 may read positions 0–1
-row 2 may read positions 0–2
-row 3 may read positions 0–3
-```
-
-The GPU may calculate many matrix cells in parallel. The mask determines which
-cells are allowed to influence each output. Causal information flow therefore
-does not require four separate complete model passes during prefill.
-
-#### 2.2.8 How prefill ends and the KV cache begins
-
-After attention and the rest of the transformer layers run, the last prompt
-row represents the complete prompt prefix:
-
-```text
-row 3 → "The sky is blue"
-```
-
-That final row is used to produce logits for the next position, position 4. A
-selection policy might choose `" because"`.
-
-Meanwhile, each relevant layer retains the prompt's key and value rows:
-
-```text
-K cache after prefill                 V cache after prefill
-
-position 0: kThe                     position 0: vThe
-position 1: ksky                     position 1: vsky
-position 2: kis                      position 2: vis
-position 3: kblue                    position 3: vblue
-```
-
-These rows are saved because the next generated position will need to compare
-its new query with the earlier keys and combine the earlier values. The cache
-contains reusable intermediate numbers—not words, logits, the answer, or model
-weights.
-
-#### Section 2.2 checkpoint
-
-Before continuing, explain each answer in your own words:
-
-1. In the attention calculation, what do Q and K produce together?
-2. What is done with V after Q and K produce attention weights?
-3. Why would allowing position 1 to read position 2 leak the answer when
-   position 1 is being used to predict position 2?
-4. How can a token be known to the server but blocked from a particular row?
-5. Why can prefill calculate all prompt Q/K/V rows together without allowing
-   information to flow backward from future positions?
-6. What exactly is saved in the KV cache at the end of prefill?
-
-### 2.3 Decode and the KV Cache, Slowly and Concretely
-
-At the start of the first decode iteration, `" because"` has now been selected.
-Its ID is therefore known and can be processed as the newest input position.
-
-#### What would happen without a KV cache?
-
-Attention for the new position needs keys and values representing the earlier
-positions. Without saved results, the system would repeatedly recreate the old
-K and V rows:
-
-```text
-iteration 1: recreate K/V for positions 0–3, then process position 4
-iteration 2: recreate K/V for positions 0–4, then process position 5
-iteration 3: recreate K/V for positions 0–5, then process position 6
-```
-
-That repeats work whose inputs and results have not changed.
-
-#### What happens with a KV cache?
-
-The old rows are retrieved from device memory. Only the newest position needs
-new K and V rows:
-
-```text
-REUSE from cache                         CALCULATE now
-
-K0 K1 K2 K3                              K4 for " because"
-V0 V1 V2 V3                              V4 for " because"
-```
-
-The model also calculates a new query `Q4`. That query compares with all keys
-available through position 4:
-
-```text
-Q4 compares with [K0, K1, K2, K3, K4]
-                         │
-                         ▼
-             five attention scores
-                         │
-                         ▼
-scores mix [V0, V1, V2, V3, V4]
-                         │
-                         ▼
-        context for newest position 4
-```
-
-Position 4 can read all positions 0–4 because all are at or before its own
-position. There is no future prompt row to mask for this single newest query.
-
-![Decode matrix growth showing a new query row and cached key-value rows](assets/decode-kv-cache-matrix-growth.svg)
-
-After the layer uses the rows, `K4` and `V4` are appended to the cache:
-
-```text
-before: cache covers positions [0, 1, 2, 3]
-after:  cache covers positions [0, 1, 2, 3, 4]
-```
-
-The model eventually produces logits for position 5 and selects another token.
-That selected token becomes the input to the next iteration.
-
-#### What the cache saves—and what it costs
-
-The KV cache saves **recomputation of old key and value projections**. It does
-not make attention free:
-
-- The new token still passes through every transformer layer.
-- A new Q, K, and V must be formed for the new position.
-- The new query still compares with the growing collection of cached keys.
-- The attention result still combines cached values.
-- New K/V rows consume additional GPU memory at every relevant layer.
-
-Therefore the cache trades memory capacity for less repeated computation. Its
-memory usage grows with sequence length.
-
-#### Check your mental model
-
-For the prompt `[The, sky, is, blue]`, answer these before continuing:
-
-1. Why are the four prompt tokens called known before prefill?
-2. Which token is unknown at that moment?
-3. Why may query position 1 not read key position 3 during prefill?
-4. Does the causal mask mean the GPU must run four complete sequential model
-   passes? Why not?
-5. What numerical rows does the KV cache retain?
-6. When `" because"` is appended, which K/V rows are reused and which are new?
-
-### 2.4 Parallel inside, sequential outside
-
-Each decode iteration contains large operations that run in parallel on the
-GPU. But the iterations themselves are ordered because the next selected token
-is not known until the current iteration finishes.
-
-```text
-Decode iteration 1: [many parallel GPU operations] → token 1
-Decode iteration 2:                               [many parallel GPU operations] → token 2
-Decode iteration 3:                                                               [many parallel GPU operations] → token 3
-```
-
-This pattern combines inner parallelism with outer sequential dependency.
-
-### 2.5 Why the shapes differ
-
-Simplified linear-operation shapes:
-
-```text
-Prefill input: [many prompt positions, hidden size]
-Decode input:  [one new position, hidden size]  # per sequence at batch 1
-```
-
-The weights are large in both cases. Prefill can reuse them across many prompt
-positions in one operation. Batch-one decode has less token-position work per
-iteration and repeatedly needs weights as it produces tokens one at a time.
-
-This helps motivate—but does not universally prove—the common observation:
-
-- Prefill often uses compute resources more effectively.
-- Small-batch decode is often sensitive to memory bandwidth and launch latency.
-
-Profiler evidence is required for a specific model and system.
-
-The visual contrast is:
-
-```text
-PREFILL LINEAR OPERATION                    BATCH-1 DECODE LINEAR OPERATION
-
-many token rows                             one newest-token row
-┌──────────────────────┐                    ┌──────────────────────┐
-│ t0: 4096 features    │                    │ t128: 4096 features  │
-│ t1: 4096 features    │                    └──────────────────────┘
-│ ...                  │                              ×
-│ t127: 4096 features  │                    same large weight matrix
-└──────────────────────┘                              ↓
-          ×                                  one output-feature row
-same large weight matrix
-          ↓
-128 output-feature rows
-
-More rows let one operation reuse the same weights across more token positions.
-```
-
-### 2.6 Batching changes decode parallelism
-
-If multiple sequences decode together, one iteration can process one new token
-position for each sequence:
-
-```text
-Batch 1: [sequence A newest token]
-
-Batch 4: [sequence A newest token]
-         [sequence B newest token]
-         [sequence C newest token]
-         [sequence D newest token]
-```
-
-This gives the GPU more work per weight load and can improve aggregate
-throughput, while queueing and larger batches can affect per-request latency.
-
-In matrix form, batch size changes the number of input rows:
-
-```text
-Batch 1 decode:  X [1 sequence, 4096 features] × W [4096, 4096]
-                 → Y [1 sequence, 4096 output features]
-
-Batch 4 decode:  X [4 sequences, 4096 features] × W [4096, 4096]
-                 → Y [4 sequences, 4096 output features]
-
-Each X row belongs to a different sequence's newest token. The sequences do not
-share attention histories; batching merely packages compatible work so kernels
-can process more rows together.
-```
+Different heads can learn different patterns. Do not assume each head has one
+stable, human-readable job. Grouped-query attention, rotary position
+embeddings, and optimized attention kernels are deferred until the basic
+mechanics are secure.
+
+### 2.11 Attention misconceptions to remove now
+
+- A query is not a literal English question.
+- A key is not a database lookup key.
+- A value is not the original token copied unchanged.
+- Q, K, and V are independently projected from the same current X.
+- Q and K require compatible feature counts, not equal values.
+- The causal mask is applied before softmax.
+- Softmax operates across source columns for each query row.
+- Attention output mixes V—not K and not Q.
+- Attention weights are not guaranteed explanations of model reasoning.
+- A causal mask and a padding mask solve different problems.
 
 ### Section 2 checkpoint
 
-Explain the phrase “decode is parallel inside each iteration but sequential
-across generated tokens.” Then explain why prefill can process known prompt
-positions in large tensor operations without violating causal attention.
+Without looking back, explain:
+
+1. Which quantities are learned model parameters, and which depend on the request?
+2. What exactly does score cell `S[i,j]` measure?
+3. Why must Q and K have compatible final dimensions?
+4. Why divide by `√Dk`, and why is that not the same as softmax?
+5. Why does a masked score become zero influence?
+6. Which rows are finally mixed to create O?
+
+---
+
+## 3. Prefill and Decode: Generation Through Time
+
+Attention explains what happens inside a layer. Prefill and decode describe
+**when and over which positions** the model performs those layer calculations.
+
+### 3.1 Establish the time boundary
+
+At request arrival, the server has the prompt token IDs:
+
+```text
+ALREADY PROVIDED                         NOT SELECTED YET
+
+position 0     position 1     position 2     position 3
+  "Cats"        " chase"       " mice"          ?
+└────────────── prompt ─────────────────┘     next token
+```
+
+“Known” means only that the program already has the token ID. It does not mean
+the model understands it or has predetermined the response. Position 3 cannot
+be processed until a token-selection rule chooses its identity.
+
+Autoregressive generation alternates between two operations:
+
+1. A model forward pass produces logits—one score per vocabulary token.
+2. A selection rule chooses one token ID from those logits.
+
+That chosen token then becomes input to the next forward pass. The complete
+future answer is not generated all at once.
+
+### 3.2 Prefill: one forward pass over the prompt
+
+**Prefill is the initial forward pass over all prompt positions.** For the
+three-token example, its input shape begins conceptually as:
+
+```text
+token IDs:     [1 sequence, 3 positions]
+hidden states: [1 sequence, 3 positions, H hidden features]
+```
+
+At each attention layer, prefill calculates Q, K, and V rows for all three
+positions. The causal mask gives each row a different legal view:
+
+```text
+row 0 sees prefix: [Cats]
+row 1 sees prefix: [Cats, chase]
+row 2 sees prefix: [Cats, chase, mice]
+```
+
+Although information flows only left-to-right, the GPU does not need three
+complete model passes. It can calculate the rows and score cells in large
+parallel tensor operations; the triangular mask prevents forbidden cells from
+influencing outputs.
+
+After the last transformer layer, the model maps hidden states to vocabulary
+logits. The final prompt row represents the complete prompt prefix, so its
+logits are used for the next-token decision:
+
+```text
+final hidden row for position 2
+              │
+              ▼
+     vocabulary projection
+              │
+              ▼
+logits: one score for every vocabulary token
+              │
+              ▼
+  selection rule chooses " at"
+```
+
+The selection rule might be greedy argmax or a sampling procedure involving
+temperature, top-k, or top-p. Those policies change how a token is chosen, not
+the meaning of prefill.
+
+Prefill therefore leaves three important results:
+
+- logits for selecting the first generated token;
+- prompt K/V rows saved at every attention layer;
+- the identity of the selected token, here `" at"`.
+
+One subtle boundary is essential:
+
+> At the end of prefill, `" at"` has been selected but has not yet passed
+> through the model. Its layer-by-layer K/V rows therefore do not exist yet.
+
+![Prefill processes all prompt rows, fills their layer caches, and selects—but does not yet process—the first generated token](assets/prefill-forward-pass.svg)
+
+### 3.3 Decode: one newly selected token per forward pass
+
+The first decode forward pass receives `" at"` as its new input position. At
+each transformer layer, the model calculates the new position's Q, K, and V,
+uses the earlier K/V rows, and continues through the model. Its final hidden
+row produces logits that might select `" night"`.
+
+The process then repeats:
+
+| Forward pass | Positions processed in this pass | Cache resident after pass | Token selected afterward |
+| --- | --- | --- | --- |
+| Prefill | `Cats`, `chase`, `mice` | `Cats`, `chase`, `mice` | `at` |
+| Decode 1 | `at` | `Cats`, `chase`, `mice`, `at` | `night` |
+| Decode 2 | `night` | `Cats`, `chase`, `mice`, `at`, `night` | next token |
+
+The selected token is always one step ahead of the cache until the following
+forward pass processes it. Some software documentation loosely calls the
+first token selection “the first decode step.” In this lesson, **prefill** and
+**decode pass** name model forward passes, keeping the cache boundary precise.
+
+```text
+PREFILL
+[Cats chase mice] ──model──> select [at]
+
+DECODE PASS 1
+cached [Cats chase mice] + input [at] ──model──> select [night]
+
+DECODE PASS 2
+cached [Cats chase mice at] + input [night] ──model──> select [...]
+```
+
+![The autoregressive loop alternates a model pass with one token selection](assets/prefill-decode-timeline.svg)
+
+### 3.4 Why the stages perform differently
+
+Their simplified linear-operation shapes differ:
+
+```text
+PREFILL, batch size 1
+X [3 prompt rows, H] × W [H, H] → 3 output rows
+
+DECODE, batch size 1
+X [1 newest row, H] × W [H, H] → 1 output row
+```
+
+Real prompts may contain hundreds or thousands of rows. Prefill can reuse a
+large weight matrix across many token rows in one operation, often exposing
+substantial parallel work. Batch-one decode exposes one new row per request per
+iteration and must repeatedly access large weights. Consequently:
+
+- prefill is commonly more compute-intensive and often compute-bound;
+- small-batch decode is commonly sensitive to memory bandwidth and kernel
+  launch overhead;
+- these are tendencies, not universal laws—model architecture, prompt length,
+  batching, kernel choice, and hardware can change the result.
+
+Profiler evidence must decide for a specific workload.
+
+### 3.5 Parallel inside, sequential outside
+
+One decode pass contains many parallel GPU operations. But decode passes for a
+single sequence cannot all run simultaneously, because pass 2 does not know its
+input token until pass 1 selects it:
+
+```text
+time ──────────────────────────────────────────────────────────────▶
+
+pass 1: [many GPU operations in parallel] → select token A
+pass 2:                                    [parallel work] → token B
+pass 3:                                                      [work] → token C
+```
+
+This is the key phrase:
+
+> Decode is parallel **within** each forward pass but sequential **across**
+> generated positions for one sequence.
+
+Batching adds independent sequences to an iteration, giving the GPU more rows
+to process, but it does not remove each sequence's token-to-token dependency.
+
+### 3.6 Latency vocabulary
+
+- **Time to first token (TTFT):** request arrival to availability of the first
+  generated token. It includes queueing and prompt processing, not just GPU
+  prefill kernels.
+- **Inter-token latency (ITL):** time between successive streamed tokens.
+- **Tokens per second:** a rate derived from generation time; always clarify
+  whether it is per request or aggregate across a server.
+
+Longer prompts typically increase prefill work and TTFT. Decode behavior more
+directly influences ITL. Serving systems also add scheduling, communication,
+tokenization, and streaming overhead.
+
+### 3.7 Prefill/decode misconceptions
+
+- Prefill does not generate the complete answer internally.
+- Prefill processes all prompt positions, not one prompt token per full pass.
+- A causal mask does not force separate full passes for prompt rows.
+- Decode does not mean the GPU performs only one arithmetic operation.
+- The first selected token is not yet represented in the KV cache.
+- “One token at a time” describes the outer dependency, not absence of GPU
+  parallelism inside a pass.
+
+### Section 3 checkpoint
+
+1. What is known when a request first arrives, and what remains unknown?
+2. Why can prefill process prompt rows together without future influence?
+3. Which row's logits select the first generated token?
+4. At the end of prefill, why is that selected token not yet cached?
+5. Why are decode iterations sequential even though GPU kernels are parallel?
+6. What parts of a real service can contribute to TTFT besides model kernels?
+
+---
+
+## 4. The KV Cache: Reusing the Past Without Recomputing It
+
+### 4.1 The repeated-work problem
+
+After prefill selects `" at"`, the next prediction depends on:
+
+```text
+Cats chase mice at
+```
+
+Without caching, a simple implementation could rerun the unchanged prompt
+positions through every transformer layer. The next iteration would rerun an
+even longer prefix. Most of those earlier calculations have identical inputs
+and results.
+
+The KV cache retains the earlier attention results that future positions need:
+
+> It stores numerical key and value vectors for processed token positions,
+> separately at every attention layer.
+
+It does not store words directly or a prose summary of the conversation.
+
+### 4.2 Why cache K and V, but not Q?
+
+At layer `ℓ` and position `t`:
+
+```text
+layer input h[ℓ,t]
+       ├── ×WQ[ℓ] → q[ℓ,t]
+       ├── ×WK[ℓ] → k[ℓ,t]
+       └── ×WV[ℓ] → v[ℓ,t]
+```
+
+An old query was needed to calculate the output for its own destination
+position. Future positions do not reuse it; each future position creates a new
+query. But every new query must compare with earlier keys and use the matching
+earlier values:
+
+```text
+new query × all available keysᵀ → weights
+weights   × all available values → new attention output
+```
+
+Therefore old K and V rows are reusable; old Q rows normally are not.
+
+### 4.3 There is not one global cache
+
+A transformer with `L` layers conceptually owns this request-specific state:
+
+```text
+KV cache for one sequence
+├── layer 0: K0 for positions 0..T−1, V0 for positions 0..T−1
+├── layer 1: K1 for positions 0..T−1, V1 for positions 0..T−1
+├── ...
+└── layer L−1: KL−1 for positions 0..T−1, VL−1 for positions 0..T−1
+```
+
+The same token position has different K/V vectors at different layers because
+each layer receives different hidden states. Within a layer, data is also
+organized by KV attention head.
+
+Typical per-layer cache tensors use:
+
+```text
+K cache: [batch, kv_heads, retained_tokens, head_dimension]
+V cache: [batch, kv_heads, retained_tokens, head_dimension]
+```
+
+We say `kv_heads`, not automatically `query_heads`, because grouped-query and
+multi-query attention use fewer K/V heads than query heads.
+
+![The KV cache is a layer-by-layer collection of key and value tensors, not one global memory table](assets/kv-cache-layer-stack.svg)
+
+### 4.4 Exactly what prefill writes
+
+For the prompt:
+
+```text
+position:       0          1          2
+token:        "Cats"    " chase"    " mice"
+```
+
+prefill writes, at every attention layer:
+
+```text
+K cache after prefill: [kCats, kchase, kmice]
+V cache after prefill: [vCats, vchase, vmice]
+```
+
+The vectors shown are shorthand: each layer and KV head owns its corresponding
+rows. Prefill then selects `" at"`, but `kat` and `vat` do not exist until the
+next forward pass processes `" at"`.
+
+### 4.5 One decode pass: read, compute, attend, append
+
+At one layer during Decode 1:
+
+```text
+CACHE BEFORE PASS                       CALCULATE FOR NEW POSITION
+kCats, kchase, kmice                    qat, kat, vat
+vCats, vchase, vmice
+```
+
+The attention operation uses the new position itself as well as the past:
+
+```text
+scores = qat × [kCats, kchase, kmice, kat]ᵀ
+weights = softmax(scores / √Dk)
+oat = weights × [vCats, vchase, vmice, vat]
+```
+
+Then the layer appends the new K/V rows:
+
+```text
+before: K = [kCats, kchase, kmice]
+after:  K = [kCats, kchase, kmice, kat]
+
+before: V = [vCats, vchase, vmice]
+after:  V = [vCats, vchase, vmice, vat]
+```
+
+This read/compute/append sequence occurs at every attention layer. The model
+eventually selects `" night"`; its K/V rows wait for Decode 2.
+
+![A decode pass reuses cached K and V, computes one new Q K and V, performs attention, then appends the new K and V](assets/kv-cache-decode-ledger.svg)
+
+### 4.6 What the cache saves—and what remains expensive
+
+The cache avoids recomputing earlier positions' K/V projections and complete
+layer calculations. It does **not** eliminate attention over history. At a
+retained length `T`, the new query still compares with approximately `T` keys
+and mixes `T` values.
+
+```text
+WITHOUT CACHE
+rerun the growing prefix + calculate attention across it again
+
+WITH CACHE
+calculate one newest position + read and attend over retained K/V
+```
+
+For one decode step, cached attention work grows roughly linearly with retained
+context length. KV caching therefore trades extra memory and historical-data
+reads for avoided recomputation; it does not make decode constant-time.
+
+### 4.7 What is and is not in a standard KV cache
+
+**Stored:**
+
+- K and V vectors for retained positions;
+- separate K/V tensors for every attention layer;
+- separate data for every KV head;
+- normally the position-adjusted representation expected by that architecture.
+
+**Not normally stored as the KV cache:**
+
+- token strings;
+- old query vectors;
+- attention score matrices or softmax weights;
+- attention output vectors or vocabulary logits;
+- model weights, which occupy separate device memory;
+- a human-readable summary of earlier text.
+
+The cache is sequence- and request-specific. Identical token IDs at different
+positions or in different contexts do not generally have interchangeable
+deep-layer K/V vectors.
+
+### 4.8 Cache memory, dimension by dimension
+
+For a standard dense decoder cache, raw tensor storage is approximately:
+
+```text
+KV bytes =
+2                         K and V
+× batch_size
+× number_of_layers
+× number_of_kv_heads
+× retained_tokens
+× head_dimension
+× bytes_per_element
+```
+
+Tiny example:
+
+```text
+K and V factor        = 2
+batch                 = 1
+layers                = 2
+KV heads              = 2
+retained tokens       = 4
+head dimension        = 3
+FP16 bytes per value  = 2
+
+2 × 1 × 2 × 2 × 4 × 3 × 2 = 192 bytes
+```
+
+Each additional token costs:
+
+```text
+2 × 1 × 2 × 2 × 1 × 3 × 2 = 48 bytes per token
+```
+
+After three more processed tokens, seven retained tokens use:
+
+```text
+7 × 48 bytes = 336 bytes
+```
+
+A more realistic hypothetical grouped-query model:
+
+```text
+layers = 32             KV heads = 8
+head dimension = 128    retained tokens = 4096
+batch = 1               BF16 = 2 bytes/value
+
+2 × 32 × 8 × 128 × 4096 × 2
+= 536,870,912 bytes
+= 512 MiB
+```
+
+That is `128 KiB` per retained token for one sequence, or about `4 GiB` for a
+batch of eight equal-length sequences. Real serving allocation can add reserved
+capacity, padding, block fragmentation, metadata, and sharding effects.
+
+![Every cache-memory factor is a distinct physical or architectural dimension](assets/kv-cache-memory-formula.svg)
+
+### 4.9 Practical cache variants: a preview
+
+| Strategy | Main idea | Main tradeoff |
+| --- | --- | --- |
+| Dynamic cache | Grow storage as tokens arrive. | Flexible shapes can complicate compilation. |
+| Static cache | Reserve a fixed maximum capacity. | Easier fixed-shape execution but may waste space. |
+| Sliding-window cache | Retain only a bounded history in applicable layers. | Bounded memory, but older positions become unavailable there. |
+| Quantized cache | Store K/V at lower precision. | Less memory; conversion or accuracy effects may cost performance. |
+| Paged cache | Allocate K/V in blocks rather than one contiguous reservation. | Better serving utilization with management complexity. |
+| Prefix cache | Reuse matching prompt-prefix K/V across suitable requests. | Requires exact compatibility and lifecycle management. |
+
+These are optimizations of the same fundamental state. First master ordinary
+per-layer K/V reuse.
+
+### 4.10 KV-cache misconceptions
+
+- The cache does not contain one K/V pair per token for the whole model; it
+  contains entries per retained position, layer, and KV head.
+- The first selected output token is not cached until the next pass processes it.
+- The model still attends to old positions by reading their cached K/V.
+- Cache length begins with the prompt and then grows with processed output tokens.
+- Caching avoids recomputation but does not make each decode step constant-time.
+- The cache is not the same memory as the model's parameter weights.
+
+### Section 4 checkpoint
+
+1. Why are earlier K and V reusable while earlier Q normally is not?
+2. Why must every transformer layer have separate cache entries?
+3. What is in the cache immediately after prefill selects the first output token?
+4. During decode, what is reused, newly calculated, and appended?
+5. Which term in the memory formula accounts for K and V separately?
+6. Why can cache memory fall when a model uses fewer KV heads?
+7. What historical work remains even when caching is enabled?
+
+---
 
 ## Lesson 02 Completion Gate
 
 Continue only when you can explain without notes:
 
-1. The difference between a token ID, an embedding, and a hidden-state row.
-2. Where Q, K, and V come from and their distinct mechanical roles.
-3. Why Q and K need compatible feature dimensions without equal values.
-4. How a query-key score becomes a weight applied to a value row.
-5. Why causal masking prevents future-token leakage.
-6. The difference between a token being known to the server and visible to a
-   particular query row.
-7. What prefill produces and what decode repeats.
-8. Exactly what the KV cache stores, saves, and costs.
+1. How X and learned projection weights produce Q, K, and V.
+2. How one `QKᵀ` cell maps a destination row to a source row.
+3. The order: scale, causal mask, row-wise softmax, V mixture.
+4. Why prompt rows can be calculated together without future influence.
+5. The precise output and cache boundary at the end of prefill.
+6. Why generation is sequential across token selections.
+7. The per-layer, per-head structure of the KV cache.
+8. What the cache saves, what it costs, and what work remains.
 
 Next: [Lesson 03 — How Transformer Workloads Map to GPUs](../03-transformer-workloads-on-gpus/).
 
----
+## Primary Sources and Further Reading
+
+- [Attention Is All You Need](https://arxiv.org/abs/1706.03762), Sections
+  3.2.1–3.2.3: scaled dot-product attention, masking, and multiple heads.
+- [PyTorch scaled dot-product attention documentation](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html):
+  authoritative operation order and tensor shapes.
+- [Hugging Face Transformers: Caching](https://huggingface.co/docs/transformers/cache_explanation):
+  per-layer cache structure, concatenation, cache positions, and attention masks.
+- [Hugging Face Transformers: Cache strategies](https://huggingface.co/docs/transformers/kv_cache):
+  dynamic, static, offloaded, sliding-window, and quantized implementations.
+- [PagedAttention](https://arxiv.org/abs/2309.06180): the primary paper on
+  block-based KV-cache memory management for high-throughput serving.

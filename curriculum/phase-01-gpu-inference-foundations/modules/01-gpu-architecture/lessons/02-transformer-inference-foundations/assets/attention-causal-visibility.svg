@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="850" viewBox="0 0 1400 850" role="img" aria-labelledby="title desc">
+  <title id="title">All prompt tokens are present, but causal attention limits influence</title>
+  <desc id="desc">Cats, chase, and mice all exist in the prefill tensor. A lower-triangular causal mask allows each query position to use only its own and earlier source positions, preventing future targets from influencing earlier predictions.</desc>
+  <defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#0b1020"/><stop offset="1" stop-color="#111a2e"/></linearGradient><style>.title{font:700 32px Inter,system-ui,sans-serif;fill:#f8fafc}.sub{font:17px Inter,system-ui,sans-serif;fill:#cbd5e1}.h{font:700 20px Inter,system-ui,sans-serif;fill:#f8fafc}.label{font:600 15px Inter,system-ui,sans-serif;fill:#e2e8f0}.small{font:14px Inter,system-ui,sans-serif;fill:#aebbd0}.num{font:600 17px ui-monospace,SFMono-Regular,monospace;fill:#f8fafc}.panel{fill:#151f35;stroke:#34445f;stroke-width:2}.allow{fill:#0f766e;stroke:#5eead4;stroke-width:2}.block{fill:#3b2637;stroke:#f87171;stroke-width:2}.token{fill:#273653;stroke:#7185a5;stroke-width:2}.warn{fill:#321f2a;stroke:#e87979;stroke-width:2}</style></defs>
+  <rect width="1400" height="850" fill="url(#bg)"/>
+  <text x="55" y="58" class="title">Present in the input ≠ permitted to influence every row</text>
+  <text x="55" y="88" class="sub">The server has all prompt IDs during prefill; the causal mask controls information flow between positions.</text>
+  <rect x="45" y="125" width="1310" height="170" rx="18" class="panel"/>
+  <text x="70" y="164" class="h">Fact 1 — all prompt tokens already exist in the input tensor</text>
+  <g transform="translate(210 195)"><rect width="240" height="70" rx="12" class="token"/><text x="120" y="29" text-anchor="middle" class="label">position 0</text><text x="120" y="55" text-anchor="middle" class="num">“Cats”</text></g>
+  <g transform="translate(580 195)"><rect width="240" height="70" rx="12" class="token"/><text x="120" y="29" text-anchor="middle" class="label">position 1</text><text x="120" y="55" text-anchor="middle" class="num">“ chase”</text></g>
+  <g transform="translate(950 195)"><rect width="240" height="70" rx="12" class="token"/><text x="120" y="29" text-anchor="middle" class="label">position 2</text><text x="120" y="55" text-anchor="middle" class="num">“ mice”</text></g>
+
+  <rect x="45" y="320" width="870" height="470" rx="18" class="panel"/>
+  <text x="70" y="360" class="h">Fact 2 — each query row has a legal source prefix</text>
+  <text x="70" y="388" class="small">Rows = destination queries · columns = source keys/values · rule: source j may influence query i only when j ≤ i</text>
+  <text x="470" y="427" text-anchor="middle" class="label">SOURCE / KEY-VALUE POSITION j</text>
+  <text x="407" y="458" text-anchor="middle" class="label">0 Cats</text><text x="557" y="458" text-anchor="middle" class="label">1 chase</text><text x="707" y="458" text-anchor="middle" class="label">2 mice</text>
+  <text x="85" y="531" class="label">QUERY 0 “Cats”</text><text x="85" y="631" class="label">QUERY 1 “ chase”</text><text x="85" y="731" class="label">QUERY 2 “ mice”</text>
+  <g>
+    <rect x="340" y="480" width="135" height="72" rx="10" class="allow"/><rect x="490" y="480" width="135" height="72" rx="10" class="block"/><rect x="640" y="480" width="135" height="72" rx="10" class="block"/>
+    <rect x="340" y="580" width="135" height="72" rx="10" class="allow"/><rect x="490" y="580" width="135" height="72" rx="10" class="allow"/><rect x="640" y="580" width="135" height="72" rx="10" class="block"/>
+    <rect x="340" y="680" width="135" height="72" rx="10" class="allow"/><rect x="490" y="680" width="135" height="72" rx="10" class="allow"/><rect x="640" y="680" width="135" height="72" rx="10" class="allow"/>
+    <text x="407" y="523" text-anchor="middle" class="label">ALLOW</text><text x="557" y="523" text-anchor="middle" class="label">BLOCK</text><text x="707" y="523" text-anchor="middle" class="label">BLOCK</text>
+    <text x="407" y="623" text-anchor="middle" class="label">ALLOW</text><text x="557" y="623" text-anchor="middle" class="label">ALLOW</text><text x="707" y="623" text-anchor="middle" class="label">BLOCK</text>
+    <text x="407" y="723" text-anchor="middle" class="label">ALLOW</text><text x="557" y="723" text-anchor="middle" class="label">ALLOW</text><text x="707" y="723" text-anchor="middle" class="label">ALLOW</text>
+  </g>
+
+  <rect x="945" y="320" width="410" height="470" rx="18" class="panel"/>
+  <text x="975" y="360" class="h">Why block “future” sources?</text>
+  <text x="975" y="402" class="label">Training example at position 1</text>
+  <text x="975" y="435" class="small">state built through:</text><text x="975" y="462" class="num">[Cats] [chase]</text>
+  <text x="975" y="501" class="small">target to predict:</text><text x="975" y="528" class="num">[mice]</text>
+  <rect x="970" y="560" width="360" height="116" rx="12" class="warn"/>
+  <text x="990" y="592" class="label">Forbidden shortcut</text><text x="990" y="620" class="small">If query 1 reads source 2, information</text><text x="990" y="644" class="small">from “mice” influences the state used to</text><text x="990" y="668" class="small">predict “mice.” The answer leaked in.</text>
+  <text x="975" y="715" class="label">Mask mechanics</text><text x="975" y="743" class="small">blocked score → −∞ before softmax</text><text x="975" y="769" class="small">softmax(−∞) → weight 0 → no influence</text>
+  <text x="700" y="825" text-anchor="middle" class="small">“Leakage” means target information improperly influences an earlier prediction—not that data escapes the computer.</text>
+</svg>

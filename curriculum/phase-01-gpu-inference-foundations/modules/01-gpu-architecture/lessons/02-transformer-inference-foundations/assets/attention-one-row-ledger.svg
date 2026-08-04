@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="920" viewBox="0 0 1400 920" role="img" aria-labelledby="title desc">
+  <title id="title">Complete attention calculation ledger for the chase query row</title>
+  <desc id="desc">The chase query row is dot multiplied with every key, scaled, causally masked, normalized with softmax, and used to mix the value rows into output vector 0.5, 1.0.</desc>
+  <defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#0b1020"/><stop offset="1" stop-color="#111a2e"/></linearGradient><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0 0L10 5 0 10z" fill="#94a3b8"/></marker><style>.title{font:700 31px Inter,system-ui,sans-serif;fill:#f8fafc}.sub{font:17px Inter,system-ui,sans-serif;fill:#cbd5e1}.h{font:700 19px Inter,system-ui,sans-serif;fill:#f8fafc}.label{font:600 15px Inter,system-ui,sans-serif;fill:#e2e8f0}.small{font:14px Inter,system-ui,sans-serif;fill:#aebbd0}.num{font:600 17px ui-monospace,SFMono-Regular,monospace;fill:#f8fafc}.panel{fill:#151f35;stroke:#34445f;stroke-width:2}.q{fill:#1d4ed8;stroke:#60a5fa;stroke-width:2}.k{fill:#805b0b;stroke:#fbbf24;stroke-width:2}.v{fill:#075f46;stroke:#34d399;stroke-width:2}.blocked{fill:#422434;stroke:#f87171;stroke-width:2}.weight{fill:#4c3d82;stroke:#a78bfa;stroke-width:2}.out{fill:#164e63;stroke:#22d3ee;stroke-width:2}.arrow{stroke:#94a3b8;stroke-width:3;fill:none;marker-end:url(#arrow)}</style></defs>
+  <rect width="1400" height="920" fill="url(#bg)"/>
+  <text x="50" y="54" class="title">One attention row, end to end: destination “ chase”</text>
+  <text x="50" y="84" class="sub">Follow source position colors from Q·K scoring through softmax weights to the corresponding V rows.</text>
+
+  <rect x="40" y="120" width="1320" height="205" rx="18" class="panel"/>
+  <text x="65" y="158" class="h">1 · Compare one query with every source key</text>
+  <rect x="65" y="185" width="170" height="92" rx="12" class="q"/><text x="150" y="215" text-anchor="middle" class="label">q₁ for “ chase”</text><text x="150" y="252" text-anchor="middle" class="num">[1, 1]</text>
+  <text x="260" y="238" class="num">·</text>
+  <g transform="translate(295 180)"><rect width="275" height="108" rx="12" class="k"/><text x="137" y="28" text-anchor="middle" class="label">k₀ source “Cats”</text><text x="137" y="57" text-anchor="middle" class="num">[1,1]·[1,0]</text><text x="137" y="88" text-anchor="middle" class="num">= 1</text></g>
+  <g transform="translate(590 180)"><rect width="275" height="108" rx="12" class="k"/><text x="137" y="28" text-anchor="middle" class="label">k₁ source “ chase”</text><text x="137" y="57" text-anchor="middle" class="num">[1,1]·[0,1]</text><text x="137" y="88" text-anchor="middle" class="num">= 1</text></g>
+  <g transform="translate(885 180)"><rect width="275" height="108" rx="12" class="k"/><text x="137" y="28" text-anchor="middle" class="label">k₂ source “ mice”</text><text x="137" y="57" text-anchor="middle" class="num">[1,1]·[1,1]</text><text x="137" y="88" text-anchor="middle" class="num">= 2</text></g>
+  <text x="1190" y="225" class="label">raw row</text><text x="1190" y="256" class="num">[1, 1, 2]</text>
+
+  <path d="M700 325 L700 360" class="arrow"/>
+  <rect x="40" y="370" width="1320" height="178" rx="18" class="panel"/>
+  <text x="65" y="408" class="h">2 · Scale, mask, then normalize this row</text>
+  <text x="80" y="459" class="label">divide by √Dk = √2</text><text x="80" y="490" class="num">[0.707, 0.707, 1.414]</text>
+  <text x="390" y="475" class="num">→</text>
+  <text x="435" y="449" class="label">causal mask</text><text x="435" y="478" class="small">source 2 is later than query 1</text><text x="435" y="511" class="num">[0.707, 0.707, −∞]</text>
+  <text x="745" y="475" class="num">→</text>
+  <text x="790" y="449" class="label">row-wise softmax</text><text x="790" y="478" class="small">exp, divide by row sum</text><text x="790" y="511" class="num">A₁ = [0.5, 0.5, 0]</text>
+  <rect x="1110" y="424" width="210" height="88" rx="12" class="blocked"/><text x="1215" y="456" text-anchor="middle" class="label">blocked source</text><text x="1215" y="487" text-anchor="middle" class="num">−∞ → weight 0</text>
+
+  <path d="M700 548 L700 582" class="arrow"/>
+  <rect x="40" y="592" width="1320" height="245" rx="18" class="panel"/>
+  <text x="65" y="630" class="h">3 · Use those weights on V rows with the same source indices</text>
+  <g transform="translate(70 663)"><rect width="300" height="115" rx="12" class="v"/><text x="150" y="29" text-anchor="middle" class="label">source 0 · “Cats”</text><text x="150" y="60" text-anchor="middle" class="num">0.5 × v₀ [1,0]</text><text x="150" y="91" text-anchor="middle" class="num">= [0.5, 0]</text></g>
+  <text x="388" y="725" class="num">+</text>
+  <g transform="translate(420 663)"><rect width="300" height="115" rx="12" class="v"/><text x="150" y="29" text-anchor="middle" class="label">source 1 · “ chase”</text><text x="150" y="60" text-anchor="middle" class="num">0.5 × v₁ [0,2]</text><text x="150" y="91" text-anchor="middle" class="num">= [0, 1.0]</text></g>
+  <text x="738" y="725" class="num">+</text>
+  <g transform="translate(770 663)"><rect width="300" height="115" rx="12" class="blocked"/><text x="150" y="29" text-anchor="middle" class="label">source 2 · “ mice”</text><text x="150" y="60" text-anchor="middle" class="num">0 × v₂ [1,2]</text><text x="150" y="91" text-anchor="middle" class="num">= [0, 0]</text></g>
+  <text x="1090" y="725" class="num">=</text>
+  <g transform="translate(1125 663)"><rect width="190" height="115" rx="12" class="out"/><text x="95" y="31" text-anchor="middle" class="label">output o₁</text><text x="95" y="72" text-anchor="middle" class="num">[0.5, 1.0]</text><text x="95" y="97" text-anchor="middle" class="small">new mixed vector</text></g>
+  <text x="700" y="865" text-anchor="middle" class="h">Q and K produced the weights [0.5, 0.5, 0]. Those weights—not Q or K—mixed the V rows.</text>
+  <text x="700" y="893" text-anchor="middle" class="small">Order matters: score → scale → mask → softmax → value mixture.</text>
+</svg>

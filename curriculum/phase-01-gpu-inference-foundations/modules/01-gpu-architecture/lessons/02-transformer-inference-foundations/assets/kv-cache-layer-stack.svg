@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="930" viewBox="0 0 1400 930" role="img" aria-labelledby="title desc">
+  <title id="title">The KV cache is a stack of per-layer key and value tensors</title>
+  <desc id="desc">A decoder with many layers. Each layer owns a separate key tensor and value tensor organized by batch, KV head, retained token, and head feature. A callout explains that there is no single global cache.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#08111f"/><stop offset="1" stop-color="#101d32"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="7" stdDeviation="8" flood-color="#020617" flood-opacity=".55"/></filter>
+    <style>
+      .sans{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}.mono{font-family:"SFMono-Regular",Consolas,monospace}
+      .title{font-size:34px;font-weight:750;fill:#f8fafc}.sub{font-size:18px;fill:#a9bad1}.h{font-size:22px;font-weight:700;fill:#f8fafc}.body{font-size:17px;fill:#d8e3f0}.small{font-size:15px;fill:#aec0d5}.label{font-size:16px;font-weight:700;fill:#f8fafc}.dim{font-size:15px;font-weight:650;fill:#dce8f6}
+      .panel{fill:#101d31;stroke:#36506f;stroke-width:1.5}.layer{fill:#14243a;stroke:#527092;stroke-width:1.5}.k{fill:#123d50;stroke:#30c9df;stroke-width:2}.v{fill:#3a274d;stroke:#c084fc;stroke-width:2}.token{fill:#1c304a;stroke:#507096}.dash{stroke-dasharray:7 7}
+    </style>
+  </defs>
+  <rect width="1400" height="930" rx="22" fill="url(#bg)"/>
+  <text x="70" y="72" class="sans title">The KV cache is a layer stack—not one global memory</text>
+  <text x="70" y="108" class="sans sub">One request • prompt positions 0–2 • tokens “Cats”, “ chase”, “ mice”</text>
+
+  <g filter="url(#shadow)">
+    <rect x="70" y="150" width="360" height="685" rx="18" class="panel"/>
+    <text x="100" y="193" class="sans h">Decoder layers</text>
+    <text x="100" y="223" class="sans small">Each layer receives different hidden states.</text>
+    <g transform="translate(100 262)">
+      <rect width="300" height="105" rx="13" class="layer"/><text x="22" y="34" class="sans label">Layer 0</text><text x="22" y="65" class="sans small">h[0,t] → k[0,t], v[0,t]</text><text x="22" y="90" class="sans small">own K₀ and V₀ tensors</text>
+    </g>
+    <path d="M250 371v54" stroke="#7890aa" stroke-width="3" class="dash"/>
+    <g transform="translate(100 430)">
+      <rect width="300" height="105" rx="13" class="layer"/><text x="22" y="34" class="sans label">Layer 1</text><text x="22" y="65" class="sans small">h[1,t] → k[1,t], v[1,t]</text><text x="22" y="90" class="sans small">own K₁ and V₁ tensors</text>
+    </g>
+    <text x="239" y="593" text-anchor="middle" class="sans h" fill="#7f96ae">⋮</text>
+    <g transform="translate(100 635)">
+      <rect width="300" height="125" rx="13" class="layer"/><text x="22" y="35" class="sans label">Layer L−1</text><text x="22" y="68" class="sans small">h[L−1,t] → k[L−1,t], v[L−1,t]</text><text x="22" y="96" class="sans small">own K<tspan baseline-shift="sub">L−1</tspan> and V<tspan baseline-shift="sub">L−1</tspan> tensors</text>
+    </g>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="475" y="150" width="855" height="685" rx="18" class="panel"/>
+    <text x="510" y="193" class="sans h">Inside every layer ℓ</text>
+    <text x="510" y="224" class="sans body">Same logical shape; different numerical vectors at every layer and KV head.</text>
+
+    <text x="510" y="277" class="sans label">Kℓ  [batch, kv_heads, retained_tokens, head_dimension]</text>
+    <g transform="translate(510 300)">
+      <rect width="770" height="130" rx="15" class="k"/>
+      <text x="22" y="31" class="sans small">batch 0  •  KV head 0  •  three retained-token rows</text>
+      <g transform="translate(22 51)">
+        <rect width="220" height="55" rx="9" class="token"/><rect x="252" width="220" height="55" rx="9" class="token"/><rect x="504" width="220" height="55" rx="9" class="token"/>
+        <text x="110" y="24" text-anchor="middle" class="sans label">k<tspan baseline-shift="sub">Cats</tspan></text><text x="110" y="44" text-anchor="middle" class="mono small">[d₀ … d<tspan baseline-shift="sub">h−1</tspan>]</text>
+        <text x="362" y="24" text-anchor="middle" class="sans label">k<tspan baseline-shift="sub">chase</tspan></text><text x="362" y="44" text-anchor="middle" class="mono small">[d₀ … d<tspan baseline-shift="sub">h−1</tspan>]</text>
+        <text x="614" y="24" text-anchor="middle" class="sans label">k<tspan baseline-shift="sub">mice</tspan></text><text x="614" y="44" text-anchor="middle" class="mono small">[d₀ … d<tspan baseline-shift="sub">h−1</tspan>]</text>
+      </g>
+    </g>
+
+    <text x="510" y="480" class="sans label">Vℓ  [batch, kv_heads, retained_tokens, head_dimension]</text>
+    <g transform="translate(510 503)">
+      <rect width="770" height="130" rx="15" class="v"/>
+      <text x="22" y="31" class="sans small">batch 0  •  KV head 0  •  matching retained-token rows</text>
+      <g transform="translate(22 51)">
+        <rect width="220" height="55" rx="9" class="token"/><rect x="252" width="220" height="55" rx="9" class="token"/><rect x="504" width="220" height="55" rx="9" class="token"/>
+        <text x="110" y="24" text-anchor="middle" class="sans label">v<tspan baseline-shift="sub">Cats</tspan></text><text x="110" y="44" text-anchor="middle" class="mono small">[d₀ … d<tspan baseline-shift="sub">h−1</tspan>]</text>
+        <text x="362" y="24" text-anchor="middle" class="sans label">v<tspan baseline-shift="sub">chase</tspan></text><text x="362" y="44" text-anchor="middle" class="mono small">[d₀ … d<tspan baseline-shift="sub">h−1</tspan>]</text>
+        <text x="614" y="24" text-anchor="middle" class="sans label">v<tspan baseline-shift="sub">mice</tspan></text><text x="614" y="44" text-anchor="middle" class="mono small">[d₀ … d<tspan baseline-shift="sub">h−1</tspan>]</text>
+      </g>
+    </g>
+    <rect x="510" y="680" width="770" height="112" rx="14" fill="#17263a" stroke="#f5b942" stroke-width="1.5"/>
+    <text x="535" y="714" class="sans label" fill="#ffe3a3">Why are the layer entries different?</text>
+    <text x="535" y="745" class="sans body">Layer ℓ projects its own input h[ℓ,t]. Because h changes from layer to layer,</text>
+    <text x="535" y="774" class="sans body">the same token position has different k[ℓ,t] and v[ℓ,t] at each layer.</text>
+  </g>
+  <text x="700" y="890" text-anchor="middle" class="sans sub">The shorthand k<tspan baseline-shift="sub">Cats</tspan> means one layer’s, one KV head’s numerical row—not the word itself.</text>
+</svg>

@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="940" viewBox="0 0 1400 940" role="img" aria-labelledby="title desc">
+  <title id="title">One decode pass reads old K and V, computes new Q K and V, attends, and appends</title>
+  <desc id="desc">For token at, a five-step ledger shows cached Cats chase mice keys and values being reused, new q k v computed, the query scored against all keys, values mixed, and the new k and v appended.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#08111f"/><stop offset="1" stop-color="#101d32"/></linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0 0l10 5-10 5z" fill="#86a6c8"/></marker>
+    <style>.s{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}.m{font-family:"SFMono-Regular",Consolas,monospace}.t{font-size:34px;font-weight:750;fill:#f8fafc}.sub{font-size:18px;fill:#a9bad1}.h{font-size:22px;font-weight:750;fill:#f8fafc}.b{font-size:17px;fill:#dbe6f2}.sm{font-size:15px;fill:#b1c3d8}.lab{font-size:16px;font-weight:700;fill:#f8fafc}.panel{fill:#101d31;stroke:#36506f;stroke-width:1.5}.box{fill:#172840;stroke:#557497;stroke-width:1.5}.k{fill:#123d50;stroke:#30c9df;stroke-width:2}.v{fill:#3a274d;stroke:#c084fc;stroke-width:2}.q{fill:#4b3418;stroke:#f5b942;stroke-width:2}.arr{stroke:#86a6c8;stroke-width:2.5;fill:none;marker-end:url(#arrow)}</style>
+  </defs>
+  <rect width="1400" height="940" rx="22" fill="url(#bg)"/>
+  <text x="60" y="67" class="s t">Decode 1 at one layer: read → compute → attend → append</text>
+  <text x="60" y="103" class="s sub">Cache before pass: “Cats”, “ chase”, “ mice”  •  newest input processed now: “ at”</text>
+
+  <g transform="translate(60 145)">
+    <rect width="250" height="240" rx="17" class="panel"/><circle cx="31" cy="31" r="18" fill="#29415f"/><text x="31" y="37" text-anchor="middle" class="s lab">1</text><text x="60" y="38" class="s h">Read old K/V</text>
+    <text x="22" y="76" class="s sm">Reuse three retained positions.</text>
+    <rect x="22" y="98" width="206" height="48" rx="9" class="k"/><text x="125" y="128" text-anchor="middle" class="m lab">kCats  kchase  kmice</text>
+    <rect x="22" y="163" width="206" height="48" rx="9" class="v"/><text x="125" y="193" text-anchor="middle" class="m lab">vCats  vchase  vmice</text>
+  </g>
+  <path d="M320 265h34" class="arr"/>
+  <g transform="translate(365 145)">
+    <rect width="250" height="240" rx="17" class="panel"/><circle cx="31" cy="31" r="18" fill="#29415f"/><text x="31" y="37" text-anchor="middle" class="s lab">2</text><text x="60" y="38" class="s h">Compute for “ at”</text>
+    <text x="22" y="76" class="s sm">Project this layer’s new h.</text>
+    <rect x="22" y="98" width="62" height="84" rx="9" class="q"/><rect x="94" y="98" width="62" height="84" rx="9" class="k"/><rect x="166" y="98" width="62" height="84" rx="9" class="v"/>
+    <text x="53" y="135" text-anchor="middle" class="m lab">q<tspan baseline-shift="sub">at</tspan></text><text x="125" y="135" text-anchor="middle" class="m lab">k<tspan baseline-shift="sub">at</tspan></text><text x="197" y="135" text-anchor="middle" class="m lab">v<tspan baseline-shift="sub">at</tspan></text>
+    <text x="53" y="163" text-anchor="middle" class="s sm">use</text><text x="125" y="163" text-anchor="middle" class="s sm">append</text><text x="197" y="163" text-anchor="middle" class="s sm">append</text>
+    <text x="22" y="213" class="s sm">Only the newest Q is needed.</text>
+  </g>
+  <path d="M625 265h34" class="arr"/>
+  <g transform="translate(670 145)">
+    <rect width="305" height="240" rx="17" class="panel"/><circle cx="31" cy="31" r="18" fill="#29415f"/><text x="31" y="37" text-anchor="middle" class="s lab">3</text><text x="60" y="38" class="s h">Score all keys</text>
+    <text x="22" y="76" class="s sm">Include the newest position itself.</text>
+    <rect x="22" y="100" width="70" height="56" rx="9" class="q"/><text x="57" y="134" text-anchor="middle" class="m lab">q<tspan baseline-shift="sub">at</tspan></text>
+    <text x="104" y="136" class="s h">×</text>
+    <rect x="132" y="96" width="151" height="65" rx="9" class="k"/><text x="207" y="123" text-anchor="middle" class="m sm">[kCats kchase</text><text x="207" y="146" text-anchor="middle" class="m sm"> kmice kat]ᵀ</text>
+    <text x="22" y="198" class="m sm">→ 4 scores → scale → softmax</text>
+    <text x="22" y="222" class="m sm">→ weights [w₀ w₁ w₂ w₃]</text>
+  </g>
+  <path d="M985 265h34" class="arr"/>
+  <g transform="translate(1030 145)">
+    <rect width="310" height="240" rx="17" class="panel"/><circle cx="31" cy="31" r="18" fill="#29415f"/><text x="31" y="37" text-anchor="middle" class="s lab">4</text><text x="60" y="38" class="s h">Mix all values</text>
+    <text x="22" y="76" class="s sm">Weights choose the contribution.</text>
+    <rect x="22" y="94" width="266" height="70" rx="9" class="v"/><text x="155" y="122" text-anchor="middle" class="m sm">w₀vCats + w₁vchase</text><text x="155" y="147" text-anchor="middle" class="m sm">+ w₂vmice + w₃vat</text>
+    <text x="155" y="194" text-anchor="middle" class="s h">= o<tspan baseline-shift="sub">at</tspan></text>
+    <text x="155" y="220" text-anchor="middle" class="s sm">new contextual attention output</text>
+  </g>
+
+  <path d="M1185 398v28H700v26" class="arr"/>
+  <g transform="translate(120 465)">
+    <rect width="1160" height="300" rx="18" class="panel"/><circle cx="35" cy="38" r="18" fill="#29415f"/><text x="35" y="44" text-anchor="middle" class="s lab">5</text><text x="66" y="45" class="s h">Append only the new K and V rows</text>
+    <text x="34" y="82" class="s b">The attention result uses four positions. The persistent cache grows from three positions to four.</text>
+    <text x="35" y="126" class="s lab">BEFORE</text><text x="575" y="126" class="s lab">AFTER</text>
+    <rect x="35" y="145" width="450" height="50" rx="9" class="k"/><text x="260" y="176" text-anchor="middle" class="m lab">K = [kCats, kchase, kmice]</text>
+    <rect x="35" y="211" width="450" height="50" rx="9" class="v"/><text x="260" y="242" text-anchor="middle" class="m lab">V = [vCats, vchase, vmice]</text>
+    <path d="M500 203h48" class="arr"/>
+    <rect x="575" y="145" width="550" height="50" rx="9" class="k"/><text x="850" y="176" text-anchor="middle" class="m lab">K = [kCats, kchase, kmice, kat]</text>
+    <rect x="575" y="211" width="550" height="50" rx="9" class="v"/><text x="850" y="242" text-anchor="middle" class="m lab">V = [vCats, vchase, vmice, vat]</text>
+  </g>
+  <rect x="120" y="795" width="1160" height="90" rx="14" fill="#17263a" stroke="#f5b942" stroke-width="1.5"/>
+  <text x="700" y="830" text-anchor="middle" class="s lab" fill="#ffe3a3">End-of-pass boundary</text>
+  <text x="700" y="862" text-anchor="middle" class="s b">The model may now select “ night”, but k<tspan baseline-shift="sub">night</tspan> and v<tspan baseline-shift="sub">night</tspan> do not exist until Decode 2 processes that token.</text>
+  <text x="700" y="916" text-anchor="middle" class="s sub">The same five steps occur independently at every attention layer.</text>
+</svg>

@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" role="img" aria-labelledby="title desc">
+  <title id="title">Q, K, and V are three sibling projections of the same hidden-state matrix</title>
+  <desc id="desc">The hidden states for Cats, chase, and mice are independently multiplied by learned WQ, WK, and WV matrices. The resulting query and key rows determine attention scores, while value rows supply information to mix.</desc>
+  <defs>
+    <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#0b1020"/><stop offset="1" stop-color="#111a2e"/></linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+    <style>
+      .title{font:700 32px Inter,system-ui,sans-serif;fill:#f8fafc}.sub{font:17px Inter,system-ui,sans-serif;fill:#cbd5e1}.h{font:700 20px Inter,system-ui,sans-serif;fill:#f8fafc}.label{font:600 15px Inter,system-ui,sans-serif;fill:#e2e8f0}.small{font:14px Inter,system-ui,sans-serif;fill:#aebbd0}.num{font:600 18px ui-monospace,SFMono-Regular,monospace;fill:#f8fafc}.formula{font:600 18px ui-monospace,SFMono-Regular,monospace;fill:#e2e8f0}.panel{fill:#151f35;stroke:#34445f;stroke-width:2}.cell{fill:#1e293b;stroke:#52627b}.x{fill:#6d5bd0}.q{fill:#2563eb}.k{fill:#b77909}.v{fill:#087f5b}.arrow{stroke:#94a3b8;stroke-width:3;fill:none;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1400" height="900" fill="url(#bg)"/>
+  <text x="60" y="58" class="title">Where Q, K, and V come from</text>
+  <text x="60" y="88" class="sub">One layer input X is projected three independent ways using learned model parameters.</text>
+
+  <rect x="45" y="125" width="360" height="575" rx="18" class="panel"/>
+  <text x="70" y="166" class="h">Layer input X</text><text x="70" y="192" class="small">request-dependent activations · shape [3, 2]</text>
+  <text x="190" y="225" class="small">hidden feature</text><text x="244" y="250" class="small">f0</text><text x="314" y="250" class="small">f1</text>
+  <g>
+    <text x="70" y="296" class="label">0  Cats</text><text x="70" y="366" class="label">1  chase</text><text x="70" y="436" class="label">2  mice</text>
+    <rect x="210" y="265" width="65" height="48" rx="7" class="x"/><rect x="280" y="265" width="65" height="48" rx="7" class="x"/>
+    <rect x="210" y="335" width="65" height="48" rx="7" class="x"/><rect x="280" y="335" width="65" height="48" rx="7" class="x"/>
+    <rect x="210" y="405" width="65" height="48" rx="7" class="x"/><rect x="280" y="405" width="65" height="48" rx="7" class="x"/>
+    <text x="236" y="296" class="num">1</text><text x="306" y="296" class="num">0</text><text x="236" y="366" class="num">0</text><text x="306" y="366" class="num">1</text><text x="236" y="436" class="num">1</text><text x="306" y="436" class="num">1</text>
+  </g>
+  <rect x="70" y="500" width="310" height="154" rx="12" fill="#101827" stroke="#475569"/>
+  <text x="90" y="532" class="label">Same X enters all three branches</text>
+  <text x="90" y="565" class="small">Each row = one token position’s</text><text x="90" y="588" class="small">current hidden state at this layer.</text>
+  <text x="90" y="625" class="small">These tiny values are hypothetical.</text>
+
+  <path d="M405 300 C450 300 447 226 490 226" class="arrow"/><path d="M405 355 L490 410" class="arrow"/><path d="M405 410 C450 410 447 596 490 596" class="arrow"/>
+
+  <g transform="translate(500 126)">
+    <rect width="855" height="196" rx="18" class="panel"/><rect width="14" height="196" rx="7" class="q"/>
+    <text x="35" y="40" class="h">Query branch — comparison rows for destinations</text>
+    <text x="35" y="72" class="formula">Q = X × WQ</text><text x="193" y="72" class="small">WQ = [[1,0],[1,1]] · learned and fixed during inference</text>
+    <text x="35" y="110" class="label">Q [3×2]</text>
+    <text x="35" y="143" class="formula">Cats [1,0]   chase [1,1]   mice [2,1]</text>
+    <text x="35" y="174" class="small">Mechanical role: each qi forms one score row by dot-producting source keys.</text>
+  </g>
+  <g transform="translate(500 342)">
+    <rect width="855" height="196" rx="18" class="panel"/><rect width="14" height="196" rx="7" class="k"/>
+    <text x="35" y="40" class="h">Key branch — comparison rows for sources</text>
+    <text x="35" y="72" class="formula">K = X × WK</text><text x="193" y="72" class="small">WK = [[1,0],[0,1]] · learned and fixed during inference</text>
+    <text x="35" y="110" class="label">K [3×2]</text>
+    <text x="35" y="143" class="formula">Cats [1,0]   chase [0,1]   mice [1,1]</text>
+    <text x="35" y="174" class="small">Mechanical role: qi · kj produces score S[i,j]. Q and K share Dk = 2.</text>
+  </g>
+  <g transform="translate(500 558)">
+    <rect width="855" height="196" rx="18" class="panel"/><rect width="14" height="196" rx="7" class="v"/>
+    <text x="35" y="40" class="h">Value branch — source information rows to mix</text>
+    <text x="35" y="72" class="formula">V = X × WV</text><text x="193" y="72" class="small">WV = [[1,0],[0,2]] · learned and fixed during inference</text>
+    <text x="35" y="110" class="label">V [3×2]</text>
+    <text x="35" y="143" class="formula">Cats [1,0]   chase [0,2]   mice [1,2]</text>
+    <text x="35" y="174" class="small">Mechanical role: normalized source weight A[i,j] multiplies value row vj.</text>
+  </g>
+  <rect x="130" y="790" width="1140" height="72" rx="14" fill="#18253b" stroke="#4b6285" stroke-width="2"/>
+  <text x="700" y="821" text-anchor="middle" class="h">Q and K determine the weights. V supplies the vectors those weights mix.</text>
+  <text x="700" y="848" text-anchor="middle" class="small">Sibling projections: Q does not create K, K does not create V, and none are literal words or database fields.</text>
+</svg>
