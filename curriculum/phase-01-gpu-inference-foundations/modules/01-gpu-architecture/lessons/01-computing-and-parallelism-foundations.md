@@ -2075,149 +2075,340 @@ input.
 
 ### 9.2 Prefill, Slowly and Concretely
 
-**Prefill is the model's first processing pass over the prompt.** The word
-“fill” refers partly to filling the KV cache with reusable information for the
-prompt positions.
+**Prefill is the first model pass over the prompt tokens.** It does three things
+that matter for this chapter:
 
-#### Step 1 — The whole prompt becomes rows of numbers
+1. It produces contextual representations for the prompt positions.
+2. It saves reusable key and value vectors for those positions in the KV cache.
+3. It produces logits used to select the first token after the prompt.
 
-The four known token IDs are mapped to vectors. At the entrance to a layer,
-think of one row per prompt position:
+To understand how, we must first understand attention mechanically. Do not
+begin with the metaphors “a query asks a question” or “a key advertises what it
+contains.” Those can become useful later, but they hide the actual calculation.
+
+#### 9.2.1 Attention's purpose: controlled information mixing
+
+Consider a sentence with a reference:
+
+```text
+"The animal did not cross the street because it was tired."
+```
+
+When a transformer updates the numerical representation at `"it"`, information
+from the earlier `"animal"` position may be useful. Attention is a mechanism
+that lets one position form a weighted mixture of numerical information from
+other permitted positions.
+
+```text
+current state at one token position
+                 +
+weighted information from permitted positions
+                 │
+                 ▼
+new, context-aware state at that token position
+```
+
+It does not copy English words into one another. It operates on learned vectors.
+
+#### 9.2.2 The prompt begins as one numerical row per token position
+
+Return to the four-token teaching prompt:
+
+```text
+position       0        1       2        3
+token        "The"    " sky"  " is"   " blue"
+```
+
+At the entrance to an attention layer, each position has a hidden-state vector:
+
+```text
+x0 = current numerical representation at position 0
+x1 = current numerical representation at position 1
+x2 = current numerical representation at position 2
+x3 = current numerical representation at position 3
+```
+
+Stacking them creates a matrix:
 
 ```text
 Xprompt
 shape: [4 token positions, hidden_size]
 
-row 0 → current numerical state for "The"
-row 1 → current numerical state for " sky"
-row 2 → current numerical state for " is"
-row 3 → current numerical state for " blue"
+row 0: x0 for "The"
+row 1: x1 for " sky"
+row 2: x2 for " is"
+row 3: x3 for " blue"
 ```
 
-All four rows exist before GPU model execution starts because all four token
-IDs came from the request.
+All four rows can be prepared together because all four token IDs arrived in
+the user's prompt.
 
-#### Step 2 — Each attention layer creates Q, K, and V rows
+#### 9.2.3 Q, K, and V are three calculated versions of each row
 
-At one attention layer, learned linear transformations create three different
-views of every row:
+The attention layer owns three learned weight matrices. It applies them to `X`:
 
 ```text
-Q = Xprompt × WQ      one query row per prompt position
-K = Xprompt × WK      one key row per prompt position
-V = Xprompt × WV      one value row per prompt position
+Q = X × WQ
+K = X × WK
+V = X × WV
 ```
 
-At a conceptual level:
-
-- A **query** describes what the position is looking for.
-- A **key** describes what a position can be matched on.
-- A **value** contains information that can be mixed into another position.
-
-Q, K, and V are numerical vectors. They are not English questions, dictionary
-keys, or copies of the token text.
-
-#### Step 3 — Queries compare with keys
-
-The model calculates an attention score for query position `i` and key position
-`j`. Before masking, the GPU can calculate a full grid of comparisons:
+This creates one query, key, and value row for every token position:
 
 ```text
-                         KEY POSITION j
-                     The    sky     is    blue
-QUERY POSITION i
-The                  score  score  score  score
-sky                  score  score  score  score
-is                   score  score  score  score
-blue                 score  score  score  score
+position 0: q0, k0, v0
+position 1: q1, k1, v1
+position 2: q2, k2, v2
+position 3: q3, k3, v3
 ```
 
-Each row asks: “While updating this query position, how strongly should each key
-position matter?”
+Here are the mechanical—not metaphorical—roles:
 
-#### Step 4 — The causal mask blocks information from the future
+| Vector | Exact role in the calculation |
+| --- | --- |
+| **Query `qi`** | The vector on the left side of comparisons made for destination position `i`. |
+| **Key `kj`** | The vector on the right side of a comparison representing possible source position `j`. |
+| **Value `vj`** | The numerical information from source position `j` that may be included in the result. |
 
-A decoder-only language model is trained to predict text from left to right.
-When it constructs the representation at position 1, that position must not
-peek at positions 2 or 3. Otherwise training would leak the very future tokens
-the model is supposed to learn to predict.
-
-The **causal mask** is the rule enforcing that restriction:
+Queries and keys determine **how much weight** a source receives. Values supply
+the **information multiplied by that weight**.
 
 ```text
-                         KEY POSITION BEING READ
+query × keys  → relevance scores → normalized weights
+normalized weights × values      → attention output
+```
+
+Q, K, and V are not English questions, database keys, or copies of token text.
+They are learned numerical projections. A layer learns useful projections
+during training.
+
+#### 9.2.4 A complete query-key comparison
+
+Suppose the query vector at the `"blue"` position is:
+
+```text
+qblue = [2, 1]
+```
+
+Suppose the four key vectors are:
+
+```text
+kThe  = [0, 1]
+ksky  = [2, 1]
+kis   = [1, 0]
+kblue = [1, 1]
+```
+
+The model takes a dot product with every permitted key. Before applying the
+causal mask, the four raw scores are:
+
+```text
+qblue · kThe  = (2×0) + (1×1) = 1
+qblue · ksky  = (2×2) + (1×1) = 5
+qblue · kis   = (2×1) + (1×0) = 2
+qblue · kblue = (2×1) + (1×1) = 3
+
+source position:          The    sky    is    blue
+raw score from qblue:      1      5      2      3
+```
+
+In this hypothetical example, `qblue` and `ksky` have the largest dot product.
+That is all the phrase “the query matches the key” means here: a learned
+numerical comparison produced a relatively large score.
+
+Real attention normally scales these scores and applies softmax. Suppose the
+resulting weights are:
+
+```text
+source position:          The    sky    is    blue
+attention weight:        0.05   0.60   0.10   0.25
+```
+
+The weights add to `1`. They are then applied to the value vectors:
+
+```text
+attention output for "blue"
+= 0.05 × vThe
++ 0.60 × vsky
++ 0.10 × vis
++ 0.25 × vblue
+```
+
+Notice the division of labor:
+
+```text
+qblue and the keys produced:  [0.05, 0.60, 0.10, 0.25]
+those weights selected/mixed: [vThe, vsky, vis, vblue]
+```
+
+The following figure traces those two separate stages:
+
+![Query-key scoring followed by weighted value mixing](assets/qkv-scoring-and-value-mixing.svg)
+
+The output is a new numerical vector for the `"blue"` position. It can contain
+context gathered from earlier positions, especially `"sky"` in this teaching
+example. An individual vector coordinate does not have to correspond to a
+human-readable concept.
+
+#### 9.2.5 Why future-token leakage is a training problem
+
+The complete training sentence is already stored in the training dataset:
+
+```text
+"The sky is blue"
+```
+
+Training creates next-token prediction examples from it:
+
+```text
+information that should be usable       target answer
+
+"The"                                  → " sky"
+"The sky"                              → " is"
+"The sky is"                           → " blue"
+```
+
+Focus on the second example. The representation at position 1, `" sky"`, is
+used to predict the target at position 2, `" is"`.
+
+If query position 1 were allowed to use key/value position 2, it could inspect
+information derived from `" is"` while being trained to predict `" is"`:
+
+```text
+legal input for the prediction:   [The] [sky]
+target answer:                                 [is]
+
+illegal shortcut:
+position 1 representation ───────────────reads position 2 "is"
+                                                  │
+                                                  └── the answer leaked into its input
+```
+
+The model could appear accurate during training by exploiting information that
+will not exist when it must generate new text. That is **future-token leakage**:
+
+> Information from the target or a still-later sequence position improperly
+> influences a representation that is supposed to predict without that future.
+
+#### 9.2.6 The causal mask removes the illegal shortcut
+
+The causal mask specifies which source positions each query row may use:
+
+```text
+                           KEY/VALUE SOURCE POSITION
                          0      1      2      3
-QUERY position 0        allow  block  block  block
-QUERY position 1        allow  allow  block  block
-QUERY position 2        allow  allow  allow  block
-QUERY position 3        allow  allow  allow  allow
+QUERY position 0       allow  block  block  block
+QUERY position 1       allow  allow  block  block
+QUERY position 2       allow  allow  allow  block
+QUERY position 3       allow  allow  allow  allow
 ```
 
-Another way to read it:
+For query position 1:
 
 ```text
-position 0 may read: [0]
-position 1 may read: [0, 1]
-position 2 may read: [0, 1, 2]
-position 3 may read: [0, 1, 2, 3]
+may use:      positions 0 and 1
+may not use:  positions 2 and 3
 ```
 
-“Future” here means a larger sequence position **relative to the query row**.
-Although the server already possesses every prompt token, the mathematical
-information-flow rule still prevents an earlier row from using later rows.
+Suppose its unmasked scores were:
 
-This resolves an apparent contradiction:
+```text
+source:          The    sky     is    blue
+raw score:        2      4       8      3
+```
 
-- All prompt token IDs are known to the server, so their matrix rows can be
-  prepared and calculated together.
-- Each row is allowed to use only itself and earlier positions, so the causal
-  mask blocks forbidden score cells.
+The causal mask conceptually replaces forbidden scores with negative infinity:
 
-The mask changes which calculated scores may influence the output. It does not
-require the GPU to process the four prompt tokens using four complete model
-passes.
+```text
+source:          The    sky     is    blue
+masked score:     2      4      −∞      −∞
+```
+
+After softmax, forbidden positions receive zero weight:
+
+```text
+source:          The    sky     is    blue
+attention weight: approximately 0.12, 0.88, 0, 0
+```
+
+Therefore `vis` and `vblue` contribute nothing to the output for query position
+1. The mask blocks influence; it does not remove the tokens from server memory.
 
 ![Prefill matrices with tokens, Q K transpose scores, causal mask, and contextual outputs labeled](assets/prefill-causal-attention-matrices.svg)
 
-#### Step 5 — Allowed scores mix value rows
+#### 9.2.7 Known to the server is not the same as visible to a row
 
-After masking and normalization, the allowed scores become weights used to
-combine value rows. For the last prompt position, a hypothetical result might
-conceptually resemble:
+This is the distinction that resolves the apparent contradiction during
+inference prefill:
+
+| Question | Meaning |
+| --- | --- |
+| Is the token **known to the server**? | Does its token ID already exist in the prompt input? |
+| Is the token **visible to this query row**? | Does the causal mask permit this row to use that token position's key and value? |
+
+All four prompt tokens are known to the server, so the GPU can construct all
+four Q/K/V rows using large matrix operations. But their permitted views differ:
 
 ```text
-updated information for "blue"
-= 0.05 × V("The")
-+ 0.60 × V(" sky")
-+ 0.10 × V(" is")
-+ 0.25 × V(" blue")
+row 0 represents prefix: "The"
+row 1 represents prefix: "The sky"
+row 2 represents prefix: "The sky is"
+row 3 represents prefix: "The sky is blue"
 ```
 
-The numbers are illustrative. The result is a contextual numerical vector: the
-state for `" blue"` can now contain information gathered from earlier prompt
-positions.
+Consequently:
 
-#### Step 6 — Prefill saves K and V, then scores the first new token
+```text
+row 0 may read positions 0
+row 1 may read positions 0–1
+row 2 may read positions 0–2
+row 3 may read positions 0–3
+```
 
-At every relevant transformer layer, the model retains the key and value rows
-created for the prompt. This saved collection is the **KV cache**:
+The GPU may calculate many matrix cells in parallel. The mask determines which
+cells are allowed to influence each output. Causal information flow therefore
+does not require four separate complete model passes during prefill.
+
+#### 9.2.8 How prefill ends and the KV cache begins
+
+After attention and the rest of the transformer layers run, the last prompt
+row represents the complete prompt prefix:
+
+```text
+row 3 → "The sky is blue"
+```
+
+That final row is used to produce logits for the next position, position 4. A
+selection policy might choose `" because"`.
+
+Meanwhile, each relevant layer retains the prompt's key and value rows:
 
 ```text
 K cache after prefill                 V cache after prefill
 
-position 0: K("The")                  position 0: V("The")
-position 1: K(" sky")                 position 1: V(" sky")
-position 2: K(" is")                  position 2: V(" is")
-position 3: K(" blue")                position 3: V(" blue")
+position 0: kThe                     position 0: vThe
+position 1: ksky                     position 1: vsky
+position 2: kis                      position 2: vis
+position 3: kblue                    position 3: vblue
 ```
 
-The cache does not contain the model's answer. It does not replace the model's
-weights. It stores intermediate numerical results that future decode iterations
-will need again.
+These rows are saved because the next generated position will need to compare
+its new query with the earlier keys and combine the earlier values. The cache
+contains reusable intermediate numbers—not words, logits, the answer, or model
+weights.
 
-Finally, the last prompt position's state flows through the remaining model
-operations and produces logits—scores over possible tokens for position 4. If
-the selection policy chooses `" because"`, prefill is complete.
+#### Section 9.2 checkpoint
+
+Before continuing, explain each answer in your own words:
+
+1. In the attention calculation, what do Q and K produce together?
+2. What is done with V after Q and K produce attention weights?
+3. Why would allowing position 1 to read position 2 leak the answer when
+   position 1 is being used to predict position 2?
+4. How can a token be known to the server but blocked from a particular row?
+5. Why can prefill calculate all prompt Q/K/V rows together without allowing
+   information to flow backward from future positions?
+6. What exactly is saved in the KV cache at the end of prefill?
 
 ### 9.3 Decode and the KV Cache, Slowly and Concretely
 
