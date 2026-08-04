@@ -1990,149 +1990,322 @@ different operation types in a transformer block.
 This section provides only the performance foundation. Module 03 develops the
 full mechanics.
 
-### 9.0 Vocabulary for the Visualizations
+### 9.0 Start With Time: Which Tokens Exist Right Now?
 
-| Term | Meaning in this section |
-| --- | --- |
-| **Prefill** | The initial model processing of all already-known prompt tokens. |
-| **Decode iteration** | One pass that uses the current state to select one next token. |
-| **Logits** | Unnormalized numerical scores over candidate next tokens. |
-| **Causal mask** | A rule blocking a token position from reading future positions. |
-| **KV cache** | Previously computed key and value tensors retained per relevant layer and KV head so decode can reuse them. |
+Before defining prefill, separate two categories that the earlier version called
+“known” and “unknown” without enough explanation.
 
-The diagrams use small matrices from one teaching slice. A real transformer has
-many layers and attention heads, and implementations may arrange cache axes
-differently.
-
-### 9.1 Autoregressive generation has an unavoidable sequence
-
-A decoder-only language model generates one next token, appends it, then uses
-the expanded sequence to generate another.
-
-```mermaid
-flowchart LR
-    S0[Prompt] --> T1[Generate token 1]
-    T1 --> T2[Generate token 2]
-    T2 --> T3[Generate token 3]
-```
-
-Token 3 depends on the selected token 2, which depends on token 1. Across decode
-iterations, there is a sequential dependency.
-
-### 9.2 Prefill
-
-During **prefill**, the model processes the existing prompt tokens and builds
-the internal attention state needed for subsequent generation.
+Suppose the user submits this prompt:
 
 ```text
-Prompt tokens: [t0, t1, t2, t3, ... tN]
-                       │
-                       ▼
-      Process prompt through all model layers
-                       │
-                       ▼
-      Next-token logits + key/value state for prompt
+"The sky is blue"
 ```
 
-The model uses causal attention: a token cannot use information from a later
-token. However, the known prompt tokens are all already available. GPU kernels
-can organize many prompt-position calculations into large tensor operations
-while applying a causal mask to preserve the information restriction.
+After tokenization, assume the prompt contains four token pieces:
 
-This is subtle:
+```text
+position       0        1       2        3
+token        "The"    " sky"  " is"   " blue"
+```
 
-> Causal information flow does not require the GPU to run one separate complete
-> model pass for each prompt token during prefill.
+These are **known tokens** because their identities are already present in the
+request. The server does not need the model to guess them. It can immediately
+convert all four to token IDs and supply those IDs to the model.
 
-The prompt's token dimension creates substantial parallel work, even though the
-mathematics prevents earlier positions from attending to later ones.
+The token that should follow `" blue"` is **not yet known**. The request did not
+contain it, and the model has not selected it yet. We can draw the boundary at
+the instant the request arrives:
 
-The following teaching example uses four prompt tokens. It shows the matrices
-that the compact phrase “causal attention” hides:
+```text
+ALREADY PROVIDED BY THE USER                  NOT SELECTED YET
+
+position 0   position 1   position 2   position 3   position 4
+  "The"       " sky"        " is"       " blue"         ?
+└──────────────── prompt tokens ────────────────┘    next token
+         known to the program now                     unknown now
+```
+
+“Known” does **not** mean that the model understands the token, that its answer
+is predetermined, or that the token came from training data. It means only:
+
+> **At this moment in this request, the program already has this token's ID.**
+
+After the model selects a token for position 4—suppose it selects
+`" because"`—that token becomes known and is appended to the sequence. Position
+5 is then the new unknown:
+
+```text
+[The] [ sky] [ is] [ blue] [ because] [?]
+                            newly known  next unknown
+```
+
+This boundary moves one position to the right after every generated token.
+
+![Known prompt tokens, the moving unknown boundary, prefill, and repeated decode steps](assets/known-tokens-prefill-decode-timeline.svg)
+
+### 9.1 The Two Stages of Generation
+
+Generation divides naturally at that boundary:
+
+| Stage | Input available at the start | What the stage accomplishes |
+| --- | --- | --- |
+| **Prefill** | All tokens supplied in the prompt | Processes the prompt, saves reusable attention information, and produces scores for the first token after the prompt. |
+| **Decode** | The prompt plus tokens generated so far | Selects one additional token, saves its reusable attention information, and repeats. |
+
+For our example:
+
+```text
+PREFILL
+input:   [The] [ sky] [ is] [ blue]
+output:  scores for position 4 + saved attention information for positions 0–3
+
+DECODE ITERATION 1
+select:  [ because] for position 4
+output:  scores for position 5 + add position 4 to saved attention information
+
+DECODE ITERATION 2
+select:  perhaps [ light] for position 5
+output:  scores for position 6 + add position 5 to saved attention information
+```
+
+The model does not secretly calculate the whole answer during prefill. It
+produces scores for one next-token decision. A decoding policy selects one
+token from those scores. Only then does the next decode iteration have its full
+input.
+
+### 9.2 Prefill, Slowly and Concretely
+
+**Prefill is the model's first processing pass over the prompt.** The word
+“fill” refers partly to filling the KV cache with reusable information for the
+prompt positions.
+
+#### Step 1 — The whole prompt becomes rows of numbers
+
+The four known token IDs are mapped to vectors. At the entrance to a layer,
+think of one row per prompt position:
+
+```text
+Xprompt
+shape: [4 token positions, hidden_size]
+
+row 0 → current numerical state for "The"
+row 1 → current numerical state for " sky"
+row 2 → current numerical state for " is"
+row 3 → current numerical state for " blue"
+```
+
+All four rows exist before GPU model execution starts because all four token
+IDs came from the request.
+
+#### Step 2 — Each attention layer creates Q, K, and V rows
+
+At one attention layer, learned linear transformations create three different
+views of every row:
+
+```text
+Q = Xprompt × WQ      one query row per prompt position
+K = Xprompt × WK      one key row per prompt position
+V = Xprompt × WV      one value row per prompt position
+```
+
+At a conceptual level:
+
+- A **query** describes what the position is looking for.
+- A **key** describes what a position can be matched on.
+- A **value** contains information that can be mixed into another position.
+
+Q, K, and V are numerical vectors. They are not English questions, dictionary
+keys, or copies of the token text.
+
+#### Step 3 — Queries compare with keys
+
+The model calculates an attention score for query position `i` and key position
+`j`. Before masking, the GPU can calculate a full grid of comparisons:
+
+```text
+                         KEY POSITION j
+                     The    sky     is    blue
+QUERY POSITION i
+The                  score  score  score  score
+sky                  score  score  score  score
+is                   score  score  score  score
+blue                 score  score  score  score
+```
+
+Each row asks: “While updating this query position, how strongly should each key
+position matter?”
+
+#### Step 4 — The causal mask blocks information from the future
+
+A decoder-only language model is trained to predict text from left to right.
+When it constructs the representation at position 1, that position must not
+peek at positions 2 or 3. Otherwise training would leak the very future tokens
+the model is supposed to learn to predict.
+
+The **causal mask** is the rule enforcing that restriction:
+
+```text
+                         KEY POSITION BEING READ
+                         0      1      2      3
+QUERY position 0        allow  block  block  block
+QUERY position 1        allow  allow  block  block
+QUERY position 2        allow  allow  allow  block
+QUERY position 3        allow  allow  allow  allow
+```
+
+Another way to read it:
+
+```text
+position 0 may read: [0]
+position 1 may read: [0, 1]
+position 2 may read: [0, 1, 2]
+position 3 may read: [0, 1, 2, 3]
+```
+
+“Future” here means a larger sequence position **relative to the query row**.
+Although the server already possesses every prompt token, the mathematical
+information-flow rule still prevents an earlier row from using later rows.
+
+This resolves an apparent contradiction:
+
+- All prompt token IDs are known to the server, so their matrix rows can be
+  prepared and calculated together.
+- Each row is allowed to use only itself and earlier positions, so the causal
+  mask blocks forbidden score cells.
+
+The mask changes which calculated scores may influence the output. It does not
+require the GPU to process the four prompt tokens using four complete model
+passes.
 
 ![Prefill matrices with tokens, Q K transpose scores, causal mask, and contextual outputs labeled](assets/prefill-causal-attention-matrices.svg)
 
-Read the attention-score matrix by rows:
+#### Step 5 — Allowed scores mix value rows
 
-- A **row** is the query position asking, “Which earlier positions matter to
-  me?”
-- A **column** is a key position that might supply information.
-- Cell `(i, j)` compares query position `i` with key position `j`.
-- Cells above the diagonal represent looking into the future and are blocked.
-- Cells on or below the diagonal are allowed.
-
-For four prompt positions, the allowed-pattern matrix is:
+After masking and normalization, the allowed scores become weights used to
+combine value rows. For the last prompt position, a hypothetical result might
+conceptually resemble:
 
 ```text
-                         KEY POSITION (information source)
-                       t0    t1    t2    t3
-QUERY t0 ("Why")       ✓     ×     ×     ×
-POSITION t1 (" sky")   ✓     ✓     ×     ×
-         t2 (" is")    ✓     ✓     ✓     ×
-         t3 (" blue")  ✓     ✓     ✓     ✓
-
-✓ = allowed to attend       × = masked future position
+updated information for "blue"
+= 0.05 × V("The")
++ 0.60 × V(" sky")
++ 0.10 × V(" is")
++ 0.25 × V(" blue")
 ```
 
-All four prompt tokens are known before prefill begins. A GPU can build `Q`,
-`K`, and `V` for all four positions in batched matrix operations, compute many
-score cells in parallel, and still set forbidden cells to an unusable value
-before normalization. Parallel calculation does not change which information
-each row is permitted to use.
+The numbers are illustrative. The result is a contextual numerical vector: the
+state for `" blue"` can now contain information gathered from earlier prompt
+positions.
 
-### 9.3 Decode
+#### Step 6 — Prefill saves K and V, then scores the first new token
 
-During **decode**, the system produces new tokens iteratively.
-
-One simplified iteration:
+At every relevant transformer layer, the model retains the key and value rows
+created for the prompt. This saved collection is the **KV cache**:
 
 ```text
-1. Use the newest token state and existing cache.
-2. Execute the model layers.
-3. Produce logits for the next token.
-4. Select one token according to the decoding policy.
-5. Append the selected token.
-6. Update the cache.
-7. Repeat unless a stop condition is reached.
+K cache after prefill                 V cache after prefill
+
+position 0: K("The")                  position 0: V("The")
+position 1: K(" sky")                 position 1: V(" sky")
+position 2: K(" is")                  position 2: V(" is")
+position 3: K(" blue")                position 3: V(" blue")
 ```
 
-```mermaid
-flowchart TD
-    S[Current sequence and cache] --> M[One model decode step]
-    M --> L[Next-token logits]
-    L --> CHOOSE[Select token]
-    CHOOSE --> UPDATE[Append token and update cache]
-    UPDATE --> STOP{Stop?}
-    STOP -- No --> M
-    STOP -- Yes --> END[Return completion]
+The cache does not contain the model's answer. It does not replace the model's
+weights. It stores intermediate numerical results that future decode iterations
+will need again.
+
+Finally, the last prompt position's state flows through the remaining model
+operations and produces logits—scores over possible tokens for position 4. If
+the selection policy chooses `" because"`, prefill is complete.
+
+### 9.3 Decode and the KV Cache, Slowly and Concretely
+
+At the start of the first decode iteration, `" because"` has now been selected.
+Its ID is therefore known and can be processed as the newest input position.
+
+#### What would happen without a KV cache?
+
+Attention for the new position needs keys and values representing the earlier
+positions. Without saved results, the system would repeatedly recreate the old
+K and V rows:
+
+```text
+iteration 1: recreate K/V for positions 0–3, then process position 4
+iteration 2: recreate K/V for positions 0–4, then process position 5
+iteration 3: recreate K/V for positions 0–5, then process position 6
 ```
 
-#### What changes in the matrices after one token is selected?
+That repeats work whose inputs and results have not changed.
+
+#### What happens with a KV cache?
+
+The old rows are retrieved from device memory. Only the newest position needs
+new K and V rows:
+
+```text
+REUSE from cache                         CALCULATE now
+
+K0 K1 K2 K3                              K4 for " because"
+V0 V1 V2 V3                              V4 for " because"
+```
+
+The model also calculates a new query `Q4`. That query compares with all keys
+available through position 4:
+
+```text
+Q4 compares with [K0, K1, K2, K3, K4]
+                         │
+                         ▼
+             five attention scores
+                         │
+                         ▼
+scores mix [V0, V1, V2, V3, V4]
+                         │
+                         ▼
+        context for newest position 4
+```
+
+Position 4 can read all positions 0–4 because all are at or before its own
+position. There is no future prompt row to mask for this single newest query.
 
 ![Decode matrix growth showing a new query row and cached key-value rows](assets/decode-kv-cache-matrix-growth.svg)
 
-Suppose prefill processed four prompt tokens and produced cached key and value
-rows for positions `t0` through `t3`. After the model selects new token `t4`:
+After the layer uses the rows, `K4` and `V4` are appended to the cache:
 
 ```text
-new token state Xnew:       [1 position, hidden_size]
-new query Qnew:             [1 position, head_size]
-cached keys Kcache:         [4 previous positions, head_size]
-new key Knew:               [1 position, head_size]
-combined keys:              [5 positions, head_size]
-
-attention scores:
-Qnew [1, head_size] × combined-Kᵀ [head_size, 5] → [1, 5]
+before: cache covers positions [0, 1, 2, 3]
+after:  cache covers positions [0, 1, 2, 3, 4]
 ```
 
-Only one new query row is needed for the newest position. The cached key/value
-rows preserve information calculated for earlier positions, so they need not
-be regenerated from scratch in every layer. The newest position may attend to
-all five positions because none is in its future.
+The model eventually produces logits for position 5 and selects another token.
+That selected token becomes the input to the next iteration.
 
-The `[1, 5]` score row is not the entire model. Every layer and attention head
-has corresponding work, and linear projections still use large weight
-matrices. The small diagram isolates the sequence-dimension change.
+#### What the cache saves—and what it costs
+
+The KV cache saves **recomputation of old key and value projections**. It does
+not make attention free:
+
+- The new token still passes through every transformer layer.
+- A new Q, K, and V must be formed for the new position.
+- The new query still compares with the growing collection of cached keys.
+- The attention result still combines cached values.
+- New K/V rows consume additional GPU memory at every relevant layer.
+
+Therefore the cache trades memory capacity for less repeated computation. Its
+memory usage grows with sequence length.
+
+#### Check your mental model
+
+For the prompt `[The, sky, is, blue]`, answer these before continuing:
+
+1. Why are the four prompt tokens called known before prefill?
+2. Which token is unknown at that moment?
+3. Why may query position 1 not read key position 3 during prefill?
+4. Does the causal mask mean the GPU must run four complete sequential model
+   passes? Why not?
+5. What numerical rows does the KV cache retain?
+6. When `" because"` is appended, which K/V rows are reused and which are new?
 
 ### 9.4 Parallel inside, sequential outside
 

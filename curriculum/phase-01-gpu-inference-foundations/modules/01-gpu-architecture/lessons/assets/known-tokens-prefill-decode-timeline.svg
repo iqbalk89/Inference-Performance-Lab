@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" role="img" aria-labelledby="title desc">
+  <title id="title">Known and unknown tokens across prefill and decode</title>
+  <desc id="desc">Three chronological frames show four prompt tokens already provided by the user, prefill selecting the first generated token, and decode moving the known-unknown boundary one position at a time.</desc>
+  <defs>
+    <style>
+      text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#f8fafc}.title{font-size:32px;font-weight:700}.h{font-size:21px;font-weight:700}.m{font-size:16px}.sub{font-size:14px;fill:#cbd5e1}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:15px}.card{fill:#172033;stroke:#475569;stroke-width:2}.prompt{fill:#155e75;stroke:#67e8f9;stroke-width:2}.generated{fill:#6d28d9;stroke:#c4b5fd;stroke-width:2}.unknown{fill:#3f3f46;stroke:#fbbf24;stroke-width:3;stroke-dasharray:9 7}.arrow{stroke:#93c5fd;stroke-width:4;marker-end:url(#a)}
+    </style>
+    <marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#93c5fd"/></marker>
+  </defs>
+  <rect width="1400" height="900" rx="28" fill="#0f172a"/>
+  <text x="45" y="55" class="title">The known–unknown boundary moves as tokens are generated</text>
+  <text x="45" y="84" class="sub">“Known” means the program has the token ID at that moment. Token pieces and choices are hypothetical.</text>
+
+  <g transform="translate(45 125)">
+    <rect width="1310" height="205" rx="18" class="card"/>
+    <text x="24" y="38" class="h">Moment 1 — request arrives: four prompt token IDs are already available</text>
+    <g transform="translate(25 65)">
+      <g class="prompt"><rect width="170" height="70" rx="8"/><rect x="180" width="170" height="70" rx="8"/><rect x="360" width="170" height="70" rx="8"/><rect x="540" width="170" height="70" rx="8"/></g>
+      <rect x="760" width="170" height="70" rx="8" class="unknown"/>
+      <g class="h" text-anchor="middle"><text x="85" y="43">The</text><text x="265" y="43"> sky</text><text x="445" y="43"> is</text><text x="625" y="43"> blue</text><text x="845" y="43">?</text></g>
+      <g class="sub" text-anchor="middle"><text x="85" y="94">position 0 • known</text><text x="265" y="94">position 1 • known</text><text x="445" y="94">position 2 • known</text><text x="625" y="94">position 3 • known</text><text x="845" y="94">position 4 • unknown</text></g>
+      <text x="980" y="28" class="m">Known because the user supplied them.</text><text x="980" y="56" class="m">Unknown because no token has been</text><text x="980" y="82" class="m">selected for this position yet.</text>
+    </g>
+  </g>
+
+  <line x1="700" y1="340" x2="700" y2="395" class="arrow"/><text x="725" y="375" class="m">prefill processes prompt</text>
+  <g transform="translate(45 405)">
+    <rect width="1310" height="205" rx="18" class="card"/>
+    <text x="24" y="38" class="h">Moment 2 — prefill finishes: position 4 is selected, and prompt K/V rows are cached</text>
+    <g transform="translate(25 65)">
+      <g class="prompt"><rect width="145" height="70" rx="8"/><rect x="155" width="145" height="70" rx="8"/><rect x="310" width="145" height="70" rx="8"/><rect x="465" width="145" height="70" rx="8"/></g>
+      <rect x="620" width="175" height="70" rx="8" class="generated"/><rect x="845" width="145" height="70" rx="8" class="unknown"/>
+      <g class="h" text-anchor="middle"><text x="72" y="43">The</text><text x="227" y="43"> sky</text><text x="382" y="43"> is</text><text x="537" y="43"> blue</text><text x="707" y="43"> because</text><text x="917" y="43">?</text></g>
+      <text x="707" y="98" text-anchor="middle" class="sub">position 4 • newly known</text><text x="917" y="98" text-anchor="middle" class="sub">position 5 • unknown</text>
+      <text x="1030" y="22" class="m">Saved from prompt:</text><text x="1030" y="50" class="mono">K0–K3 and V0–V3</text><text x="1030" y="82" class="sub">The cache is intermediate math,</text><text x="1030" y="105" class="sub">not generated text.</text>
+    </g>
+  </g>
+
+  <line x1="700" y1="620" x2="700" y2="675" class="arrow"/><text x="725" y="655" class="m">decode processes newest token</text>
+  <g transform="translate(45 685)">
+    <rect width="1310" height="170" rx="18" class="card"/>
+    <text x="24" y="38" class="h">Moment 3 — one decode iteration: reuse old cache, calculate K4/V4, then move boundary again</text>
+    <g transform="translate(25 63)">
+      <g class="prompt"><rect width="125" height="60" rx="8"/><rect x="135" width="125" height="60" rx="8"/><rect x="270" width="125" height="60" rx="8"/><rect x="405" width="125" height="60" rx="8"/></g>
+      <rect x="540" width="160" height="60" rx="8" class="generated"/><rect x="710" width="145" height="60" rx="8" class="generated"/><rect x="905" width="125" height="60" rx="8" class="unknown"/>
+      <g class="m" text-anchor="middle"><text x="62" y="37">The</text><text x="197" y="37"> sky</text><text x="332" y="37"> is</text><text x="467" y="37"> blue</text><text x="620" y="37"> because</text><text x="782" y="37"> light</text><text x="967" y="37">?</text></g>
+      <text x="1080" y="22" class="mono">cache now: K0–K4, V0–V4</text><text x="1080" y="52" class="sub">Position 6 is the next unknown.</text>
+    </g>
+  </g>
+</svg>
