@@ -2156,6 +2156,88 @@ K = X × WK
 V = X × WV
 ```
 
+This is the origin of Q, K, and V. They are three **sibling outputs derived
+from the same layer input**:
+
+```text
+                         ┌── × WQ ──▶ Q
+current layer input X ───┼── × WK ──▶ K
+                         └── × WV ──▶ V
+```
+
+Do not picture this as `Q → K → V`. Q does not create K, and K does not create
+V. The three projections can be calculated independently once `X` and the
+three weight matrices are available.
+
+#### Where does X come from?
+
+For the first transformer block, `X` is based on token embeddings plus
+position-related information and any preprocessing defined by the architecture.
+For a later block, `X` is the set of contextual hidden states produced by the
+preceding block. Therefore every transformer block receives its own input `X`
+and produces its own Q, K, and V.
+
+```text
+token IDs
+   │
+   ▼
+embeddings and position information
+   │
+   ▼
+X for transformer block 0 ──▶ Q0, K0, V0
+   │ block 0 output
+   ▼
+X for transformer block 1 ──▶ Q1, K1, V1
+   │
+   ▼
+and so on through the model
+```
+
+The rows of `X` are not raw token IDs. Each row is a numerical hidden state for
+one sequence position at the current depth of the model.
+
+#### Where do WQ, WK, and WV come from?
+
+`WQ`, `WK`, and `WV` are model parameters learned during training. Training
+adjusts their values so that the resulting attention behavior helps reduce the
+model's prediction error. When an already-trained model performs inference,
+these matrices are loaded with the model weights and normally remain fixed;
+inference uses them rather than learning them again.
+
+Some implementations store or calculate the three projections together using
+one combined matrix and then split the result:
+
+```text
+[Q | K | V] = X × WQKV
+```
+
+That is an implementation optimization. Conceptually it still represents three
+different learned projections with three different roles.
+
+#### Shape derivation
+
+For one attention head, suppose:
+
+```text
+X:   [T token positions, H hidden features]
+WQ:  [H hidden features, Dk query/key features]
+WK:  [H hidden features, Dk query/key features]
+WV:  [H hidden features, Dv value features]
+```
+
+Then matrix multiplication produces:
+
+```text
+Q = X × WQ  → [T, Dk]
+K = X × WK  → [T, Dk]
+V = X × WV  → [T, Dv]
+```
+
+Q and K must share `Dk` because a query row is dot-multiplied with a key row.
+Their corresponding feature coordinates occupy a compatible comparison space,
+but their values are not expected to be equal. V does not participate in that
+dot product and may conceptually use a different feature count `Dv`.
+
 This creates one query, key, and value row for every token position:
 
 ```text
@@ -2169,17 +2251,26 @@ Here are the mechanical—not metaphorical—roles:
 
 | Vector | Exact role in the calculation |
 | --- | --- |
-| **Query `qi`** | The vector on the left side of comparisons made for destination position `i`. |
-| **Key `kj`** | The vector on the right side of a comparison representing possible source position `j`. |
-| **Value `vj`** | The numerical information from source position `j` that may be included in the result. |
+| **Query `qi`** | Represents destination position `i` on the left side of a dot product with every permitted key. It helps produce one score row. |
+| **Key `kj`** | Represents possible source position `j` on the right side of that dot product. Together, `qi` and `kj` produce score `S[i,j]`. |
+| **Value `vj`** | Represents the numerical source information at position `j`. It is multiplied by the normalized weight derived from `S[i,j]`. |
 
 Queries and keys determine **how much weight** a source receives. Values supply
 the **information multiplied by that weight**.
 
 ```text
-query × keys  → relevance scores → normalized weights
-normalized weights × values      → attention output
+S = Q × Kᵀ                       query/key dot-product scores
+Smasked = apply_causal_mask(S)   forbid illegal source positions
+A = softmax(Smasked)             normalized attention weights
+O = A × V                        weighted mixture of value rows
 ```
+
+The shortest accurate summary is:
+
+> **Q and K mechanically produce attention scores and therefore determine the
+> weights. V supplies the numerical information those weights combine. All
+> three are separately projected from the same current hidden states X using
+> learned model parameters.**
 
 Q, K, and V are not English questions, database keys, or copies of token text.
 They are learned numerical projections. A layer learns useful projections
