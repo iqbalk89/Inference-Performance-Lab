@@ -8,6 +8,7 @@
     :root{--bg:#07111f;--panel:#111d31;--line:#334963;--text:#f8fafc;--muted:#b8c6d9;--cyan:#22d3ee;--purple:#a78bfa;--green:#4ade80;--amber:#fbbf24;--red:#fb7185}
     *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#10213b,var(--bg) 45%);color:var(--text);font:16px/1.55 system-ui,-apple-system,sans-serif}header,main{max-width:1180px;margin:auto;padding:30px}header{padding-top:55px}h1{font-size:clamp(32px,5vw,54px);line-height:1.05;margin:0 0 14px}h2{font-size:28px;margin:0 0 8px}h3{margin:12px 0 8px}.lede,.note{color:var(--muted)}nav{display:flex;flex-wrap:wrap;gap:8px;margin:25px 0}nav a,button{background:#19304c;color:var(--text);border:1px solid #466584;border-radius:9px;padding:9px 13px;text-decoration:none;cursor:pointer}button:hover,nav a:hover{border-color:var(--cyan)}section{background:linear-gradient(145deg,#111d31,#0c1729);border:1px solid var(--line);border-radius:20px;margin:24px 0;padding:26px;box-shadow:0 12px 35px #0005}.station{color:var(--cyan);font-weight:750;text-transform:uppercase;letter-spacing:.08em}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}.card{background:#101a2b;border:1px solid var(--line);border-radius:14px;padding:16px}.controls{display:flex;flex-wrap:wrap;gap:14px;align-items:end;margin:18px 0}.control{display:grid;gap:4px}.control label{color:var(--muted);font-size:13px}.control input,.control select{background:#07111f;color:var(--text);border:1px solid #466584;border-radius:7px;padding:8px}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.cells{display:grid;gap:5px;align-items:stretch}.cell{min-width:48px;min-height:45px;border:1px solid #5b7998;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#16314a;text-align:center;padding:4px}.cell.ready{border-color:var(--amber);box-shadow:0 0 0 2px #fbbf2444}.cell.done{background:#14532d;border-color:var(--green)}.cell.blocked{background:#3f2430;border-color:var(--red)}.cell.selected{background:#5b21b6;border-color:#ddd6fe;box-shadow:0 0 0 2px #a78bfa55}.cell.masked{background:repeating-linear-gradient(135deg,#303642,#303642 8px,#1d2430 8px,#1d2430 16px);color:#cbd5e1}.axis{color:var(--muted);font-size:13px}.result{border-left:4px solid var(--cyan);padding:10px 14px;background:#0a1526;margin:12px 0}.legend{display:flex;flex-wrap:wrap;gap:16px;color:var(--muted);font-size:13px}.dot{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px}.tensor-sheet{border:2px solid var(--cyan);border-radius:10px;padding:12px;background:#0f3545;box-shadow:9px -9px 0 #25334a;margin:12px}.matrix-wrap{overflow:auto}.matrix{border-collapse:separate;border-spacing:4px}.matrix th{font-weight:400;color:var(--muted);font-size:12px}.matrix td{width:62px;height:52px;text-align:center;border:1px solid #52708e;border-radius:5px;background:#15324c;cursor:pointer}.matrix td.rowpick,.matrix td.colpick{background:#92400e;border-color:var(--amber)}.matrix td.outpick{background:#166534;border-color:var(--green)}.wave{display:flex;gap:7px;margin:9px 0;align-items:center}.slot{width:90px;padding:10px;text-align:center;border-radius:7px;background:#164e63;border:1px solid var(--cyan)}.token-row{display:flex;gap:8px;flex-wrap:wrap}.token{padding:10px 14px;border-radius:8px;background:#155e75;border:1px solid var(--cyan)}.token.generated{background:#5b21b6;border-color:var(--purple)}.token.unknown{background:#303642;border:2px dashed var(--amber)}.attention-grid{display:grid;grid-template-columns:130px repeat(4,1fr);gap:4px}.attention-grid>div{padding:10px;text-align:center;border-radius:5px}.attention-grid .head{color:var(--muted)}.bar{height:24px;background:var(--green);border-radius:5px;min-width:2px}.costbar{display:grid;gap:6px}.segment{padding:9px;border-radius:6px;color:#08111f;font-weight:700}.warn{border:1px solid var(--amber);background:#3a2a0d;padding:12px;border-radius:9px}.pass{color:var(--green)}.fail{color:var(--red)}footer{color:var(--muted);text-align:center;padding:40px}@media(max-width:700px){header,main{padding:18px}.attention-grid{grid-template-columns:90px repeat(4,1fr)}.cell{min-width:35px}}
     .cell{flex-direction:column}
+    .current-path{border:2px solid var(--green);background:#0c2a25;padding:18px 20px;border-radius:14px;margin:22px 0}.current-path strong{color:#86efac}.later-marker{border:2px solid var(--amber);background:#30240d;padding:20px;border-radius:14px;margin:34px 0 24px}.later-marker h2{color:#fde68a}.future-station{border-color:#7c6428}.future-badge{display:inline-block;background:#4a370c;color:#fde68a;border:1px solid var(--amber);border-radius:999px;padding:3px 9px;margin-left:8px;font-size:12px}.future-link{border-color:#7c6428;color:#fde68a}
     .attention-flow{display:flex;align-items:center;gap:18px;padding:12px 0}.attention-flow>div{flex:0 0 auto}.flow-op{font-size:34px;font-weight:800;color:var(--cyan);padding-top:44px}.matrix td.att-query{background:#5b21b6;border-color:#c4b5fd}.matrix td.att-source{background:#92400e;border-color:#fde68a}.matrix td.att-result{background:#166534;border-color:#86efac}.matrix td.att-zero{background:repeating-linear-gradient(135deg,#303642,#303642 8px,#1d2430 8px,#1d2430 16px);color:#cbd5e1}.matrix .row-label{width:80px;color:var(--muted);background:transparent;border:none;text-align:right;padding-right:8px}.matrix .col-label{color:var(--muted);background:transparent;border:none;height:30px;font-size:12px}.matrix td.no-click{cursor:default}@media(max-width:900px){.attention-flow{align-items:flex-start}.flow-op{padding-top:75px}}
   </style>
 </head>
@@ -16,7 +17,8 @@
   <div class="station">GPU Architecture · Lesson 01</div>
   <h1>Visual Foundations of Inference</h1>
   <p class="lede">Manipulate tiny, labeled models of execution, tensors, matrix multiplication, attention, prefill, decode, and offload cost. These are conceptual simulations—not measurements of your Mac or an NVIDIA GPU.</p>
-  <nav><a href="#deps">1 Dependencies</a><a href="#tensor">2 Tensors</a><a href="#matmul">3 Matrices</a><a href="#waves">4 GPU waves</a><a href="#attention">5 Attention</a><a href="#generation">6 Prefill/decode</a><a href="#cost">7 Cost</a></nav>
+  <div class="current-path"><strong>Your current assignment:</strong> complete Stations 1–4 only. Stop after GPU waves. Read Lesson 02 before returning for Stations 5–6; complete Station 7 after Lesson 03.</div>
+  <nav><a href="#deps">1 Dependencies</a><a href="#tensor">2 Tensors</a><a href="#matmul">3 Matrices</a><a href="#waves">4 GPU waves</a><a class="future-link" href="#attention">5 Attention · later</a><a class="future-link" href="#generation">6 Prefill/decode · later</a><a class="future-link" href="#cost">7 Cost · later</a></nav>
 </header>
 <main>
   <section id="deps">
@@ -56,8 +58,10 @@
     <div class="warn"><strong>Boundary:</strong> a tile is not a CUDA core, and a slot is not a complete model of an SM. This station demonstrates finite scheduling capacity and waves only.</div>
   </section>
 
-  <section id="attention">
-    <div class="station">Station 5</div><h2>Attention: scores, mask, and value mixing</h2>
+  <aside class="later-marker"><h2>Stop here for Lesson 01</h2><p>Before continuing, complete the foundation readiness gate in the repository's <strong>Current Study Plan</strong>. Stations below are intentionally visible for later review, but they assume material that has not been assigned yet.</p></aside>
+
+  <section id="attention" class="future-station">
+    <div class="station">Station 5 <span class="future-badge">Return after Lesson 02</span></div><h2>Attention: scores, mask, and value mixing</h2>
     <p>Select the query row being updated. Q/K dot products create scores. The causal mask makes future positions contribute zero. Remaining weights mix V rows.</p>
     <div class="controls"><div class="control"><label>Query position</label><select id="query"><option value="0">0 · The</option><option value="1" selected>1 · sky</option><option value="2">2 · is</option><option value="3">3 · blue</option></select></div><label><input id="maskToggle" type="checkbox" checked> Apply causal mask</label></div>
     <div class="card">
@@ -87,16 +91,16 @@
     <div id="leakWarning" class="result"></div>
   </section>
 
-  <section id="generation">
-    <div class="station">Station 6</div><h2>Prefill, decode, and KV-cache growth</h2>
+  <section id="generation" class="future-station">
+    <div class="station">Station 6 <span class="future-badge">Return after Lesson 02</span></div><h2>Prefill, decode, and KV-cache growth</h2>
     <p>Start with four user-supplied token IDs. Prefill processes them together and caches their K/V rows. Each decode step turns one unknown position into a known generated token.</p>
     <div id="genTokens" class="token-row"></div>
     <div class="controls"><button id="prefillBtn">Run prefill</button><button id="decodeBtn" disabled>Run one decode step</button><button id="genReset">Reset</button></div>
     <div class="grid"><div class="card"><h3>Current stage</h3><div id="genStage"></div></div><div class="card"><h3>Teaching KV cache</h3><div id="cacheRows" class="mono"></div></div></div>
   </section>
 
-  <section id="cost">
-    <div class="station">Station 7</div><h2>End-to-end offload cost</h2>
+  <section id="cost" class="future-station">
+    <div class="station">Station 7 <span class="future-badge">Return after Lesson 03</span></div><h2>End-to-end offload cost</h2>
     <p>Compare the complete paths—not CPU compute against GPU arithmetic alone. Values are hypothetical microseconds.</p>
     <div class="controls">
       <div class="control"><label>CPU compute</label><input id="cpuT" type="range" min="5" max="500" value="80"><output id="cpuTO"></output></div>

@@ -6,6 +6,13 @@
 
 **Cloud GPU required:** No
 
+## Current Starting Point
+
+If tensor shapes, dot products, or matrix multiplication are not yet
+comfortable, follow the [Current Study Plan — Foundation Reset](CURRENT-STUDY-PLAN.md).
+Complete Lesson 01 and lab Stations 1–4 before beginning attention in Lesson
+02. Stations 5–7 are deliberately deferred.
+
 ## Learning Objectives
 
 Explain:

@@ -1,5 +1,9 @@
 # Lesson 01 — Computing and Parallelism Foundations
 
+> **Current instruction:** Finish this reading and complete lab Stations 1–4.
+> Stop there. Do not begin attention until you pass the
+> [foundation readiness gate](../../CURRENT-STUDY-PLAN.md#readiness-gate-for-attention).
+
 **Lesson lab:** After reading and completing the checkpoints, use Stations 1–4
 of the [interactive visual lab](lab/README.md). Stations 5–6 wait until Lesson
 02 teaches transformer attention and generation; Station 7 waits until Lesson
