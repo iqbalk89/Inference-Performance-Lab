@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Python Foundation Challenge Runner</title>
+  <style>
+    :root{--bg:#07111f;--panel:#101d30;--panel2:#0b1728;--line:#334c68;--text:#f8fafc;--muted:#b9c7d9;--cyan:#22d3ee;--green:#4ade80;--red:#fb7185;--amber:#fbbf24}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#112744,var(--bg) 48%);color:var(--text);font:16px/1.55 system-ui,-apple-system,sans-serif}header,main{width:min(1180px,calc(100% - 32px));margin:auto}header{padding:48px 0 22px}h1{font-size:clamp(32px,5vw,52px);line-height:1.05;margin:6px 0 12px}.eyebrow{color:var(--cyan);font-weight:800;letter-spacing:.08em;text-transform:uppercase}.lede,.muted{color:var(--muted)}.status{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border:1px solid var(--line);border-radius:999px;background:#0b1728}.status i{width:10px;height:10px;border-radius:50%;background:var(--amber)}.status.ready i{background:var(--green)}.status.error i{background:var(--red)}.layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(310px,.65fr);gap:20px;padding-bottom:50px}.panel{background:linear-gradient(145deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:0 16px 40px #0005}.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:16px}.field{display:grid;gap:4px;flex:1;min-width:220px}label{font-size:13px;color:var(--muted)}select,button{font:inherit;border-radius:9px;border:1px solid #496985;background:#172c45;color:var(--text);padding:10px 13px}button{cursor:pointer;font-weight:700}button.primary{background:#0e7490;border-color:var(--cyan)}button:disabled{opacity:.45;cursor:not-allowed}textarea{width:100%;min-height:430px;resize:vertical;background:#050d19;color:#e2e8f0;border:1px solid #466584;border-radius:12px;padding:16px;font:15px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;tab-size:4}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}.concepts{display:flex;gap:7px;flex-wrap:wrap}.chip{font-size:12px;border:1px solid #3d6682;color:#bdefff;border-radius:999px;padding:4px 8px}.tests{display:grid;gap:10px}.test{border:1px solid var(--line);border-left:5px solid var(--line);border-radius:10px;padding:12px;background:#0a1525}.test.pass{border-left-color:var(--green)}.test.fail{border-left-color:var(--red)}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#050d19;border:1px solid #263c55;border-radius:9px;padding:11px;color:#dbeafe}.summary{font-size:20px;font-weight:800;margin:12px 0}.pass-text{color:var(--green)}.fail-text{color:var(--red)}details{border:1px solid var(--line);border-radius:10px;padding:10px 13px;margin-top:10px}summary{cursor:pointer;font-weight:700}.warning{border:1px solid #8a6819;background:#31250d;padding:11px;border-radius:9px;color:#fde68a}@media(max-width:850px){.layout{grid-template-columns:1fr}textarea{min-height:360px}}
+  </style>
+</head>
+<body>
+<header><div class="eyebrow">Inference Performance Lab · Python Practice</div><h1>Foundation Challenge Runner</h1><p class="lede">Write a Python function, run it against several inputs, and inspect exactly which cases pass. Your code executes locally in the browser.</p><div id="runtimeStatus" class="status"><i></i><span>Loading Python runtime…</span></div></header>
+<main class="layout">
+  <section class="panel">
+    <div class="toolbar"><div class="field"><label for="challenge">Challenge</label><select id="challenge"></select></div><span id="difficulty" class="chip"></span></div>
+    <h2 id="title"></h2><p id="prompt"></p><div id="concepts" class="concepts"></div><h3>Your solution</h3>
+    <textarea id="editor" spellcheck="false" aria-label="Python solution editor"></textarea>
+    <div class="actions"><button id="run" class="primary" disabled>Run tests</button><button id="reset">Reset starter code</button><button id="clear">Clear results</button></div>
+    <p class="muted">Shortcut: Command/Ctrl + Enter runs tests. Solutions are saved in this browser.</p>
+  </section>
+  <aside class="panel"><h2>Test results</h2><div id="summary" class="summary muted">Run your solution when Python is ready.</div><div id="results" class="tests"></div><div id="stdoutWrap" hidden><h3>Printed output</h3><pre id="stdout"></pre></div><details><summary>Hints</summary><ol id="hints"></ol></details><details><summary>Visible test inputs</summary><div id="visibleTests"></div></details><p class="warning">Python loads from the Pyodide CDN. The first visit requires internet access and can take several seconds.</p></aside>
+</main>
+<script src="challenges.js"></script><script src="app.js"></script>
+</body></html>

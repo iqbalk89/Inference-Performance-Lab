@@ -31,6 +31,11 @@ student cannot learn attention.
 
 ## Minimum Foundation Exercises
 
+Use the reusable [Python Foundation Challenge Runner](practice/python-challenge-runner/)
+for the dot-product coding exercise and, when ready, the matrix-multiplication
+extension. The written exercises below remain important because the code grader
+checks results, while your written explanation checks understanding.
+
 ### 1. Dependencies
 
 Given:
