@@ -8,6 +8,11 @@ challenge includes a revealable reference solution, a C++/C#-to-Python
 translation, progressive hints, and a reversible option to load the solution
 into the editor.
 
+Reference solutions deliberately avoid convenience constructs when those
+constructs would hide the algorithm. Each solution includes a complete numerical
+trace of loop indices, reads, products, accumulator updates, dimension checks,
+and output writes.
+
 ## Run It
 
 Open index.html directly in a browser. No local server, installation, or build
