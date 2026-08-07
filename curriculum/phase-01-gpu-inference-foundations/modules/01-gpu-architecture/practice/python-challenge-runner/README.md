@@ -13,6 +13,10 @@ constructs would hide the algorithm. Each solution includes a complete numerical
 trace of loop indices, reads, products, accumulator updates, dimension checks,
 and output writes.
 
+The reference-solution viewer includes Python syntax highlighting, line
+numbers, and highlighted dimension-compatibility lines. Loading the solution
+moves it into the editable rich-code surface and preserves the prior draft.
+
 The matrix challenge accepts general rectangular 2D matrices. Its tests cover
 square and non-square shapes, including `3×1 @ 1×4`, `2×3 @ 3×4`, and
 `3×2 @ 2×1`, plus incompatible inner dimensions.
