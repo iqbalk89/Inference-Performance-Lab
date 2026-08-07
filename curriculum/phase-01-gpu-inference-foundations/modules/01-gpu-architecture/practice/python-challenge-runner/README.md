@@ -3,6 +3,11 @@
 This is a small, reusable browser-based Python grader for curriculum exercises.
 It currently includes dot product and matrix multiplication.
 
+The page assumes programming experience but no Python experience. Each
+challenge includes a revealable reference solution, a C++/C#-to-Python
+translation, progressive hints, and a reversible option to load the solution
+into the editor.
+
 ## Run It
 
 Open index.html directly in a browser. No local server, installation, or build
