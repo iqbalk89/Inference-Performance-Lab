@@ -616,3 +616,12 @@ You are ready to continue when you can explain, without notes:
 6. why throughput and latency can move in different directions.
 
 Do not memorize a particular GPU's core counts or tile-size rules yet. The durable skill is reasoning from the operation, software kernel, hardware generation, and measured evidence.
+
+### Concise answers
+
+1. **Matrix multiplication:** Each output cell is a row-column dot product: multiply corresponding values and accumulate their products. Many output cells are independent.
+2. **General pipelines versus Tensor Cores:** General arithmetic pipelines execute scalar or vector instructions. Tensor Cores perform supported matrix multiply-accumulate operations on small tiles.
+3. **CUDA is not proof of Tensor Core use:** A CUDA kernel may run on general arithmetic pipelines. Tensor Core use depends on the instructions and kernel actually selected.
+4. **Format, shape, layout, and kernel:** Tensor Core paths require supported data types and efficient dimensions, alignment, memory layout, and implementation. Poor conditions may select another kernel or waste hardware.
+5. **Peak FLOPS is not an LLM prediction:** Peak FLOPS assumes ideal arithmetic utilization. Real inference also includes memory movement, attention, synchronization, launch overhead, sampling, and sequential decode dependencies.
+6. **Throughput versus latency:** Larger batches can complete more total work per second while making an individual request wait longer in a queue or batch.
