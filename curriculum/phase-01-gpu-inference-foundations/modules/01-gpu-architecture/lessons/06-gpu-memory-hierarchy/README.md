@@ -604,6 +604,42 @@ Check these only after doing the arithmetic yourself.
     Runtime state, allocator behavior, workspaces, activations, KV cache,
     alignment, and possible loading conversions can increase observed usage.
 
+### Concise answer key
+
+1. FP32: 4 bytes. BF16: 2 bytes. INT8: 1 byte.
+2. `2048 × 4096 × 2 = 16,777,216 bytes = 16 MiB`.
+3. Capacity is how much data fits; bandwidth is data transferred per second;
+   latency is the delay before an access returns. Analogy: warehouse size,
+   road carrying capacity, and trip time.
+4. Registers → shared memory/L1 → L2 → VRAM.
+5. Hardware primarily manages caches. CUDA kernel code explicitly allocates,
+   loads, reads, and coordinates shared memory.
+6. Temporal locality means reusing the same data soon. Spatial locality means
+   accessing nearby addresses.
+7. Neighboring accesses can be combined into fewer, fuller memory transactions;
+   scattered accesses may require more transactions and waste transferred bytes.
+8. PCIe is much slower than local VRAM access. Repeated transfers add latency
+   and consume interconnect bandwidth, so weights should normally remain resident.
+9. Model weights, KV cache, activations, temporary workspaces, allocator-reserved
+   memory, framework state, and input/output buffers.
+10. Each retained token adds K/V entries at every applicable layer and KV head;
+    each active sequence needs its own cache state.
+11. `3 billion × 2 bytes = 6 GB` decimal. Runtime allocations, workspaces,
+    activations, KV cache, alignment, conversions, and allocator reservations
+    can make observed usage higher.
+12. `nvidia-smi` reports process/device memory more broadly; a framework's live
+    tensor counter may exclude reserved allocator blocks, contexts, libraries,
+    workspaces, and non-framework allocations.
+13. Capacity determines whether data fits, not how quickly it can be supplied.
+    Repeatedly reading resident weights can saturate VRAM bandwidth while
+    arithmetic units wait.
+14. Prefill applies the same weights to many prompt-token rows in larger matrix
+    operations. Batch-one decode processes one new row per iteration, providing
+    less reuse per weight read.
+15. Cache sizes and policies, shared-memory capacity, register capacity, memory
+    bandwidth and latency, interconnects, supported formats, and whether L1 and
+    shared memory share physical resources.
+
 ## Completion criterion
 
 You are ready to continue when you can draw the memory hierarchy from memory,
