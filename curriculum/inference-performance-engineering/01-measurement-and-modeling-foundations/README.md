@@ -28,3 +28,7 @@ Until this module is authored, use GPU Architecture Lessons 5–7 as reference:
 - [GPU Memory Hierarchy](../../phase-01-gpu-inference-foundations/modules/01-gpu-architecture/lessons/06-gpu-memory-hierarchy/README.md)
 - [Performance Limiters](../../phase-01-gpu-inference-foundations/modules/01-gpu-architecture/lessons/07-performance-limiters/README.md)
 
+Complete problems 566, 867, 1570, and 311 from the
+[Inference-Adjacent LeetCode Practice](../practice/leetcode-inference-adjacent/README.md)
+while studying shapes, layout, multiply-accumulate work, and sparse versus dense
+representations.

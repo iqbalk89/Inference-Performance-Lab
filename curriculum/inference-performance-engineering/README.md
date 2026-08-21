@@ -76,3 +76,9 @@ The track culminates in four interview-ready projects:
 3. A before/after optimization case study
 4. A serving capacity and cost model with SLA tradeoffs
 
+## Coding Practice
+
+Use the [Inference-Adjacent LeetCode Practice](practice/leetcode-inference-adjacent/README.md)
+as a supplement. Its minimum sequence connects matrix indexing, sparse
+representations, sampling, and caching to the relevant performance questions.
+It is intentionally smaller than a general-purpose interview grind.
