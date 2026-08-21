@@ -126,7 +126,40 @@ For the toy example, stacking three rows of width four produces:
 X shape = [batch, prompt_tokens, hidden_width] = [1, 3, 4]
 ```
 
-This is the tensor that enters the first transformer layer.
+![A visual breakdown of batch size, prompt-token count, and hidden width in tensor X](assets/prefill-02-batch-tensor-shape.svg)
+
+### What is a batch?
+
+A **batch** is a group of independent sequence items processed in the same
+model call. In this example, the batch contains one prompt, so `batch = 1`.
+
+```text
+batch item 0 = [Cats] [chase] [mice]
+```
+
+That one prompt contains three token positions, and every position has a
+four-number feature row. Therefore `X` contains one `3 × 4` matrix:
+
+```text
+X[batch item 0, token position, feature]
+```
+
+If a second independent prompt such as `[Dogs] [guard] [homes]` were processed
+in the same call, the batch size would become two:
+
+```text
+X shape = [2, 3, 4]
+          │  │  └─ 4 features per token
+          │  └──── 3 token positions per prompt
+          └─────── 2 independent prompts
+```
+
+Batch size is therefore **not the number of tokens**. It is the number of
+independent sequence items occupying the outer axis. Real prompts often have
+different lengths; a system may pad, pack, or schedule them in a way that makes
+the stored representation more complicated. We will treat that separately.
+
+This `X` tensor is what enters the first transformer layer.
 
 Two kinds of execution occur at the same time in this description:
 

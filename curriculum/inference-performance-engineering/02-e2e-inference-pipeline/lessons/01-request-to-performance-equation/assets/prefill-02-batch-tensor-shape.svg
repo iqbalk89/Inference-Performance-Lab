@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1080" viewBox="0 0 1500 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Understanding the input tensor shape batch one, three prompt tokens, four hidden features</title>
+  <desc id="desc">The tensor X is unpacked into one request in the batch, three prompt token rows in that request, and four numerical features in each row. A second example shows batch size two as two prompts processed in the same model call.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0L0 6L9 3z" fill="#8baac9"/></marker>
+    <style>
+      .bg{fill:#09121f}.panel{fill:#111f33;stroke:#3d5b7a;stroke-width:2}.batch{fill:#352540;stroke:#9a78b6;stroke-width:3}.request{fill:#102f2a;stroke:#4bab8b;stroke-width:3}.cell{fill:#1d4361;stroke:#73a9d1;stroke-width:1.5}.cell2{fill:#263b58;stroke:#6683a4;stroke-width:1.5}.tag{fill:#16263a;stroke:#58799a;stroke-width:1.5}.h{fill:#f2f7ff;font:700 30px system-ui,sans-serif}.t{fill:#f2f7ff;font:700 21px system-ui,sans-serif}.b{fill:#c5d6e7;font:17px system-ui,sans-serif}.s{fill:#aec5db;font:15px system-ui,sans-serif}.n{fill:#f5f9ff;font:600 15px ui-monospace,monospace}.purple{fill:#c9a8ea;font:700 19px system-ui,sans-serif}.green{fill:#7edbb6;font:700 19px system-ui,sans-serif}.blue{fill:#89bee6;font:700 19px system-ui,sans-serif}.warn{fill:#ffd17e;font:700 17px system-ui,sans-serif}.arrow{stroke:#8baac9;stroke-width:3;fill:none;marker-end:url(#arrow)}.brace{stroke:#75a5cc;stroke-width:2;fill:none}.dim{fill:#09121f;stroke:#7194b7;stroke-width:2}
+    </style>
+  </defs>
+  <rect class="bg" width="1500" height="1080" rx="22"/>
+  <text class="h" x="45" y="52">What does X shape = [batch, prompt tokens, hidden width] = [1, 3, 4] mean?</text>
+  <text class="b" x="45" y="82">A tensor shape counts how many positions exist along each axis. Read the dimensions from left to right.</text>
+
+  <!-- Dimension legend -->
+  <rect class="panel" x="40" y="115" width="1420" height="145" rx="16"/>
+  <rect class="dim" x="120" y="155" width="250" height="65" rx="10"/><text class="purple" x="144" y="184">1 = batch size</text><text class="s" x="144" y="207">one prompt/request</text>
+  <text class="h" x="396" y="199">×</text>
+  <rect class="dim" x="455" y="155" width="290" height="65" rx="10"/><text class="green" x="479" y="184">3 = prompt tokens</text><text class="s" x="479" y="207">three rows in that prompt</text>
+  <text class="h" x="771" y="199">×</text>
+  <rect class="dim" x="830" y="155" width="325" height="65" rx="10"/><text class="blue" x="854" y="184">4 = hidden width</text><text class="s" x="854" y="207">four features in every row</text>
+  <rect class="tag" x="1195" y="155" width="195" height="65" rx="10"/><text class="t" x="1225" y="184">12 values</text><text class="s" x="1225" y="207">1 × 3 × 4</text>
+
+  <!-- Exact B=1 tensor -->
+  <rect class="batch" x="40" y="300" width="1420" height="405" rx="18"/>
+  <text class="purple" x="65" y="338">BATCH AXIS: item 0 of 1</text>
+  <text class="b" x="65" y="368">This batch contains one prompt: “Cats chase mice.”</text>
+  <rect class="request" x="115" y="400" width="1220" height="250" rx="16"/>
+  <text class="green" x="140" y="437">TOKEN AXIS: 3 rows</text>
+  <text class="blue" x="730" y="437">HIDDEN-WIDTH AXIS: 4 columns →</text>
+  <text class="b" x="155" y="488">token row 0: Cats</text>
+  <text class="b" x="155" y="548">token row 1: chase</text>
+  <text class="b" x="155" y="608">token row 2: mice</text>
+  <g transform="translate(455 458)">
+    <rect class="cell" x="0" y="0" width="180" height="45"/><rect class="cell" x="185" y="0" width="180" height="45"/><rect class="cell" x="370" y="0" width="180" height="45"/><rect class="cell" x="555" y="0" width="180" height="45"/>
+    <rect class="cell" x="0" y="60" width="180" height="45"/><rect class="cell" x="185" y="60" width="180" height="45"/><rect class="cell" x="370" y="60" width="180" height="45"/><rect class="cell" x="555" y="60" width="180" height="45"/>
+    <rect class="cell" x="0" y="120" width="180" height="45"/><rect class="cell" x="185" y="120" width="180" height="45"/><rect class="cell" x="370" y="120" width="180" height="45"/><rect class="cell" x="555" y="120" width="180" height="45"/>
+    <text class="n" x="55" y="29">x₀,₀ = 0.2</text><text class="n" x="240" y="29">x₀,₁ = −0.1</text><text class="n" x="425" y="29">x₀,₂ = 0.7</text><text class="n" x="610" y="29">x₀,₃ = 0.4</text>
+    <text class="n" x="55" y="89">x₁,₀ = 0.6</text><text class="n" x="240" y="89">x₁,₁ = 0.3</text><text class="n" x="425" y="89">x₁,₂ = −0.2</text><text class="n" x="610" y="89">x₁,₃ = 0.1</text>
+    <text class="n" x="55" y="149">x₂,₀ = −0.4</text><text class="n" x="240" y="149">x₂,₁ = 0.8</text><text class="n" x="425" y="149">x₂,₂ = 0.5</text><text class="n" x="610" y="149">x₂,₃ = −0.3</text>
+  </g>
+  <text class="warn" x="115" y="684">The batch is the outer container. Inside it is one 3 × 4 prompt matrix.</text>
+
+  <!-- Batch definition and B=2 comparison -->
+  <rect class="panel" x="40" y="745" width="1420" height="290" rx="16"/>
+  <text class="t" x="65" y="785">What is a batch?</text>
+  <text class="b" x="65" y="816">A batch is a group of independent prompts that the model processes in the same model call.</text>
+  <text class="b" x="65" y="844">Batch size does not mean token count. It means how many separate sequence items occupy the batch axis.</text>
+
+  <rect class="batch" x="80" y="880" width="560" height="115" rx="14"/>
+  <text class="purple" x="100" y="910">B = 1</text><rect class="request" x="190" y="897" width="415" height="76" rx="10"/>
+  <text class="t" x="215" y="927">batch item 0</text><text class="s" x="215" y="953">[Cats] [chase] [mice] → 3 × 4 matrix</text>
+
+  <path class="arrow" d="M665 937 H720"/>
+  <text class="s" x="668" y="910">add another</text><text class="s" x="668" y="930">independent prompt</text>
+
+  <rect class="batch" x="750" y="865" width="670" height="145" rx="14"/>
+  <text class="purple" x="770" y="897">B = 2</text>
+  <rect class="request" x="860" y="880" width="525" height="50" rx="9"/><text class="s" x="880" y="910">item 0: [Cats] [chase] [mice]</text>
+  <rect class="request" x="860" y="943" width="525" height="50" rx="9"/><text class="s" x="880" y="973">item 1: [Dogs] [guard] [homes]</text>
+  <text class="warn" x="65" y="1058">If both prompts have 3 tokens and D=4, the new tensor shape is [2, 3, 4] = 24 stored values.</text>
+</svg>
