@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1180" viewBox="0 0 1600 1180" role="img" aria-labelledby="title desc">
+  <title id="title">Prefill, step by step</title>
+  <desc id="desc">A six-stage walkthrough shows prompt token IDs becoming embedding rows, passing through transformer layers with causal attention, creating a per-layer KV cache, producing logits, and selecting the first output token. The selected token is not processed during prefill.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0L0 6L9 3z" fill="#86a8ca"/></marker>
+    <style>
+      .bg{fill:#09121f}.panel{fill:#111f33;stroke:#385777;stroke-width:2}.panel2{fill:#102b28;stroke:#388c76;stroke-width:2}.panel3{fill:#28203b;stroke:#8068ae;stroke-width:2}.head{fill:#f1f7ff;font:700 30px system-ui,sans-serif}.title{fill:#f1f7ff;font:700 22px system-ui,sans-serif}.body{fill:#c3d5e8;font:17px system-ui,sans-serif}.small{fill:#aec5dc;font:15px system-ui,sans-serif}.tiny{fill:#a9c0d8;font:13px system-ui,sans-serif}.num{fill:#f7fbff;font:600 15px ui-monospace,monospace}.step{fill:#09121f;stroke:#74b8a0;stroke-width:2}.stepnum{fill:#8de0bd;font:700 19px system-ui,sans-serif}.token{fill:#193754;stroke:#6492bd;stroke-width:2}.matrix{fill:#152a42;stroke:#567ea6;stroke-width:1.5}.cell{fill:#1c3551;stroke:#527291;stroke-width:1}.allowed{fill:#27644f;stroke:#63b18e;stroke-width:1}.blocked{fill:#402a34;stroke:#9d6472;stroke-width:1}.cache{fill:#18392f;stroke:#52a987;stroke-width:2}.logit{fill:#35284e;stroke:#9b7aca;stroke-width:2}.select{fill:#51351d;stroke:#e2a958;stroke-width:2}.arrow{stroke:#86a8ca;stroke-width:3;fill:none;marker-end:url(#arrow)}.dash{stroke:#7893af;stroke-width:2;stroke-dasharray:7 7;fill:none;marker-end:url(#arrow)}.parallel{fill:#76d6b0;font:700 16px system-ui,sans-serif}.warn{fill:#ffd082;font:700 17px system-ui,sans-serif}
+    </style>
+  </defs>
+  <rect class="bg" width="1600" height="1180" rx="22"/>
+  <text class="head" x="45" y="52">PREFILL: process the entire prompt and prepare the first output decision</text>
+  <text class="body" x="45" y="82">Example prompt: “Cats chase mice” · batch B=1 · prompt length T=3 · illustrative hidden width D=4</text>
+
+  <!-- Step 1 -->
+  <rect class="panel" x="40" y="115" width="360" height="245" rx="16"/>
+  <rect class="step" x="58" y="133" width="35" height="35" rx="18"/><text class="stepnum" x="70" y="158">1</text>
+  <text class="title" x="108" y="158">All prompt IDs exist</text>
+  <text class="body" x="65" y="197">The tokenizer has already produced:</text>
+  <rect class="token" x="65" y="220" width="90" height="62" rx="10"/><text class="title" x="84" y="247">Cats</text><text class="small" x="89" y="270">ID 17</text>
+  <rect class="token" x="170" y="220" width="100" height="62" rx="10"/><text class="title" x="187" y="247">chase</text><text class="small" x="195" y="270">ID 42</text>
+  <rect class="token" x="285" y="220" width="90" height="62" rx="10"/><text class="title" x="304" y="247">mice</text><text class="small" x="309" y="270">ID 91</text>
+  <text class="small" x="65" y="316">Positions:       0            1            2</text>
+  <text class="warn" x="65" y="344">No output token exists yet.</text>
+
+  <!-- Step 2 -->
+  <rect class="panel" x="440" y="115" width="485" height="245" rx="16"/>
+  <rect class="step" x="458" y="133" width="35" height="35" rx="18"/><text class="stepnum" x="470" y="158">2</text>
+  <text class="title" x="508" y="158">IDs become numerical rows</text>
+  <text class="body" x="465" y="193">Embedding lookup produces X with shape [1, 3, 4].</text>
+  <text class="small" x="622" y="218">feature columns →</text>
+  <text class="small" x="467" y="247">Cats row</text><text class="small" x="467" y="284">chase row</text><text class="small" x="467" y="321">mice row</text>
+  <g transform="translate(570 228)">
+    <rect class="cell" x="0" y="0" width="75" height="32"/><rect class="cell" x="75" y="0" width="75" height="32"/><rect class="cell" x="150" y="0" width="75" height="32"/><rect class="cell" x="225" y="0" width="75" height="32"/>
+    <rect class="cell" x="0" y="37" width="75" height="32"/><rect class="cell" x="75" y="37" width="75" height="32"/><rect class="cell" x="150" y="37" width="75" height="32"/><rect class="cell" x="225" y="37" width="75" height="32"/>
+    <rect class="cell" x="0" y="74" width="75" height="32"/><rect class="cell" x="75" y="74" width="75" height="32"/><rect class="cell" x="150" y="74" width="75" height="32"/><rect class="cell" x="225" y="74" width="75" height="32"/>
+    <text class="num" x="16" y="22">0.2</text><text class="num" x="91" y="22">−0.1</text><text class="num" x="166" y="22">0.7</text><text class="num" x="241" y="22">0.4</text>
+    <text class="num" x="16" y="59">0.6</text><text class="num" x="91" y="59">0.3</text><text class="num" x="166" y="59">−0.2</text><text class="num" x="241" y="59">0.1</text>
+    <text class="num" x="16" y="96">−0.4</text><text class="num" x="91" y="96">0.8</text><text class="num" x="166" y="96">0.5</text><text class="num" x="241" y="96">−0.3</text>
+  </g>
+  <text class="small" x="570" y="350">One row per prompt position; numbers are illustrative.</text>
+
+  <!-- Step 3 -->
+  <rect class="panel2" x="965" y="115" width="595" height="530" rx="16"/>
+  <rect class="step" x="983" y="133" width="35" height="35" rx="18"/><text class="stepnum" x="995" y="158">3</text>
+  <text class="title" x="1033" y="158">One transformer layer processes all 3 rows</text>
+  <text class="body" x="990" y="194">The layer performs attention and MLP calculations.</text>
+  <rect class="matrix" x="995" y="222" width="155" height="105" rx="10"/><text class="title" x="1043" y="252">X</text><text class="small" x="1018" y="279">3 token rows</text><text class="small" x="1028" y="304">× 4 features</text>
+  <path class="arrow" d="M1150 274 H1200"/>
+  <rect class="matrix" x="1200" y="212" width="315" height="125" rx="10"/><text class="title" x="1220" y="243">Q, K, and V projections</text><text class="small" x="1220" y="273">Every prompt row gets a Q row,</text><text class="small" x="1220" y="298">K row, and V row in this layer.</text><text class="parallel" x="1220" y="324">Rows can be computed in parallel.</text>
+
+  <text class="title" x="995" y="380">Causal visibility inside attention</text>
+  <text class="small" x="1185" y="409">key/source position →</text>
+  <text class="tiny" x="1183" y="436">Cats</text><text class="tiny" x="1250" y="436">chase</text><text class="tiny" x="1325" y="436">mice</text>
+  <text class="tiny" x="1010" y="471">Cats query</text><text class="tiny" x="1010" y="516">chase query</text><text class="tiny" x="1010" y="561">mice query</text>
+  <g transform="translate(1170 445)">
+    <rect class="allowed" x="0" y="0" width="65" height="35"/><rect class="blocked" x="70" y="0" width="65" height="35"/><rect class="blocked" x="140" y="0" width="65" height="35"/>
+    <rect class="allowed" x="0" y="45" width="65" height="35"/><rect class="allowed" x="70" y="45" width="65" height="35"/><rect class="blocked" x="140" y="45" width="65" height="35"/>
+    <rect class="allowed" x="0" y="90" width="65" height="35"/><rect class="allowed" x="70" y="90" width="65" height="35"/><rect class="allowed" x="140" y="90" width="65" height="35"/>
+    <text class="num" x="25" y="24">✓</text><text class="num" x="95" y="24">×</text><text class="num" x="165" y="24">×</text>
+    <text class="num" x="25" y="69">✓</text><text class="num" x="95" y="69">✓</text><text class="num" x="165" y="69">×</text>
+    <text class="num" x="25" y="114">✓</text><text class="num" x="95" y="114">✓</text><text class="num" x="165" y="114">✓</text>
+  </g>
+  <rect class="allowed" x="1410" y="458" width="22" height="22"/><text class="tiny" x="1440" y="474">allowed</text><rect class="blocked" x="1410" y="493" width="22" height="22"/><text class="tiny" x="1440" y="509">blocked</text>
+  <text class="body" x="995" y="602">All rows are physically present together.</text>
+  <text class="warn" x="995" y="629">The mask prevents later rows from affecting earlier rows.</text>
+  <path class="arrow" d="M965 538 H935"/>
+
+  <!-- Step 4 -->
+  <rect class="panel2" x="40" y="400" width="885" height="245" rx="16"/>
+  <rect class="step" x="58" y="418" width="35" height="35" rx="18"/><text class="stepnum" x="70" y="443">4</text>
+  <text class="title" x="108" y="443">This layer produces outputs and saves reusable K/V rows</text>
+  <rect class="matrix" x="65" y="478" width="205" height="120" rx="10"/><text class="title" x="88" y="508">Updated states</text><text class="small" x="88" y="538">3 output rows</text><text class="small" x="88" y="563">feed the next layer</text><text class="num" x="88" y="588">shape [1,3,4]</text>
+  <path class="arrow" d="M270 538 H335"/>
+  <rect class="cache" x="335" y="470" width="540" height="135" rx="12"/><text class="title" x="360" y="501">Layer 1 KV cache after prefill</text>
+  <text class="small" x="360" y="533">K rows:</text><rect class="token" x="435" y="512" width="95" height="35" rx="7"/><text class="small" x="459" y="536">Cats K</text><rect class="token" x="540" y="512" width="105" height="35" rx="7"/><text class="small" x="561" y="536">chase K</text><rect class="token" x="655" y="512" width="95" height="35" rx="7"/><text class="small" x="679" y="536">mice K</text>
+  <text class="small" x="360" y="579">V rows:</text><rect class="token" x="435" y="558" width="95" height="35" rx="7"/><text class="small" x="459" y="582">Cats V</text><rect class="token" x="540" y="558" width="105" height="35" rx="7"/><text class="small" x="561" y="582">chase V</text><rect class="token" x="655" y="558" width="95" height="35" rx="7"/><text class="small" x="679" y="582">mice V</text>
+  <text class="warn" x="65" y="629">The cache stores numerical K/V tensors—not words or a prose summary.</text>
+
+  <!-- between layer flow -->
+  <path class="arrow" d="M235 645 V710"/><text class="small" x="255" y="687">states continue forward</text>
+
+  <!-- Step 5 -->
+  <rect class="panel" x="40" y="720" width="885" height="185" rx="16"/>
+  <rect class="step" x="58" y="738" width="35" height="35" rx="18"/><text class="stepnum" x="70" y="763">5</text>
+  <text class="title" x="108" y="763">Layers repeat sequentially by depth</text>
+  <rect class="matrix" x="80" y="800" width="155" height="65" rx="10"/><text class="title" x="117" y="839">Layer 1</text>
+  <path class="arrow" d="M235 832 H285"/><rect class="matrix" x="285" y="800" width="155" height="65" rx="10"/><text class="title" x="322" y="839">Layer 2</text>
+  <path class="arrow" d="M440 832 H490"/><text class="title" x="502" y="839">…</text><path class="arrow" d="M540 832 H590"/><rect class="matrix" x="590" y="800" width="230" height="65" rx="10"/><text class="title" x="631" y="839">Final layer L</text>
+  <text class="small" x="80" y="890">Each layer creates its own prompt K/V cache. Layer 2 must wait for Layer 1's output.</text>
+
+  <!-- Step 6 -->
+  <rect class="panel3" x="965" y="685" width="595" height="445" rx="16"/>
+  <rect class="step" x="983" y="703" width="35" height="35" rx="18"/><text class="stepnum" x="995" y="728">6</text>
+  <text class="title" x="1033" y="728">Final states become vocabulary scores</text>
+  <text class="body" x="990" y="765">The model returns one logits row per input position:</text>
+  <rect class="logit" x="1010" y="800" width="420" height="58" rx="9"/><text class="body" x="1035" y="835">Cats logits row</text><text class="small" x="1215" y="835">predicts after “Cats”</text>
+  <rect class="logit" x="1010" y="870" width="420" height="58" rx="9"/><text class="body" x="1035" y="905">chase logits row</text><text class="small" x="1215" y="905">predicts after “…chase”</text>
+  <rect class="logit" x="1010" y="940" width="420" height="68" rx="9" stroke-width="4"/><text class="body" x="1035" y="971">mice logits row</text><text class="small" x="1035" y="994">sees the complete prompt → use this row</text>
+  <path class="arrow" d="M1220 1008 V1045 H1325"/>
+  <rect class="select" x="1190" y="1045" width="295" height="62" rx="11"/><text class="title" x="1214" y="1073">Sampler selects [ at]</text><text class="small" x="1214" y="1097">first output ID now exists</text>
+  <text class="warn" x="990" y="1122">[ at] has not passed through the model and is not cached yet.</text>
+
+  <!-- cross-panel flow arrows -->
+  <path class="arrow" d="M400 237 H430"/><path class="arrow" d="M925 237 H955"/>
+  <path class="dash" d="M1260 645 V675"/><text class="tiny" x="1280" y="668">after the final layer</text>
+
+  <text class="body" x="45" y="1150">Prefill ends here: prompt processed, per-layer prompt KV retained, first output ID selected. Decode begins by processing that selected ID.</text>
+</svg>

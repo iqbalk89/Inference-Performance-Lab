@@ -93,6 +93,35 @@ example, the three prompt IDs already exist before prefill begins:
 [Cats] [ chase] [ mice] | next output ID does not exist
 ```
 
+The following diagram is meant to be read in numbered order. It separates work
+that happens **within one transformer layer** from work that repeats across all
+layers.
+
+![A numbered, step-by-step visual explanation of the prefill phase](assets/prefill-step-by-step.svg)
+
+The central flow is:
+
+```text
+all prompt IDs
+    → one numerical row per prompt position
+    → every transformer layer processes those rows
+    → every layer retains its prompt K/V rows
+    → the final layer produces vocabulary logits
+    → the last prompt row selects the first output ID
+```
+
+Two kinds of execution occur at the same time in this description:
+
+- **Parallel across prompt rows within a layer:** calculations for multiple
+  positions can be organized into large GPU operations.
+- **Sequential across layer depth:** layer 2 requires layer 1's output, so all
+  transformer layers do not run simultaneously.
+
+The causal mask controls which positions can exchange information even though
+their rows are present in the same GPU operation. “Processed together” means
+the arithmetic can be grouped and parallelized; it does not mean `Cats` may use
+information from the later `mice` position.
+
 At each transformer layer, the model constructs numerical rows for all three
 positions. Operations within a layer can process many rows in parallel, while
 layers still depend on one another sequentially.
@@ -360,4 +389,3 @@ Before the GPU lab, draw the pipeline from memory and annotate:
 
 If any boundary is ambiguous, revisit Sections 1–6. You do not need to know the
 attention equations yet to understand this lifecycle.
-
