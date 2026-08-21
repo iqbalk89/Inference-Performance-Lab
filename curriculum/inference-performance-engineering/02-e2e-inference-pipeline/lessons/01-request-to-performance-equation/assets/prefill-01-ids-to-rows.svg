@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1020" viewBox="0 0 1500 1020" role="img" aria-labelledby="title desc">
+  <title id="title">Prefill visual 1: prompt token IDs become numerical rows</title>
+  <desc id="desc">The prompt Cats chase mice is tokenized into three integer IDs. Each ID selects one vector from a learned token embedding table. Position information is added, producing one hidden-state row per prompt position and an input tensor of shape batch one, three tokens, four illustrative features.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0L0 6L9 3z" fill="#88a9c9"/></marker>
+    <style>
+      .bg{fill:#09121f}.panel{fill:#111f33;stroke:#385979;stroke-width:2}.learned{fill:#102e2a;stroke:#49a88a;stroke-width:2}.position{fill:#302541;stroke:#8f72b5;stroke-width:2}.result{fill:#17344e;stroke:#68a0ce;stroke-width:3}.h{fill:#f2f7ff;font:700 30px system-ui,sans-serif}.t{fill:#f2f7ff;font:700 21px system-ui,sans-serif}.b{fill:#c5d6e7;font:17px system-ui,sans-serif}.s{fill:#adc4db;font:15px system-ui,sans-serif}.tiny{fill:#a9bfd5;font:13px system-ui,sans-serif}.n{fill:#f5f9ff;font:600 15px ui-monospace,monospace}.token{fill:#1a3855;stroke:#6795bf;stroke-width:2}.id{fill:#452f1e;stroke:#d49a55;stroke-width:2}.cell{fill:#1b3652;stroke:#567998;stroke-width:1}.chosen{fill:#245c4b;stroke:#68c59e;stroke-width:2}.poscell{fill:#3a2d4e;stroke:#9275b5;stroke-width:1}.outcell{fill:#214664;stroke:#70a6d0;stroke-width:1}.arrow{stroke:#88a9c9;stroke-width:3;fill:none;marker-end:url(#arrow)}.lookup{stroke:#65c29c;stroke-width:3;fill:none;marker-end:url(#arrow)}.plus{fill:#ffd17e;font:700 32px system-ui,sans-serif}.tag{fill:#0b1725;stroke:#527392;stroke-width:1.5}.accent{fill:#7fdbb6;font:700 17px system-ui,sans-serif}.warning{fill:#ffd17e;font:700 16px system-ui,sans-serif}
+    </style>
+  </defs>
+  <rect class="bg" width="1500" height="1020" rx="22"/>
+  <text class="h" x="45" y="52">PREFILL VISUAL 1 — How prompt IDs become numerical rows</text>
+  <text class="b" x="45" y="82">Toy width D=4 for visibility. A real model commonly uses thousands of features per token row.</text>
+
+  <!-- A: tokens and IDs -->
+  <rect class="panel" x="40" y="115" width="1420" height="170" rx="16"/>
+  <text class="t" x="65" y="150">A. Tokenization has already assigned one integer ID to each prompt position</text>
+  <rect class="token" x="120" y="180" width="165" height="70" rx="10"/><text class="t" x="172" y="209">Cats</text><text class="s" x="155" y="235">position 0</text>
+  <path class="arrow" d="M285 215 H345"/>
+  <rect class="id" x="345" y="180" width="125" height="70" rx="10"/><text class="t" x="375" y="210">ID 17</text><text class="s" x="375" y="235">integer</text>
+  <rect class="token" x="555" y="180" width="165" height="70" rx="10"/><text class="t" x="602" y="209">chase</text><text class="s" x="590" y="235">position 1</text>
+  <path class="arrow" d="M720 215 H780"/>
+  <rect class="id" x="780" y="180" width="125" height="70" rx="10"/><text class="t" x="810" y="210">ID 42</text><text class="s" x="810" y="235">integer</text>
+  <rect class="token" x="990" y="180" width="165" height="70" rx="10"/><text class="t" x="1042" y="209">mice</text><text class="s" x="1025" y="235">position 2</text>
+  <path class="arrow" d="M1155 215 H1215"/>
+  <rect class="id" x="1215" y="180" width="125" height="70" rx="10"/><text class="t" x="1245" y="210">ID 91</text><text class="s" x="1245" y="235">integer</text>
+
+  <!-- B: embedding lookup -->
+  <rect class="learned" x="40" y="320" width="720" height="390" rx="16"/>
+  <text class="t" x="65" y="357">B. Each ID is a row address in a learned embedding table</text>
+  <text class="b" x="65" y="386">Embedding table E has shape [vocabulary size, D]. Lookup selects; it does not average IDs.</text>
+  <text class="s" x="300" y="425">feature 0</text><text class="s" x="400" y="425">feature 1</text><text class="s" x="500" y="425">feature 2</text><text class="s" x="600" y="425">feature 3</text>
+  <text class="s" x="70" y="465">ID 0</text><text class="s" x="70" y="505">…</text><text class="accent" x="70" y="545">ID 17 → Cats</text><text class="accent" x="70" y="585">ID 42 → chase</text><text class="accent" x="70" y="625">ID 91 → mice</text><text class="s" x="70" y="665">…</text>
+  <g transform="translate(285 440)">
+    <rect class="cell" x="0" y="0" width="90" height="32"/><rect class="cell" x="95" y="0" width="90" height="32"/><rect class="cell" x="190" y="0" width="90" height="32"/><rect class="cell" x="285" y="0" width="90" height="32"/>
+    <rect class="cell" x="0" y="40" width="90" height="32"/><rect class="cell" x="95" y="40" width="90" height="32"/><rect class="cell" x="190" y="40" width="90" height="32"/><rect class="cell" x="285" y="40" width="90" height="32"/>
+    <rect class="chosen" x="0" y="80" width="90" height="32"/><rect class="chosen" x="95" y="80" width="90" height="32"/><rect class="chosen" x="190" y="80" width="90" height="32"/><rect class="chosen" x="285" y="80" width="90" height="32"/>
+    <rect class="chosen" x="0" y="120" width="90" height="32"/><rect class="chosen" x="95" y="120" width="90" height="32"/><rect class="chosen" x="190" y="120" width="90" height="32"/><rect class="chosen" x="285" y="120" width="90" height="32"/>
+    <rect class="chosen" x="0" y="160" width="90" height="32"/><rect class="chosen" x="95" y="160" width="90" height="32"/><rect class="chosen" x="190" y="160" width="90" height="32"/><rect class="chosen" x="285" y="160" width="90" height="32"/>
+    <rect class="cell" x="0" y="200" width="90" height="32"/><rect class="cell" x="95" y="200" width="90" height="32"/><rect class="cell" x="190" y="200" width="90" height="32"/><rect class="cell" x="285" y="200" width="90" height="32"/>
+    <text class="n" x="19" y="22">0.1</text><text class="n" x="114" y="22">0.0</text><text class="n" x="209" y="22">−0.2</text><text class="n" x="304" y="22">0.5</text>
+    <text class="n" x="31" y="62">…</text><text class="n" x="126" y="62">…</text><text class="n" x="221" y="62">…</text><text class="n" x="316" y="62">…</text>
+    <text class="n" x="19" y="102">0.2</text><text class="n" x="114" y="102">−0.1</text><text class="n" x="209" y="102">0.7</text><text class="n" x="304" y="102">0.4</text>
+    <text class="n" x="19" y="142">0.6</text><text class="n" x="114" y="142">0.3</text><text class="n" x="209" y="142">−0.2</text><text class="n" x="304" y="142">0.1</text>
+    <text class="n" x="19" y="182">−0.4</text><text class="n" x="114" y="182">0.8</text><text class="n" x="209" y="182">0.5</text><text class="n" x="304" y="182">−0.3</text>
+    <text class="n" x="31" y="222">…</text><text class="n" x="126" y="222">…</text><text class="n" x="221" y="222">…</text><text class="n" x="316" y="222">…</text>
+  </g>
+  <text class="warning" x="65" y="692">These feature values were learned during training; the token ID itself is not multiplied into them.</text>
+
+  <!-- C: selected rows plus position -->
+  <rect class="position" x="800" y="320" width="660" height="390" rx="16"/>
+  <text class="t" x="825" y="357">C. Position information distinguishes identical tokens in different places</text>
+  <text class="b" x="825" y="386">Conceptually: token embedding row + position information = initial model row.</text>
+  <text class="s" x="825" y="439">position 0:</text><rect class="chosen" x="930" y="414" width="300" height="42" rx="7"/><text class="n" x="950" y="441">[ 0.2, −0.1, 0.7, 0.4 ]</text><text class="plus" x="1245" y="447">+</text><rect class="poscell" x="1285" y="414" width="145" height="42" rx="7"/><text class="n" x="1303" y="441">position 0</text>
+  <text class="s" x="825" y="509">position 1:</text><rect class="chosen" x="930" y="484" width="300" height="42" rx="7"/><text class="n" x="950" y="511">[ 0.6, 0.3, −0.2, 0.1 ]</text><text class="plus" x="1245" y="517">+</text><rect class="poscell" x="1285" y="484" width="145" height="42" rx="7"/><text class="n" x="1303" y="511">position 1</text>
+  <text class="s" x="825" y="579">position 2:</text><rect class="chosen" x="930" y="554" width="300" height="42" rx="7"/><text class="n" x="950" y="581">[−0.4, 0.8, 0.5, −0.3 ]</text><text class="plus" x="1245" y="587">+</text><rect class="poscell" x="1285" y="554" width="145" height="42" rx="7"/><text class="n" x="1303" y="581">position 2</text>
+  <rect class="tag" x="825" y="630" width="605" height="55" rx="9"/><text class="s" x="845" y="654">Implementation note: some models add position embeddings here;</text><text class="s" x="845" y="676">others encode position later inside attention. The purpose is the same.</text>
+
+  <!-- D: resulting tensor -->
+  <path class="arrow" d="M750 735 V765 H585"/><path class="arrow" d="M1130 710 V765"/>
+  <rect class="result" x="220" y="775" width="1060" height="205" rx="16"/>
+  <text class="t" x="245" y="812">D. Stack the three model rows into one input tensor X with shape [B, T, D] = [1, 3, 4]</text>
+  <text class="s" x="255" y="854">token axis ↓</text><text class="s" x="560" y="849">feature axis →</text>
+  <text class="b" x="365" y="881">Cats at position 0</text><rect class="outcell" x="570" y="858" width="500" height="31"/><text class="n" x="600" y="880">[ x₀₀, x₀₁, x₀₂, x₀₃ ]</text>
+  <text class="b" x="365" y="916">chase at position 1</text><rect class="outcell" x="570" y="893" width="500" height="31"/><text class="n" x="600" y="915">[ x₁₀, x₁₁, x₁₂, x₁₃ ]</text>
+  <text class="b" x="365" y="951">mice at position 2</text><rect class="outcell" x="570" y="928" width="500" height="31"/><text class="n" x="600" y="950">[ x₂₀, x₂₁, x₂₂, x₂₃ ]</text>
+  <rect class="tag" x="1090" y="852" width="160" height="82" rx="9"/><text class="s" x="1112" y="878">B = 1 request</text><text class="s" x="1112" y="902">T = 3 tokens</text><text class="s" x="1112" y="926">D = 4 features</text>
+  <text class="warning" x="290" y="1005">The next transformer layer receives numerical tensor X—not the strings “Cats,” “chase,” or “mice.”</text>
+</svg>

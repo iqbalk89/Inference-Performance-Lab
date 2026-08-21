@@ -110,6 +110,24 @@ all prompt IDs
     → the last prompt row selects the first output ID
 ```
 
+### Focused visual 1: prompt IDs become model rows
+
+![Prompt token IDs select learned embedding rows, receive position information, and form the input tensor](assets/prefill-01-ids-to-rows.svg)
+
+An ID such as `17` is an integer address into the model's learned embedding
+table. It does not itself contain the meaning of `Cats`, and the model does not
+multiply the number `17` by anything to create meaning. The lookup retrieves a
+learned feature vector. Combining that vector with position information gives
+the model one numerical row for that token at that position.
+
+For the toy example, stacking three rows of width four produces:
+
+```text
+X shape = [batch, prompt_tokens, hidden_width] = [1, 3, 4]
+```
+
+This is the tensor that enters the first transformer layer.
+
 Two kinds of execution occur at the same time in this description:
 
 - **Parallel across prompt rows within a layer:** calculations for multiple
