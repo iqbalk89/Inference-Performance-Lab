@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="980" viewBox="0 0 1500 980" role="img" aria-labelledby="title desc">
+  <title id="title">What a batch is during model inference</title>
+  <desc id="desc">Three independent prompts become three separate token matrices. The matrices are stacked along a new batch axis into one tensor of shape three, three, four and passed through one model call. Attention remains isolated within each prompt.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0L0 6L9 3z" fill="#8cacca"/></marker>
+    <style>
+      .bg{fill:#09121f}.panel{fill:#111f33;stroke:#3c5b7b;stroke-width:2}.reqA{fill:#102e2a;stroke:#4cab8b;stroke-width:2}.reqB{fill:#302541;stroke:#9475b6;stroke-width:2}.reqC{fill:#3c2b1d;stroke:#d39a55;stroke-width:2}.gpu{fill:#142d43;stroke:#69a1ce;stroke-width:3}.cellA{fill:#1d5546;stroke:#69c19d;stroke-width:1}.cellB{fill:#44345b;stroke:#a285c2;stroke-width:1}.cellC{fill:#5a3d25;stroke:#d4a66d;stroke-width:1}.h{fill:#f2f7ff;font:700 30px system-ui,sans-serif}.t{fill:#f2f7ff;font:700 21px system-ui,sans-serif}.b{fill:#c5d6e7;font:17px system-ui,sans-serif}.s{fill:#aec5db;font:15px system-ui,sans-serif}.tiny{fill:#a9bfd5;font:13px system-ui,sans-serif}.n{fill:#f5f9ff;font:600 14px ui-monospace,monospace}.green{fill:#7edbb6;font:700 18px system-ui,sans-serif}.purple{fill:#c9a8ea;font:700 18px system-ui,sans-serif}.orange{fill:#ffd08a;font:700 18px system-ui,sans-serif}.blue{fill:#89bee6;font:700 18px system-ui,sans-serif}.warn{fill:#ffd17e;font:700 17px system-ui,sans-serif}.arrow{stroke:#8cacca;stroke-width:3;fill:none;marker-end:url(#arrow)}.isolate{stroke:#e6808b;stroke-width:4;stroke-dasharray:8 7}.brace{stroke:#7ca5c8;stroke-width:2;fill:none}
+    </style>
+  </defs>
+  <rect class="bg" width="1500" height="980" rx="22"/>
+  <text class="h" x="45" y="52">WHAT IS A BATCH? Multiple independent prompts in one model call</text>
+  <text class="b" x="45" y="82">Batching groups work for execution. It does not combine the prompts into one conversation.</text>
+
+  <!-- independent requests -->
+  <rect class="panel" x="40" y="115" width="430" height="740" rx="16"/>
+  <text class="t" x="65" y="152">1. Three independent requests</text>
+  <rect class="reqA" x="70" y="190" width="370" height="170" rx="14"/>
+  <text class="green" x="92" y="222">batch item 0</text><text class="b" x="92" y="252">“Cats chase mice”</text>
+  <rect class="cellA" x="92" y="278" width="98" height="48" rx="7"/><text class="s" x="120" y="307">Cats</text><rect class="cellA" x="202" y="278" width="98" height="48" rx="7"/><text class="s" x="225" y="307">chase</text><rect class="cellA" x="312" y="278" width="98" height="48" rx="7"/><text class="s" x="340" y="307">mice</text>
+  <rect class="reqB" x="70" y="390" width="370" height="170" rx="14"/>
+  <text class="purple" x="92" y="422">batch item 1</text><text class="b" x="92" y="452">“Dogs guard homes”</text>
+  <rect class="cellB" x="92" y="478" width="98" height="48" rx="7"/><text class="s" x="119" y="507">Dogs</text><rect class="cellB" x="202" y="478" width="98" height="48" rx="7"/><text class="s" x="226" y="507">guard</text><rect class="cellB" x="312" y="478" width="98" height="48" rx="7"/><text class="s" x="335" y="507">homes</text>
+  <rect class="reqC" x="70" y="590" width="370" height="170" rx="14"/>
+  <text class="orange" x="92" y="622">batch item 2</text><text class="b" x="92" y="652">“Birds build nests”</text>
+  <rect class="cellC" x="92" y="678" width="98" height="48" rx="7"/><text class="s" x="118" y="707">Birds</text><rect class="cellC" x="202" y="678" width="98" height="48" rx="7"/><text class="s" x="228" y="707">build</text><rect class="cellC" x="312" y="678" width="98" height="48" rx="7"/><text class="s" x="340" y="707">nests</text>
+  <text class="warn" x="70" y="810">B = 3 because there are 3 prompts.</text>
+  <text class="s" x="70" y="835">Each prompt happens to have T = 3 tokens.</text>
+
+  <!-- stack -->
+  <path class="arrow" d="M470 480 H535"/>
+  <rect class="panel" x="535" y="115" width="465" height="740" rx="16"/>
+  <text class="t" x="560" y="152">2. Stack their matrices</text>
+  <text class="b" x="560" y="182">Each prompt is a T × D matrix: 3 × 4.</text>
+  <text class="blue" x="610" y="228">new outer direction = batch axis ↘</text>
+
+  <!-- three perspective sheets -->
+  <g transform="translate(630 270)">
+    <rect class="reqC" x="80" y="80" width="270" height="185" rx="10"/>
+    <text class="orange" x="210" y="292">item 2</text>
+    <g transform="translate(100 105)"><rect class="cellC" width="52" height="35"/><rect class="cellC" x="57" width="52" height="35"/><rect class="cellC" x="114" width="52" height="35"/><rect class="cellC" x="171" width="52" height="35"/><rect class="cellC" y="40" width="52" height="35"/><rect class="cellC" x="57" y="40" width="52" height="35"/><rect class="cellC" x="114" y="40" width="52" height="35"/><rect class="cellC" x="171" y="40" width="52" height="35"/><rect class="cellC" y="80" width="52" height="35"/><rect class="cellC" x="57" y="80" width="52" height="35"/><rect class="cellC" x="114" y="80" width="52" height="35"/><rect class="cellC" x="171" y="80" width="52" height="35"/></g>
+    <rect class="reqB" x="40" y="40" width="270" height="185" rx="10"/>
+    <text class="purple" x="170" y="252">item 1</text>
+    <g transform="translate(60 65)"><rect class="cellB" width="52" height="35"/><rect class="cellB" x="57" width="52" height="35"/><rect class="cellB" x="114" width="52" height="35"/><rect class="cellB" x="171" width="52" height="35"/><rect class="cellB" y="40" width="52" height="35"/><rect class="cellB" x="57" y="40" width="52" height="35"/><rect class="cellB" x="114" y="40" width="52" height="35"/><rect class="cellB" x="171" y="40" width="52" height="35"/><rect class="cellB" y="80" width="52" height="35"/><rect class="cellB" x="57" y="80" width="52" height="35"/><rect class="cellB" x="114" y="80" width="52" height="35"/><rect class="cellB" x="171" y="80" width="52" height="35"/></g>
+    <rect class="reqA" x="0" y="0" width="270" height="185" rx="10"/>
+    <text class="green" x="130" y="212">item 0</text>
+    <g transform="translate(20 25)"><rect class="cellA" width="52" height="35"/><rect class="cellA" x="57" width="52" height="35"/><rect class="cellA" x="114" width="52" height="35"/><rect class="cellA" x="171" width="52" height="35"/><rect class="cellA" y="40" width="52" height="35"/><rect class="cellA" x="57" y="40" width="52" height="35"/><rect class="cellA" x="114" y="40" width="52" height="35"/><rect class="cellA" x="171" y="40" width="52" height="35"/><rect class="cellA" y="80" width="52" height="35"/><rect class="cellA" x="57" y="80" width="52" height="35"/><rect class="cellA" x="114" y="80" width="52" height="35"/><rect class="cellA" x="171" y="80" width="52" height="35"/></g>
+  </g>
+  <rect class="gpu" x="590" y="620" width="355" height="125" rx="13"/>
+  <text class="t" x="625" y="655">One tensor X</text><text class="blue" x="625" y="688">shape [B, T, D]</text><text class="h" x="625" y="727">[3, 3, 4]</text>
+  <text class="s" x="590" y="790">3 prompts × 3 positions × 4 features</text>
+  <text class="warn" x="590" y="820">The batch axis indexes whole prompts.</text>
+
+  <!-- one model call and isolation -->
+  <path class="arrow" d="M1000 480 H1065"/>
+  <rect class="gpu" x="1065" y="115" width="395" height="740" rx="16"/>
+  <text class="t" x="1090" y="152">3. One model call</text>
+  <text class="b" x="1090" y="182">The GPU can organize arithmetic for all</text><text class="b" x="1090" y="205">three batch items in larger operations.</text>
+  <rect class="reqA" x="1110" y="255" width="305" height="110" rx="12"/><text class="green" x="1135" y="287">item 0 computation</text><text class="s" x="1135" y="317">Cats ↔ chase ↔ mice</text><text class="s" x="1135" y="342">attention stays inside item 0</text>
+  <line class="isolate" x1="1090" y1="390" x2="1435" y2="390"/>
+  <rect class="reqB" x="1110" y="420" width="305" height="110" rx="12"/><text class="purple" x="1135" y="452">item 1 computation</text><text class="s" x="1135" y="482">Dogs ↔ guard ↔ homes</text><text class="s" x="1135" y="507">attention stays inside item 1</text>
+  <line class="isolate" x1="1090" y1="555" x2="1435" y2="555"/>
+  <rect class="reqC" x="1110" y="585" width="305" height="110" rx="12"/><text class="orange" x="1135" y="617">item 2 computation</text><text class="s" x="1135" y="647">Birds ↔ build ↔ nests</text><text class="s" x="1135" y="672">attention stays inside item 2</text>
+  <text class="warn" x="1090" y="745">No cross-request attention:</text><text class="b" x="1090" y="775">“Cats” cannot attend to “Dogs.”</text>
+  <text class="b" x="1090" y="802">They share an execution call, not context.</text>
+
+  <rect class="panel" x="40" y="885" width="1420" height="60" rx="12"/>
+  <text class="b" x="65" y="920">Performance tradeoff:</text><text class="green" x="250" y="920">larger batches can improve GPU throughput</text><text class="b" x="650" y="920">but use more memory and may increase how long an individual request waits.</text>
+  <text class="s" x="45" y="970">Teaching simplification: these prompts have equal length. Real serving systems handle unequal lengths with padding, packing, or dynamic scheduling.</text>
+</svg>

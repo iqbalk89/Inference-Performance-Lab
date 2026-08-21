@@ -159,6 +159,21 @@ independent sequence items occupying the outer axis. Real prompts often have
 different lengths; a system may pad, pack, or schedule them in a way that makes
 the stored representation more complicated. We will treat that separately.
 
+### Focused batch visual: shared execution, separate context
+
+![Three independent prompts stacked along the batch axis and processed in one model call without sharing attention context](assets/prefill-03-what-is-a-batch.svg)
+
+The key distinction is:
+
+```text
+batched together  = arithmetic for several prompts can share a model call
+merged together   = prompts would become one sequence and share context
+```
+
+Batching does the first, not the second. Batch item 0 cannot attend to tokens in
+batch item 1. Each sequence maintains its own causal history and, during
+generation, its own KV-cache state.
+
 This `X` tensor is what enters the first transformer layer.
 
 Two kinds of execution occur at the same time in this description:
