@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="700" viewBox="0 0 1400 700" role="img" aria-labelledby="title desc">
+  <title id="title">Workload dimensions and affected inference phases</title><desc id="desc">Prompt length, output length, batch, and concurrency point to prefill, KV cache, decode iterations, GPU work, and queue delay.</desc>
+  <defs><marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0L0 6L9 3z" fill="#7ea2c7"/></marker><style>.bg{fill:#0b1220}.src{fill:#182a43;stroke:#4e7298;stroke-width:2}.dst{fill:#17372f;stroke:#48a982;stroke-width:2}.risk{fill:#412a30;stroke:#c16c78;stroke-width:2}.t{fill:#eff7ff;font:600 19px system-ui,sans-serif}.s{fill:#bdd0e4;font:16px system-ui,sans-serif}.h{fill:#eff7ff;font:700 28px system-ui,sans-serif}.a{stroke:#7ea2c7;stroke-width:3;fill:none;marker-end:url(#ar)}</style></defs>
+  <rect class="bg" width="1400" height="700" rx="20"/><text class="h" x="45" y="55">Change one workload dimension: predict the first-order effect</text>
+  <rect class="src" x="55" y="110" width="260" height="95" rx="12"/><text class="t" x="80" y="147">Prompt length ↑</text><text class="s" x="80" y="175">more input token rows</text>
+  <rect class="src" x="55" y="250" width="260" height="95" rx="12"/><text class="t" x="80" y="287">Output length ↑</text><text class="s" x="80" y="315">more selected tokens</text>
+  <rect class="src" x="55" y="390" width="260" height="95" rx="12"/><text class="t" x="80" y="427">Batch size ↑</text><text class="s" x="80" y="455">more sequences per call</text>
+  <rect class="src" x="55" y="530" width="260" height="95" rx="12"/><text class="t" x="80" y="567">Concurrency ↑</text><text class="s" x="80" y="595">more arriving requests</text>
+
+  <rect class="dst" x="520" y="100" width="320" height="105" rx="12"/><text class="t" x="545" y="137">Prefill work + TTFT ↑</text><text class="s" x="545" y="165">larger prompt computation</text><text class="s" x="545" y="187">and initial cache construction</text>
+  <rect class="dst" x="520" y="250" width="320" height="105" rx="12"/><text class="t" x="545" y="287">Decode iterations ↑</text><text class="s" x="545" y="315">roughly one forward decision</text><text class="s" x="545" y="337">per additional output token</text>
+  <rect class="dst" x="520" y="400" width="320" height="105" rx="12"/><text class="t" x="545" y="437">Work per GPU call ↑</text><text class="s" x="545" y="465">utilization may improve;</text><text class="s" x="545" y="487">memory demand also rises</text>
+  <rect class="risk" x="1010" y="175" width="330" height="120" rx="12"/><text class="t" x="1035" y="212">KV state / history ↑</text><text class="s" x="1035" y="240">more memory capacity;</text><text class="s" x="1035" y="264">later decode may read more history</text>
+  <rect class="risk" x="1010" y="425" width="330" height="120" rx="12"/><text class="t" x="1035" y="462">Queue + tail latency risk ↑</text><text class="s" x="1035" y="490">after saturation, waiting grows</text><text class="s" x="1035" y="514">even if kernels do not slow</text>
+
+  <path class="a" d="M315 155 H510"/><path class="a" d="M840 152 C930 152 920 210 1000 220"/>
+  <path class="a" d="M315 297 H510"/><path class="a" d="M840 302 C930 302 920 270 1000 255"/>
+  <path class="a" d="M315 437 H510"/><path class="a" d="M840 452 C925 452 925 470 1000 475"/>
+  <path class="a" d="M315 577 C420 577 420 487 510 470"/><path class="a" d="M315 577 C650 660 845 575 1000 510"/>
+  <text class="s" x="485" y="665">These are hypotheses. Architecture, kernels, scheduling, precision, and hardware determine the measured curve.</text>
+</svg>

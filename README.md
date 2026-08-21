@@ -83,8 +83,12 @@ environment, and GitHub repository have been initialized and verified.
 
 Phase 1 is beginning with GPU foundations and inference fundamentals. CUDA and
 GPU profiling will run on remote NVIDIA hardware. Start at the
-[Curriculum Index](curriculum/README.md), then follow the numbered
-[Phase 1 modules](curriculum/phase-01-gpu-inference-foundations/README.md).
+[Curriculum Index](curriculum/README.md). The primary job-oriented route is now
+the [Inference Performance Engineering track](curriculum/inference-performance-engineering/README.md),
+which separates the end-to-end pipeline, prefill, decode, profiling, capacity,
+and optimization. The numbered
+[Phase 1 modules](curriculum/phase-01-gpu-inference-foundations/README.md) remain
+available as the foundational reference library.
 
 Remote GPU sessions follow the
 [Lambda GPU Instance Runbook](docs/gpu-notes/lambda-instance-runbook.md), which

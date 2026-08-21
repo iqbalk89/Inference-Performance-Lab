@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="720" viewBox="0 0 1400 720" role="img" aria-labelledby="title desc">
+  <title id="title">End-to-end inference request dataflow</title>
+  <desc id="desc">A request moves from text through tokenization, prefill, first-token sampling, repeated decode, detokenization, and streaming. CPU, GPU, and service regions are labeled.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#8ca3bd"/></marker>
+    <style>
+      .bg{fill:#0b1220}.lane{fill:#111d30;stroke:#314762;stroke-width:2}.box{fill:#172943;stroke:#5b83ad;stroke-width:2}.gpu{fill:#18372f;stroke:#4cb087;stroke-width:2}.sample{fill:#35294c;stroke:#a889dc;stroke-width:2}.txt{fill:#eef6ff;font:600 20px system-ui,sans-serif}.small{fill:#bed0e3;font:16px system-ui,sans-serif}.label{fill:#84a5c7;font:700 18px system-ui,sans-serif}.accent{fill:#70d6ac;font:700 17px system-ui,sans-serif}.arrow{stroke:#8ca3bd;stroke-width:3;fill:none;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect class="bg" width="1400" height="720" rx="20"/>
+  <text class="txt" x="45" y="48" font-size="28">One inference request: what crosses each boundary?</text>
+  <rect class="lane" x="30" y="75" width="1340" height="170" rx="16"/><text class="label" x="55" y="108">SERVICE + CPU</text>
+  <rect class="lane" x="30" y="270" width="1340" height="225" rx="16"/><text class="label" x="55" y="303">MODEL WORKER + GPU</text>
+  <rect class="lane" x="30" y="520" width="1340" height="155" rx="16"/><text class="label" x="55" y="553">RETURN PATH</text>
+
+  <rect class="box" x="55" y="130" width="205" height="82" rx="12"/><text class="txt" x="78" y="164">Request bytes</text><text class="small" x="78" y="190">“Cats chase mice”</text>
+  <path class="arrow" d="M260 171 H305"/>
+  <rect class="box" x="305" y="130" width="205" height="82" rx="12"/><text class="txt" x="330" y="164">Parse + queue</text><text class="small" x="330" y="190">request metadata</text>
+  <path class="arrow" d="M510 171 H555"/>
+  <rect class="box" x="555" y="130" width="235" height="82" rx="12"/><text class="txt" x="580" y="164">Tokenize on CPU</text><text class="small" x="580" y="190">text → integer IDs</text>
+  <path class="arrow" d="M790 171 H835"/>
+  <rect class="box" x="835" y="130" width="300" height="82" rx="12"/><text class="txt" x="860" y="164">Prompt IDs now exist</text><text class="small" x="860" y="190">[Cats] [ chase] [ mice]</text>
+
+  <path class="arrow" d="M985 212 V335 H250"/>
+  <rect class="gpu" x="55" y="335" width="260" height="110" rx="12"/><text class="txt" x="80" y="372">PREFILL forward</text><text class="small" x="80" y="400">process all prompt IDs</text><text class="accent" x="80" y="427">create prompt KV + logits</text>
+  <path class="arrow" d="M315 390 H360"/>
+  <rect class="sample" x="360" y="335" width="220" height="110" rx="12"/><text class="txt" x="385" y="372">Select first ID</text><text class="small" x="385" y="400">last-row logits → [ at]</text><text class="small" x="385" y="427">selected, not processed</text>
+  <path class="arrow" d="M580 390 H625"/>
+  <rect class="gpu" x="625" y="335" width="270" height="110" rx="12"/><text class="txt" x="650" y="372">DECODE forward</text><text class="small" x="650" y="400">new ID + existing KV</text><text class="accent" x="650" y="427">append new KV + logits</text>
+  <path class="arrow" d="M895 390 H940"/>
+  <rect class="sample" x="940" y="335" width="300" height="110" rx="12"/><text class="txt" x="965" y="372">Select next ID</text><text class="small" x="965" y="400">logits → [ night]</text><text class="small" x="965" y="427">repeat decode until stop</text>
+  <path class="arrow" d="M1240 390 C1325 390 1325 470 1110 470 C920 470 910 457 770 447"/>
+
+  <path class="arrow" d="M470 445 V585 H345"/>
+  <rect class="box" x="150" y="575" width="300" height="70" rx="12"/><text class="txt" x="175" y="606">Detokenize + stream</text><text class="small" x="175" y="630">ID → text bytes</text>
+  <path class="arrow" d="M450 610 H510"/>
+  <rect class="box" x="510" y="575" width="300" height="70" rx="12"/><text class="txt" x="535" y="606">Client receives token</text><text class="small" x="535" y="630">first [ at], then [ night]…</text>
+  <rect x="875" y="562" width="430" height="92" rx="12" fill="#102138" stroke="#3a5878"/><text class="small" x="900" y="590">Key distinction</text><text class="txt" x="900" y="620">selection creates an ID;</text><text class="txt" x="900" y="646">the next forward call processes it.</text>
+</svg>

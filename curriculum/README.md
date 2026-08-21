@@ -30,6 +30,14 @@ live in the repository's engineering directories:
 | [Phase 0](phase-00-development-environment/README.md) | Development environment and workstation setup | Complete |
 | [Phase 1](phase-01-gpu-inference-foundations/README.md) | GPU foundations and inference fundamentals | In progress |
 
+## Job-Oriented Performance Track
+
+The [Inference Performance Engineering track](inference-performance-engineering/README.md)
+reorganizes the material around the workflow used in modeling and profiling
+roles: predict, measure, profile, explain, optimize, and remeasure. It preserves
+the phase curriculum as a reference library while providing a clearer primary
+path through end-to-end inference, prefill, decode, capacity, and optimization.
+
 Future phases will be added only when their scope is defined. Deferred topics
 remain in the [backlog](../docs/backlog.md) rather than appearing as unfinished
 curriculum.

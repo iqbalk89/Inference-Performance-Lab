@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="620" viewBox="0 0 1400 620" role="img" aria-labelledby="title desc">
+  <title id="title">TTFT and decode timing boundaries</title><desc id="desc">A request timeline shows service overhead, prefill, first sampling, and three repeated decode intervals, with TTFT and end-to-end boundaries.</desc>
+  <defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0 0L0 6L8 3z" fill="#dce9f7"/></marker><style>.bg{fill:#0b1220}.t{fill:#eef6ff;font:600 19px system-ui,sans-serif}.s{fill:#b9cce0;font:16px system-ui,sans-serif}.axis{stroke:#b9cce0;stroke-width:2}.tick{stroke:#58708a;stroke-width:2}.brace{stroke:#dce9f7;stroke-width:2;fill:none;marker-end:url(#a)}.service{fill:#315178}.pre{fill:#238166}.sample{fill:#7758a7}.decode{fill:#256c91}.stream{fill:#9a6932}</style></defs>
+  <rect class="bg" width="1400" height="620" rx="20"/><text class="t" x="45" y="52" font-size="28">One request viewed as time</text>
+  <line class="axis" x1="85" y1="480" x2="1330" y2="480" marker-end="url(#a)"/><text class="s" x="1260" y="515">time →</text>
+  <g transform="translate(85 200)">
+    <rect class="service" width="180" height="90" rx="8"/><text class="t" x="18" y="38">service</text><text class="s" x="18" y="65">parse/queue/tokenize</text>
+    <rect class="pre" x="180" width="300" height="90" rx="8"/><text class="t" x="202" y="38">prefill forward</text><text class="s" x="202" y="65">all uncached prompt IDs</text>
+    <rect class="sample" x="480" width="105" height="90" rx="8"/><text class="t" x="494" y="38">sample</text><text class="s" x="494" y="65">first ID</text>
+    <rect class="stream" x="585" width="75" height="90" rx="8"/><text class="s" x="597" y="52">send</text>
+    <rect class="decode" x="660" width="175" height="90" rx="8"/><text class="t" x="678" y="38">decode 1</text><text class="s" x="678" y="65">process token 1</text>
+    <rect class="decode" x="835" width="175" height="90" rx="8"/><text class="t" x="853" y="38">decode 2</text><text class="s" x="853" y="65">process token 2</text>
+    <rect class="decode" x="1010" width="175" height="90" rx="8"/><text class="t" x="1028" y="38">decode 3</text><text class="s" x="1028" y="65">process token 3</text>
+  </g>
+  <line class="tick" x1="85" y1="170" x2="85" y2="500"/><text class="s" x="52" y="535">request</text>
+  <line class="tick" x1="745" y1="170" x2="745" y2="500"/><circle cx="745" cy="480" r="7" fill="#f6c66e"/><text class="t" x="685" y="535">token 1 arrives</text>
+  <line class="tick" x1="920" y1="310" x2="920" y2="500"/><circle cx="920" cy="480" r="7" fill="#f6c66e"/><text class="s" x="875" y="535">token 2</text>
+  <line class="tick" x1="1095" y1="310" x2="1095" y2="500"/><circle cx="1095" cy="480" r="7" fill="#f6c66e"/><text class="s" x="1050" y="535">token 3</text>
+  <line class="tick" x1="1270" y1="310" x2="1270" y2="500"/><circle cx="1270" cy="480" r="7" fill="#f6c66e"/><text class="s" x="1225" y="535">token 4</text>
+  <path class="brace" d="M90 135 H735"/><text class="t" x="320" y="115">TTFT: request start → first token received</text>
+  <path class="brace" d="M755 365 H910"/><text class="s" x="765" y="350">inter-token gap 1</text>
+  <path class="brace" d="M930 365 H1085"/><text class="s" x="940" y="350">inter-token gap 2</text>
+  <path class="brace" d="M1105 365 H1260"/><text class="s" x="1115" y="350">inter-token gap 3</text>
+  <text class="s" x="45" y="585">TPOT here = average of the three post-first-token gaps. E2E extends from request start through the final response boundary.</text>
+</svg>
