@@ -14,10 +14,12 @@ latency, and collect a first predicted-versus-measured phase breakdown.
 ## Sequence
 
 1. Read [Lesson 1 — Request to Performance Equation](lessons/01-request-to-performance-equation/README.md).
-2. Complete its knowledge check before opening the answers.
-3. On the Mac, inspect and dry-run the [lab](lab/README.md) with a small model.
-4. On the remote NVIDIA GPU, benchmark and capture the annotated timeline.
-5. Complete the [report template](lab/report-template.md).
+2. Complete [Hands-On Exercise 01 — Batches and Tensor Shapes](../practice/hands-on-learning-path/exercises/01-batches-and-tensor-shapes/README.md)
+   after the lesson's batch subsection.
+3. Complete the lesson's knowledge check before opening the answers.
+4. On the Mac, inspect and dry-run the [lab](lab/README.md) with a small model.
+5. On the remote NVIDIA GPU, benchmark and capture the annotated timeline.
+6. Complete the [report template](lab/report-template.md).
 
 ## Completion Gate
 
@@ -30,4 +32,3 @@ You can proceed when you can:
   length;
 - show profiler evidence for each measured GPU phase;
 - explain at least two reasons the additive model differs from wall-clock time.
-
