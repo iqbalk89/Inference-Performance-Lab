@@ -83,6 +83,11 @@ primary practice route. It uses short predict → build → check → explain lo
 starting with batches and tensor shapes and progressing toward calibrated GPU
 models, profiler evidence, and optimization case studies.
 
+Use the [Inference Performance Modeling Problems](practice/performance-modeling-problems/README.md)
+to practice translating individual Transformer operations into shapes,
+parameters, bytes, FLOPs, and eventually predicted execution time. Attempt each
+worksheet before opening its separate answer key.
+
 Use the [Inference-Adjacent LeetCode Practice](practice/leetcode-inference-adjacent/README.md)
 as a supplement. Its minimum sequence connects matrix indexing, sparse
 representations, sampling, and caching to the relevant performance questions.

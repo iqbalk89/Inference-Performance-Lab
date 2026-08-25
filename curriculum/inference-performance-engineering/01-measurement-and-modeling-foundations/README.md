@@ -22,6 +22,9 @@ A hardware calibration report containing measured kernel-launch overhead,
 effective memory bandwidth, representative GEMM throughput, experimental
 method, variability, and limitations.
 
+Begin the quantitative problem set with
+[Problem 01 — What Does One Transformer Projection Cost?](../practice/performance-modeling-problems/problems/01-transformer-projection-cost/problem.md).
+
 Until this module is authored, use GPU Architecture Lessons 5–7 as reference:
 
 - [Compute Units and Tensor Cores](../../phase-01-gpu-inference-foundations/modules/01-gpu-architecture/lessons/05-compute-units-and-tensor-cores/README.md)
