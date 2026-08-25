@@ -1,5 +1,8 @@
 # Problem 01 Answer — Transformer Projection Cost
 
+For the animated derivation, run the
+[Problem 01 Manim visual solution](../../visual-solutions/README.md).
+
 ## 1. Parameters in `W_Q`
 
 Each matrix position contains one parameter:
@@ -101,4 +104,3 @@ This simplified answer includes the full HBM read of `W_Q` and the projection's
 multiply-add work. It excludes input reads, output writes, bias, kernel launch,
 K/V projections, attention, other layers, and cache reuse. It is an operation
 model—not yet a complete latency prediction.
-

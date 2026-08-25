@@ -34,6 +34,12 @@ For every problem, use this sequence:
 | ---: | --- | --- | --- |
 | [01](problems/01-transformer-projection-cost/problem.md) | What does one Transformer projection cost? | Parameters, weight bytes, matrix-multiplication FLOPs | Ready |
 
+## Animated Solutions
+
+The [Manim Visual Solution Set](visual-solutions/README.md) animates the
+mechanics and derivations. Attempt each written worksheet first, then render its
+solution with one command. Problem 01 is available now.
+
 Additional problems will progressively cover combined QKV projections, MLP
 projections, prefill versus decode shapes, KV-cache capacity, arithmetic
 intensity, bandwidth lower bounds, roofline estimates, batching, and end-to-end
@@ -54,4 +60,3 @@ latency.
 Hardware vendors commonly report bandwidth and throughput using decimal SI
 units. Memory-capacity discussions sometimes use decimal labels for binary
 quantities, so always state the convention used.
-

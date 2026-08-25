@@ -54,3 +54,6 @@ data/
 # Benchmark and profiling outputs
 benchmark-results/
 profile-results/
+
+# Generated Manim renders
+curriculum/inference-performance-engineering/practice/performance-modeling-problems/visual-solutions/media/
