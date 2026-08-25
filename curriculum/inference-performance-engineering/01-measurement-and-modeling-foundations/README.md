@@ -24,6 +24,9 @@ method, variability, and limitations.
 
 Begin the quantitative problem set with
 [Problem 01 — What Does One Transformer Projection Cost?](../practice/performance-modeling-problems/problems/01-transformer-projection-cost/problem.md).
+Then complete
+[Problem 02 — Decode vs. Prefill: Memory-Bound or Compute-Bound?](../practice/performance-modeling-problems/problems/02-decode-vs-prefill-roofline/problem.md)
+to turn operation counts into idealized hardware latency bounds.
 
 Until this module is authored, use GPU Architecture Lessons 5–7 as reference:
 

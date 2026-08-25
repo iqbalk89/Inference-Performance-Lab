@@ -33,6 +33,7 @@ For every problem, use this sequence:
 | # | Problem | Primary skills | Status |
 | ---: | --- | --- | --- |
 | [01](problems/01-transformer-projection-cost/problem.md) | What does one Transformer projection cost? | Parameters, weight bytes, matrix-multiplication FLOPs | Ready |
+| [02](problems/02-decode-vs-prefill-roofline/problem.md) | Decode vs. prefill: memory-bound or compute-bound? | Arithmetic intensity, ridge point, latency bounds, bottleneck classification | **Do next** |
 
 ## Animated Solutions
 
@@ -41,9 +42,17 @@ mechanics and derivations. Attempt each written worksheet first, then render its
 solution with one command. Problem 01 is available now.
 
 Additional problems will progressively cover combined QKV projections, MLP
-projections, prefill versus decode shapes, KV-cache capacity, arithmetic
-intensity, bandwidth lower bounds, roofline estimates, batching, and end-to-end
-latency.
+projections, KV-cache capacity, batching, profiler reconciliation, and
+end-to-end latency.
+
+## Recommended Order
+
+1. Complete Problem 01 without the answer key.
+2. Watch its Manim solution and explain the model boundary aloud.
+3. Complete Problem 02's prediction section before calculating.
+4. Solve Problem 02 with units, then use its hint ladder if needed.
+5. Repeat Problem 02 using [Interview Mode](problems/02-decode-vs-prefill-roofline/interview-mode.md)
+   on another day without notes.
 
 ## Units Reference
 
