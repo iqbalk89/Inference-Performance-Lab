@@ -2437,9 +2437,9 @@
         },
         {
           "component_id": "prefill-roofline-accounting",
-          "label": "Roofline accounting",
-          "kind": "operation",
-          "summary": "Combines work and HBM traffic. This is the performance-model summary for the operator.",
+          "label": "Roofline performance model",
+          "kind": "analysis",
+          "summary": "Analyzes the inference operator using FLOPs, HBM traffic, arithmetic intensity, and hardware limits. This block is not part of runtime execution.",
           "position": {
             "x": 960,
             "y": 65
@@ -2762,7 +2762,7 @@
             }
           ],
           "drilldown_graph_id": "prefill-execution-path",
-          "lane": "process"
+          "lane": "analysis"
         }
       ],
       "connections": [
@@ -4752,9 +4752,9 @@
         },
         {
           "component_id": "decode-roofline-accounting",
-          "label": "Roofline accounting",
-          "kind": "operation",
-          "summary": "Combines work and HBM traffic. This is the performance-model summary for the operator.",
+          "label": "Roofline performance model",
+          "kind": "analysis",
+          "summary": "Analyzes the inference operator using FLOPs, HBM traffic, arithmetic intensity, and hardware limits. This block is not part of runtime execution.",
           "position": {
             "x": 960,
             "y": 65
@@ -5077,7 +5077,7 @@
             }
           ],
           "drilldown_graph_id": "decode-execution-path",
-          "lane": "process"
+          "lane": "analysis"
         }
       ],
       "connections": [

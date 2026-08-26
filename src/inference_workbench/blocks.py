@@ -48,6 +48,24 @@ class OperationBlock(DiagramBlock):
 
 
 @dataclass(frozen=True)
+class AnalysisBlock(DiagramBlock):
+    """A model, estimator, or diagnostic—not a runtime inference operation."""
+
+    block_id: str
+    label: str
+    summary: str
+    position: Position
+    metrics: tuple[Metric, ...] = ()
+    drilldown_graph_id: str | None = None
+
+    def component(self) -> Component:
+        return Component(
+            self.block_id, self.label, ComponentKind.ANALYSIS, self.summary,
+            self.position, self.metrics, self.drilldown_graph_id, lane="analysis",
+        )
+
+
+@dataclass(frozen=True)
 class ResourceBlock(DiagramBlock):
     block_id: str
     label: str

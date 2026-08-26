@@ -164,6 +164,8 @@ Projection diagrams are also assembled from reusable objects in
 
 - `TensorBlock` represents a logical tensor such as `X`, `W`, or `Y`;
 - `OperationBlock` represents mathematical work such as matrix multiplication;
+- `AnalysisBlock` represents a performance model or diagnostic such as roofline
+  accounting; it is deliberately not an inference-pipeline operation;
 - `ResourceBlock` represents physical hardware such as HBM, L2, or an SM;
 - `Path` constructs consistently styled logical, transfer, physical, and
   operation-to-hardware mapping connections.

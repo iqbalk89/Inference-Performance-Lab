@@ -25,6 +25,7 @@ class ComponentKind(StrEnum):
     COMPUTE = "compute"
     PHASE = "phase"
     OPERATION = "operation"
+    ANALYSIS = "analysis"
     TENSOR = "tensor"
 
 

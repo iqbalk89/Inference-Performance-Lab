@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .blocks import OperationBlock, Path, ResourceBlock, TensorBlock
+from .blocks import AnalysisBlock, OperationBlock, Path, ResourceBlock, TensorBlock
 from .contracts import ComponentKind, Diagram, EvidenceKind, Metric, PhaseModel, Position
 from .estimates import ProjectionEstimate, decimal_bytes, decimal_flops, projection_calculations, transfer_calculation
 
@@ -103,7 +103,7 @@ class ProjectionPhaseModel(PhaseModel):
                 Metric("Work", decimal_flops(estimate.flops), calculation=calculations["work"]),
             )).component(),
             OperationBlock(output_id, "Write Y", "The output activation is explicitly written back across the HBM boundary.", Position(920, 485), output_metrics).component(),
-            OperationBlock(accounting_id, "Roofline accounting", "Combines work and HBM traffic. This is the performance-model summary for the operator.", Position(960, 65), (
+            AnalysisBlock(accounting_id, "Roofline performance model", "Analyzes the inference operator using FLOPs, HBM traffic, arithmetic intensity, and hardware limits. This block is not part of runtime execution.", Position(960, 65), (
                 Metric("Work", decimal_flops(estimate.flops), calculation=calculations["work"]),
                 Metric("HBM traffic", decimal_bytes(estimate.total_hbm_bytes), calculation=calculations["total_bytes"]),
                 Metric("Arithmetic intensity", round(estimate.arithmetic_intensity, 4), "FLOPs/byte", calculation=calculations["arithmetic_intensity"]),

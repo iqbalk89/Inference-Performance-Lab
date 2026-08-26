@@ -146,6 +146,7 @@ class SliceZeroTests(unittest.TestCase):
         self.assertEqual(components["prefill-matmul"]["drilldown_graph_id"], "prefill-hbm-boundary")
         boundary_components = {item["component_id"]: item for item in boundary["components"]}
         self.assertEqual(boundary_components["prefill-boundary-matmul"]["kind"], "operation")
+        self.assertEqual(boundary_components["prefill-roofline-accounting"]["kind"], "analysis")
 
         output_write = connections["prefill-y-boundary"]
         self.assertEqual(output_write["source_id"], "prefill-output-write")

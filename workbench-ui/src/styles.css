@@ -54,6 +54,7 @@ button { font: inherit; }
 .kind-memory { border-color: #56a9ef; }
 .kind-phase { border-color: #bd8bf4; background: linear-gradient(145deg, #312348, #1e1935); }
 .kind-operation { border-color: #e4ae48; background: linear-gradient(145deg, #3a2d19, #241f19); }
+.kind-analysis { border-color: #c58bff; background: linear-gradient(145deg, #302044, #211a33); }
 .kind-tensor { border-color: #65b8ff; background: linear-gradient(145deg, #173353, #11263f); }
 .kind-interconnect { border-style: dashed; }
 
