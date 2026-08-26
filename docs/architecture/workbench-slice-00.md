@@ -15,8 +15,9 @@ serialized scenario
 React diagram and inspector
 ```
 
-It deliberately uses fixed Problem 02 facts. Slice 1 will replace the fixed
-facts with executable performance calculations.
+It uses the Problem 02 scenario as its first executable analytical model. The
+calculation engine, rather than the UI, produces the displayed FLOPs, traffic,
+arithmetic intensity, time bounds, path rates, and bottleneck classification.
 
 ## Run It
 
@@ -208,8 +209,7 @@ Included:
 
 Deferred to Slice 1:
 
-- dynamically calculated FLOPs and bytes;
-- roofline and ridge-point calculations;
-- computed rates and bottleneck status;
 - user-editable scenario inputs;
 - live model recomputation through an API.
+- complete operator coverage beyond the first projection;
+- GPU-profile selection from configuration.

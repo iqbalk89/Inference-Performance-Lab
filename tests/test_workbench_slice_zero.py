@@ -10,6 +10,7 @@ from inference_workbench.contracts import (
 )
 from inference_workbench.scenario import build_slice_zero_scenario, memory_variants
 from inference_workbench.workloads import ProjectionPhaseModel
+from inference_workbench.estimates import problem_02_estimate
 
 
 def component_ids(scenario: dict, graph_id: str) -> set[str]:
@@ -20,6 +21,22 @@ def component_ids(scenario: dict, graph_id: str) -> set[str]:
 
 
 class SliceZeroTests(unittest.TestCase):
+    def test_problem_02_estimates_match_answer_sheet(self) -> None:
+        decode = problem_02_estimate(1)
+        prefill = problem_02_estimate(512)
+
+        self.assertEqual(decode.flops, 33_554_432)
+        self.assertEqual(decode.total_hbm_bytes, 33_570_816)
+        self.assertAlmostEqual(decode.arithmetic_intensity, 0.9995119571)
+        self.assertAlmostEqual(decode.lower_bound_us, 55.95136)
+        self.assertEqual(decode.bottleneck, "HBM bandwidth")
+
+        self.assertEqual(prefill.flops, 17_179_869_184)
+        self.assertEqual(prefill.total_hbm_bytes, 41_943_040)
+        self.assertEqual(prefill.arithmetic_intensity, 409.6)
+        self.assertAlmostEqual(prefill.lower_bound_us, 143.1655765)
+        self.assertEqual(prefill.bottleneck, "FP16 compute")
+
     def test_default_scenario_exposes_complete_drilldown(self) -> None:
         scenario = build_slice_zero_scenario().to_dict()
 
@@ -88,7 +105,8 @@ class SliceZeroTests(unittest.TestCase):
 
     def test_phase_models_are_injectable(self) -> None:
         custom_prefill = ProjectionPhaseModel(
-            "prefill", "Custom Prefill", 128, "Injected workload phase."
+            "prefill", "Custom Prefill", 128, "Injected workload phase.",
+            problem_02_estimate(128),
         )
         scenario = build_slice_zero_scenario(
             prefill_model=custom_prefill

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .contracts import AcceleratorModel, Component, Connection, Diagram, SystemModel
+from .contracts import AcceleratorModel, Component, Connection, Diagram, EvidenceKind, Metric, SystemModel
 
 
 @dataclass(frozen=True)
@@ -29,9 +29,16 @@ class SingleAcceleratorSystem(SystemModel):
                 Connection("client-server", self.client.component_id, self.server.component_id, "request"),
                 Connection("server-cpu", self.server.component_id, self.cpu.component_id, "scheduled work"),
                 Connection("cpu-dram", self.cpu.component_id, self.host_memory.component_id, "host data", "both"),
-                Connection("cpu-link", self.cpu.component_id, self.host_link.component_id, "commands + tensors", "both"),
-                Connection("link-gpu", self.host_link.component_id, gpu_component.component_id, "device transfer", "both"),
-                Connection("gpu-server", gpu_component.component_id, self.server.component_id, "tokens + timing", category="result"),
+                Connection("cpu-link", self.cpu.component_id, self.host_link.component_id, "2.05 KB token IDs", "both"),
+                Connection(
+                    "link-gpu", self.host_link.component_id, gpu_component.component_id,
+                    "2.05 KB @ 32 GB/s → 0.064 µs", "both",
+                    metrics=(
+                        Metric("Prefill payload", 2048, "bytes", EvidenceKind.THEORETICAL, derivation="512 token IDs × 4 bytes"),
+                        Metric("Assumed peak rate", 32, "GB/s", EvidenceKind.ASSUMED),
+                        Metric("Ideal transfer bound", 0.064, "µs", EvidenceKind.THEORETICAL, derivation="2,048 / 32 × 10⁹ seconds"),
+                    ),
+                ),
             ),
             ("This Slice 0 topology is educational and intentionally single-GPU.",),
         )

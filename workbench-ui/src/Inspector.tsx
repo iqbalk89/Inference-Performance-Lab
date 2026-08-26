@@ -26,7 +26,17 @@ export function Inspector({ component, connection }: InspectorProps) {
           <div><dt>Target</dt><dd>{connection.target_id}</dd></div>
           <div><dt>Direction</dt><dd>{connection.direction}</dd></div>
         </dl>
-        <p className="notice">Slice 1 adds calculated traffic and rate values to executable paths.</p>
+        {connection.metrics.length > 0 ? (
+          <div className="metric-list">
+            {connection.metrics.map((metric) => (
+              <div className="metric-card" key={metric.name}>
+                <div><span>{metric.name}</span><em className={`evidence ${metric.evidence}`}>{metric.evidence}</em></div>
+                <strong>{metric.value}{metric.unit ? ` ${metric.unit}` : ''}</strong>
+                {metric.derivation && <code>{metric.derivation}</code>}
+              </div>
+            ))}
+          </div>
+        ) : <p className="notice">This path has topology only; a measured rate is not yet available.</p>}
       </aside>
     )
   }

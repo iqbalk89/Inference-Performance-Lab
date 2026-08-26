@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Mapping
 
 from .contracts import (
     AcceleratorModel,
@@ -32,7 +33,7 @@ class HierarchicalMemoryModel(MemoryModel):
             Component(
                 "hbm", "HBM", ComponentKind.MEMORY,
                 "GPU-resident weights, activations, and KV-cache storage.",
-                Position(90, 390),
+                Position(50, 410),
                 (
                     Metric("Capacity", self.hbm_capacity_gb, "GB"),
                     Metric("Peak bandwidth", self.hbm_bandwidth_gbps, "GB/s"),
@@ -42,17 +43,17 @@ class HierarchicalMemoryModel(MemoryModel):
             Component(
                 "memory-controllers", "Memory Controllers", ComponentKind.INTERCONNECT,
                 "Channels requests between HBM and the GPU on-chip memory system.",
-                Position(340, 390), lane="hardware",
+                Position(300, 410), lane="hardware",
             ),
             Component(
                 "l2", "Shared L2 Cache", ComponentKind.MEMORY,
-                "GPU-wide cache shared by the SM array.", Position(590, 390),
+                "GPU-wide cache shared by the SM array.", Position(550, 410),
                 (Metric("Capacity", self.l2_capacity_mb, "MB"),), lane="hardware",
             ),
             Component(
                 "sm-local-memory", self.local_memory_label, ComponentKind.MEMORY,
                 "Per-SM storage closest to active threads and execution pipelines.",
-                Position(1090, 390),
+                Position(1050, 410),
                 (Metric("Detailed traffic", "Profiler-backed in Slice 4", evidence=EvidenceKind.ASSUMED),),
                 lane="hardware",
             ),
@@ -62,7 +63,6 @@ class HierarchicalMemoryModel(MemoryModel):
         return (
             Connection("hbm-to-mc", "hbm", "memory-controllers", "HBM channels", "both"),
             Connection("mc-to-l2", "memory-controllers", "l2", "memory fabric", "both"),
-            Connection("l2-to-local", "l2", "sm-local-memory", "cache-line traffic", "both"),
         )
 
 
@@ -78,7 +78,7 @@ class FlatMemoryModel(MemoryModel):
             Component(
                 "device-memory", "Flat Device Memory", ComponentKind.MEMORY,
                 "A deliberately coarse model that treats device memory as one resource.",
-                Position(300, 390),
+                Position(300, 410),
                 (
                     Metric("Capacity", self.capacity_gb, "GB"),
                     Metric("Peak bandwidth", self.bandwidth_gbps, "GB/s"),
@@ -100,7 +100,7 @@ class SMArrayComputeModel(ComputeModel):
             Component(
                 "sm-array", "SM Array", ComponentKind.COMPUTE,
                 "Schedules thread blocks across streaming multiprocessors.",
-                Position(840, 390),
+                Position(800, 410),
                 (
                     Metric("SM count", self.sm_count),
                     Metric("Peak FP16 compute", self.fp16_tflops, "TFLOP/s"),
@@ -117,15 +117,25 @@ class ComposableGPU(AcceleratorModel):
     display_name: str
     memory: MemoryModel
     compute: ComputeModel
+    phase_metrics: Mapping[str, tuple[Metric, ...]] = field(default_factory=dict)
 
     def system_component(self) -> Component:
+        prefill_metrics = self.phase_metrics.get("prefill", ())
+        decode_metrics = self.phase_metrics.get("decode", ())
+        summary_metrics = (Metric("Active scenario", "Problem 02", evidence=EvidenceKind.ASSUMED),)
+        if prefill_metrics and decode_metrics:
+            summary_metrics = (
+                Metric("Prefill lower bound", prefill_metrics[0].value, prefill_metrics[0].unit),
+                Metric("Decode lower bound", decode_metrics[0].value, decode_metrics[0].unit),
+                Metric("Hardware", "120 TFLOP/s · 600 GB/s"),
+            )
         return Component(
             self.gpu_id,
             self.display_name,
             ComponentKind.ACCELERATOR,
             "Click to inspect inference phases mapped onto GPU hardware.",
             Position(1010, 260),
-            (Metric("Active scenario", "Problem 02", evidence=EvidenceKind.ASSUMED),),
+            summary_metrics,
             drilldown_graph_id=f"{self.gpu_id}-detail",
         )
 
@@ -136,19 +146,20 @@ class ComposableGPU(AcceleratorModel):
             Component(
                 "prefill", "Prefill", ComponentKind.PHASE,
                 "Processes all prompt-token rows and creates their KV-cache entries.",
-                Position(300, 90),
-                (Metric("Problem 02 rows", 512, "rows", EvidenceKind.ASSUMED),),
+                Position(300, 80),
+                self.phase_metrics.get("prefill", (Metric("Problem 02 rows", 512, "rows", EvidenceKind.ASSUMED),)),
                 drilldown_graph_id="prefill-detail", lane="process",
             ),
             Component(
                 "decode", "Decode", ComponentKind.PHASE,
                 "Processes one new row per active sequence and advances generation.",
-                Position(750, 90),
-                (Metric("Problem 02 rows", 1, "row", EvidenceKind.ASSUMED),),
+                Position(750, 80),
+                self.phase_metrics.get("decode", (Metric("Problem 02 rows", 1, "row", EvidenceKind.ASSUMED),)),
                 drilldown_graph_id="decode-detail", lane="process",
             ),
         )
-        hardware_ids = [component.component_id for component in memory_components + compute_components]
+        memory_target = "hbm" if any(item.component_id == "hbm" for item in memory_components) else memory_components[0].component_id
+        compute_target = compute_components[0].component_id
         mappings = tuple(
             Connection(
                 f"{phase.component_id}-uses-{resource_id}",
@@ -158,17 +169,27 @@ class ComposableGPU(AcceleratorModel):
                 category="mapping",
             )
             for phase in phase_components
-            for resource_id in hardware_ids
+            for resource_id in (memory_target, compute_target)
         )
+        physical_connections: tuple[Connection, ...] = ()
+        if any(item.component_id == "l2" for item in memory_components):
+            physical_connections = (
+                Connection("l2-to-sm", "l2", compute_target, "operand traffic", "both"),
+                Connection("sm-to-local", compute_target, "sm-local-memory", "register/shared/L1 traffic", "both"),
+            )
+        elif memory_components:
+            physical_connections = (
+                Connection("memory-to-sm", memory_target, compute_target, "operand traffic", "both"),
+            )
         return Diagram(
             f"{self.gpu_id}-detail",
             self.display_name,
             "Logical inference phases above; injected physical resources below.",
             "system",
             phase_components + memory_components + compute_components,
-            self.memory.connections() + mappings,
+            self.memory.connections() + physical_connections + mappings,
             (
-                "Slice 0 shows topology and fixed Problem 02 facts; calculations arrive in Slice 1.",
+                "Problem 02 values are executable idealized estimates, not measured performance.",
                 "Dashed mapping edges mean a process uses a resource; they are not physical buses.",
             ),
         )

@@ -4,7 +4,7 @@ import type { ComponentData } from './types'
 export type ComponentFlowNode = Node<ComponentData, 'component'>
 
 export function ComponentNode({ id, data, selected }: NodeProps<ComponentFlowNode>) {
-  const primaryMetric = data.metrics[0]
+  const visibleMetrics = data.metrics.slice(0, 3)
   const drillable = Boolean(data.drilldown_graph_id)
 
   return (
@@ -12,12 +12,14 @@ export function ComponentNode({ id, data, selected }: NodeProps<ComponentFlowNod
       <Handle type="target" position={Position.Left} />
       <div className="node-kind">{data.kind}</div>
       <div className="node-title">{data.label}</div>
-      {primaryMetric && (
-        <div className="node-metric">
-          <span>{primaryMetric.name}</span>
-          <strong>{primaryMetric.value}{primaryMetric.unit ? ` ${primaryMetric.unit}` : ''}</strong>
-        </div>
-      )}
+      {visibleMetrics.length > 0 && <div className="node-metrics">
+        {visibleMetrics.map((metric) => (
+          <div className="node-metric" key={metric.name}>
+            <span>{metric.name}</span>
+            <strong>{metric.value}{metric.unit ? ` ${metric.unit}` : ''}</strong>
+          </div>
+        ))}
+      </div>}
       {drillable && <div className="push-in">Push in <span>→</span></div>}
       <Handle type="source" position={Position.Right} />
     </div>

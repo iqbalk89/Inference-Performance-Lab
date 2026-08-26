@@ -37,12 +37,13 @@ button { font: inherit; }
 .edge-result .react-flow__edge-path { stroke: #52d3a4; }
 .react-flow__arrowhead polyline { stroke: currentColor; }
 
-.component-node { width: 190px; min-height: 112px; padding: 13px 14px 12px; background: linear-gradient(145deg, #142a48, #102038); border: 1px solid #40638a; border-radius: 13px; box-shadow: 0 12px 32px #02071366; transition: transform .15s, border-color .15s, box-shadow .15s; }
+.component-node { width: 165px; min-height: 112px; padding: 13px 14px 12px; background: linear-gradient(145deg, #142a48, #102038); border: 1px solid #40638a; border-radius: 13px; box-shadow: 0 12px 32px #02071366; transition: transform .15s, border-color .15s, box-shadow .15s; }
 .component-node:hover { transform: translateY(-2px); border-color: #78bfff; box-shadow: 0 14px 34px #02071388; }
 .component-node.selected { border-color: #f7c95b; box-shadow: 0 0 0 2px #f7c95b33, 0 14px 34px #02071388; }
 .node-kind { color: #7692b5; text-transform: uppercase; font-size: 9px; letter-spacing: .15em; font-weight: 800; }
 .node-title { margin-top: 7px; font-size: 17px; line-height: 1.13; font-weight: 750; }
-.node-metric { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-top: 11px; padding-top: 9px; border-top: 1px solid #29415f; color: #8fa5c1; font-size: 10px; }
+.node-metrics { margin-top: 10px; padding-top: 7px; border-top: 1px solid #29415f; }
+.node-metric { display: flex; justify-content: space-between; align-items: baseline; gap: 7px; padding: 3px 0; color: #8fa5c1; font-size: 9px; }
 .node-metric strong { color: #eaf2ff; font-size: 12px; text-align: right; }
 .push-in { margin-top: 10px; color: #52d3a4; font-size: 11px; font-weight: 750; }
 .push-in span { font-size: 15px; }

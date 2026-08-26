@@ -48,12 +48,16 @@ export default function App() {
     id: connection.connection_id,
     source: connection.source_id,
     target: connection.target_id,
-    label: connection.label,
+    label: connection.category === 'mapping' ? '' : connection.label,
     type: connection.category === 'mapping' ? 'straight' : 'smoothstep',
     animated: connection.category !== 'mapping',
     data: connection,
     markerEnd: { type: MarkerType.ArrowClosed },
     className: `edge-${connection.category}`,
+    labelBgPadding: [7, 4],
+    labelBgBorderRadius: 5,
+    labelBgStyle: { fill: '#071323', fillOpacity: 0.96 },
+    labelStyle: { fill: '#c8d8ec', fontWeight: 650 },
   })) ?? [], [diagram])
 
   const clearSelection = () => {
@@ -80,7 +84,7 @@ export default function App() {
           <h1>{diagram.title}</h1>
           <p>{diagram.subtitle}</p>
         </div>
-        <div className="slice-badge"><span>SLICE</span><strong>00</strong><small>Architecture prototype</small></div>
+        <div className="slice-badge"><span>SLICE</span><strong>00+</strong><small>Executable first model</small></div>
       </header>
 
       <nav className="breadcrumbs" aria-label="Diagram breadcrumb">

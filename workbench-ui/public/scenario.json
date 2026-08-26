@@ -15,7 +15,7 @@
           "kind": "system",
           "summary": "Creates an inference request.",
           "position": {
-            "x": 70,
+            "x": 30,
             "y": 260
           },
           "metrics": [],
@@ -28,7 +28,7 @@
           "kind": "service",
           "summary": "Queues, batches, and dispatches requests.",
           "position": {
-            "x": 300,
+            "x": 280,
             "y": 260
           },
           "metrics": [],
@@ -41,8 +41,8 @@
           "kind": "processor",
           "summary": "Tokenizes input and orchestrates accelerator work.",
           "position": {
-            "x": 540,
-            "y": 170
+            "x": 530,
+            "y": 130
           },
           "metrics": [],
           "drilldown_graph_id": null,
@@ -54,8 +54,8 @@
           "kind": "memory",
           "summary": "Stores host-side request and runtime data.",
           "position": {
-            "x": 540,
-            "y": 390
+            "x": 530,
+            "y": 430
           },
           "metrics": [],
           "drilldown_graph_id": null,
@@ -65,19 +65,35 @@
           "component_id": "host-link",
           "label": "PCIe / Host Link",
           "kind": "interconnect",
-          "summary": "Transfers commands and tensors between host and GPU.",
+          "summary": "Transfers token IDs and commands between host and GPU.",
           "position": {
-            "x": 790,
+            "x": 780,
             "y": 260
           },
           "metrics": [
             {
-              "name": "Detailed transfer model",
-              "value": "Later slice",
-              "unit": "",
-              "evidence": "theoretical",
+              "name": "Assumed peak rate",
+              "value": 32,
+              "unit": "GB/s",
+              "evidence": "assumed",
               "description": "",
               "derivation": ""
+            },
+            {
+              "name": "Prefill token-ID transfer",
+              "value": 2048,
+              "unit": "bytes",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "512 IDs \u00d7 4 bytes/ID"
+            },
+            {
+              "name": "Ideal prefill transfer",
+              "value": 0.064,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "2,048 bytes / 32 GB/s"
             }
           ],
           "drilldown_graph_id": null,
@@ -94,10 +110,26 @@
           },
           "metrics": [
             {
-              "name": "Active scenario",
-              "value": "Problem 02",
+              "name": "Prefill lower bound",
+              "value": 143.1656,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Decode lower bound",
+              "value": 55.9514,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Hardware",
+              "value": "120 TFLOP/s \u00b7 600 GB/s",
               "unit": "",
-              "evidence": "assumed",
+              "evidence": "theoretical",
               "description": "",
               "derivation": ""
             }
@@ -138,7 +170,7 @@
           "connection_id": "cpu-link",
           "source_id": "cpu",
           "target_id": "host-link",
-          "label": "commands + tensors",
+          "label": "2.05 KB token IDs",
           "direction": "both",
           "category": "data",
           "metrics": []
@@ -147,19 +179,35 @@
           "connection_id": "link-gpu",
           "source_id": "host-link",
           "target_id": "gpu-0",
-          "label": "device transfer",
+          "label": "2.05 KB @ 32 GB/s \u2192 0.064 \u00b5s",
           "direction": "both",
           "category": "data",
-          "metrics": []
-        },
-        {
-          "connection_id": "gpu-server",
-          "source_id": "gpu-0",
-          "target_id": "server",
-          "label": "tokens + timing",
-          "direction": "forward",
-          "category": "result",
-          "metrics": []
+          "metrics": [
+            {
+              "name": "Prefill payload",
+              "value": 2048,
+              "unit": "bytes",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "512 token IDs \u00d7 4 bytes"
+            },
+            {
+              "name": "Assumed peak rate",
+              "value": 32,
+              "unit": "GB/s",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Ideal transfer bound",
+              "value": 0.064,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "2,048 / 32 \u00d7 10\u2079 seconds"
+            }
+          ]
         }
       ],
       "assumptions": [
@@ -179,11 +227,51 @@
           "summary": "Processes all prompt-token rows and creates their KV-cache entries.",
           "position": {
             "x": 300,
-            "y": 90
+            "y": 80
           },
           "metrics": [
             {
-              "name": "Problem 02 rows",
+              "name": "Lower bound",
+              "value": 143.1656,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Bottleneck",
+              "value": "FP16 compute",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Arithmetic intensity",
+              "value": 409.6,
+              "unit": "FLOPs/byte",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Work",
+              "value": "17.18 GFLOPs",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "HBM traffic",
+              "value": "41.94 MB",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Rows",
               "value": 512,
               "unit": "rows",
               "evidence": "assumed",
@@ -201,11 +289,51 @@
           "summary": "Processes one new row per active sequence and advances generation.",
           "position": {
             "x": 750,
-            "y": 90
+            "y": 80
           },
           "metrics": [
             {
-              "name": "Problem 02 rows",
+              "name": "Lower bound",
+              "value": 55.9514,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Bottleneck",
+              "value": "HBM bandwidth",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Arithmetic intensity",
+              "value": 0.9995,
+              "unit": "FLOPs/byte",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Work",
+              "value": "33.55 MFLOPs",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "HBM traffic",
+              "value": "33.57 MB",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Rows",
               "value": 1,
               "unit": "row",
               "evidence": "assumed",
@@ -222,8 +350,8 @@
           "kind": "memory",
           "summary": "GPU-resident weights, activations, and KV-cache storage.",
           "position": {
-            "x": 90,
-            "y": 390
+            "x": 50,
+            "y": 410
           },
           "metrics": [
             {
@@ -252,8 +380,8 @@
           "kind": "interconnect",
           "summary": "Channels requests between HBM and the GPU on-chip memory system.",
           "position": {
-            "x": 340,
-            "y": 390
+            "x": 300,
+            "y": 410
           },
           "metrics": [],
           "drilldown_graph_id": null,
@@ -265,8 +393,8 @@
           "kind": "memory",
           "summary": "GPU-wide cache shared by the SM array.",
           "position": {
-            "x": 590,
-            "y": 390
+            "x": 550,
+            "y": 410
           },
           "metrics": [
             {
@@ -287,8 +415,8 @@
           "kind": "memory",
           "summary": "Per-SM storage closest to active threads and execution pipelines.",
           "position": {
-            "x": 1090,
-            "y": 390
+            "x": 1050,
+            "y": 410
           },
           "metrics": [
             {
@@ -309,8 +437,8 @@
           "kind": "compute",
           "summary": "Schedules thread blocks across streaming multiprocessors.",
           "position": {
-            "x": 840,
-            "y": 390
+            "x": 800,
+            "y": 410
           },
           "metrics": [
             {
@@ -354,10 +482,19 @@
           "metrics": []
         },
         {
-          "connection_id": "l2-to-local",
+          "connection_id": "l2-to-sm",
           "source_id": "l2",
+          "target_id": "sm-array",
+          "label": "operand traffic",
+          "direction": "both",
+          "category": "data",
+          "metrics": []
+        },
+        {
+          "connection_id": "sm-to-local",
+          "source_id": "sm-array",
           "target_id": "sm-local-memory",
-          "label": "cache-line traffic",
+          "label": "register/shared/L1 traffic",
           "direction": "both",
           "category": "data",
           "metrics": []
@@ -366,33 +503,6 @@
           "connection_id": "prefill-uses-hbm",
           "source_id": "prefill",
           "target_id": "hbm",
-          "label": "resource demand",
-          "direction": "forward",
-          "category": "mapping",
-          "metrics": []
-        },
-        {
-          "connection_id": "prefill-uses-memory-controllers",
-          "source_id": "prefill",
-          "target_id": "memory-controllers",
-          "label": "resource demand",
-          "direction": "forward",
-          "category": "mapping",
-          "metrics": []
-        },
-        {
-          "connection_id": "prefill-uses-l2",
-          "source_id": "prefill",
-          "target_id": "l2",
-          "label": "resource demand",
-          "direction": "forward",
-          "category": "mapping",
-          "metrics": []
-        },
-        {
-          "connection_id": "prefill-uses-sm-local-memory",
-          "source_id": "prefill",
-          "target_id": "sm-local-memory",
           "label": "resource demand",
           "direction": "forward",
           "category": "mapping",
@@ -417,33 +527,6 @@
           "metrics": []
         },
         {
-          "connection_id": "decode-uses-memory-controllers",
-          "source_id": "decode",
-          "target_id": "memory-controllers",
-          "label": "resource demand",
-          "direction": "forward",
-          "category": "mapping",
-          "metrics": []
-        },
-        {
-          "connection_id": "decode-uses-l2",
-          "source_id": "decode",
-          "target_id": "l2",
-          "label": "resource demand",
-          "direction": "forward",
-          "category": "mapping",
-          "metrics": []
-        },
-        {
-          "connection_id": "decode-uses-sm-local-memory",
-          "source_id": "decode",
-          "target_id": "sm-local-memory",
-          "label": "resource demand",
-          "direction": "forward",
-          "category": "mapping",
-          "metrics": []
-        },
-        {
           "connection_id": "decode-uses-sm-array",
           "source_id": "decode",
           "target_id": "sm-array",
@@ -454,7 +537,7 @@
         }
       ],
       "assumptions": [
-        "Slice 0 shows topology and fixed Problem 02 facts; calculations arrive in Slice 1.",
+        "Problem 02 values are executable idealized estimates, not measured performance.",
         "Dashed mapping edges mean a process uses a resource; they are not physical buses."
       ]
     },
@@ -470,17 +553,33 @@
           "kind": "operation",
           "summary": "FP16 input activation rows.",
           "position": {
-            "x": 130,
-            "y": 235
+            "x": 90,
+            "y": 210
           },
           "metrics": [
             {
-              "name": "Rows",
-              "value": 512,
-              "unit": "rows",
-              "evidence": "assumed",
+              "name": "Shape",
+              "value": "[512 \u00d7 4096]",
+              "unit": "",
+              "evidence": "theoretical",
               "description": "",
               "derivation": ""
+            },
+            {
+              "name": "HBM read",
+              "value": "4.19 MB",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "512 \u00d7 4096 \u00d7 2 bytes"
+            },
+            {
+              "name": "Transfer bound",
+              "value": 6.9905,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "4,194,304 bytes / 600 GB/s"
             }
           ],
           "drilldown_graph_id": null,
@@ -492,10 +591,18 @@
           "kind": "memory",
           "summary": "Shared FP16 projection weights.",
           "position": {
-            "x": 130,
-            "y": 440
+            "x": 90,
+            "y": 455
           },
           "metrics": [
+            {
+              "name": "HBM read",
+              "value": "33.55 MB",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "4096 \u00d7 4096 \u00d7 2 bytes"
+            },
             {
               "name": "Element size",
               "value": 2,
@@ -503,6 +610,14 @@
               "evidence": "assumed",
               "description": "",
               "derivation": ""
+            },
+            {
+              "name": "Transfer bound",
+              "value": 55.9241,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "33,554,432 bytes / 600 GB/s"
             }
           ],
           "drilldown_graph_id": null,
@@ -514,21 +629,61 @@
           "kind": "operation",
           "summary": "XW using GPU compute and memory resources.",
           "position": {
-            "x": 560,
+            "x": 520,
             "y": 300
           },
           "metrics": [
             {
-              "name": "Formula",
-              "value": "2MKN FLOPs",
+              "name": "Work",
+              "value": "17.18 GFLOPs",
               "unit": "",
               "evidence": "theoretical",
               "description": "",
-              "derivation": ""
+              "derivation": "2 \u00d7 512 \u00d7 4096 \u00d7 4096"
             },
             {
-              "name": "Calculation status",
-              "value": "Slice 1",
+              "name": "Total HBM traffic",
+              "value": "41.94 MB",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "weight read + input read + output write"
+            },
+            {
+              "name": "Arithmetic intensity",
+              "value": 409.6,
+              "unit": "FLOPs/byte",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "17,179,869,184 FLOPs / 41,943,040 bytes"
+            },
+            {
+              "name": "Compute bound",
+              "value": 143.1656,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "17,179,869,184 FLOPs / 120 TFLOP/s"
+            },
+            {
+              "name": "Memory bound",
+              "value": 69.9051,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "41,943,040 bytes / 600 GB/s"
+            },
+            {
+              "name": "Roofline lower bound",
+              "value": 143.1656,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "max(compute bound, memory bound)"
+            },
+            {
+              "name": "Predicted bottleneck",
+              "value": "FP16 compute",
               "unit": "",
               "evidence": "theoretical",
               "description": "",
@@ -544,10 +699,35 @@
           "kind": "operation",
           "summary": "FP16 output activation rows.",
           "position": {
-            "x": 1010,
+            "x": 970,
             "y": 300
           },
-          "metrics": [],
+          "metrics": [
+            {
+              "name": "Shape",
+              "value": "[512 \u00d7 4096]",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "HBM write",
+              "value": "4.19 MB",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "512 \u00d7 4096 \u00d7 2 bytes"
+            },
+            {
+              "name": "Transfer bound",
+              "value": 6.9905,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "4,194,304 bytes / 600 GB/s"
+            }
+          ],
           "drilldown_graph_id": null,
           "lane": "process"
         }
@@ -557,28 +737,103 @@
           "connection_id": "prefill-x-flow",
           "source_id": "prefill-input",
           "target_id": "prefill-matmul",
-          "label": "input rows",
+          "label": "4.19 MB @ 600 GB/s \u2192 6.9905 \u00b5s",
           "direction": "forward",
           "category": "data",
-          "metrics": []
+          "metrics": [
+            {
+              "name": "Bytes",
+              "value": 4194304,
+              "unit": "bytes",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Peak path rate",
+              "value": 600,
+              "unit": "GB/s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Transfer bound",
+              "value": 6.9905,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            }
+          ]
         },
         {
           "connection_id": "prefill-w-flow",
           "source_id": "prefill-weight",
           "target_id": "prefill-matmul",
-          "label": "weight read",
+          "label": "33.55 MB @ 600 GB/s \u2192 55.9241 \u00b5s",
           "direction": "forward",
           "category": "data",
-          "metrics": []
+          "metrics": [
+            {
+              "name": "Bytes",
+              "value": 33554432,
+              "unit": "bytes",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Peak path rate",
+              "value": 600,
+              "unit": "GB/s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Transfer bound",
+              "value": 55.9241,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            }
+          ]
         },
         {
           "connection_id": "prefill-y-flow",
           "source_id": "prefill-matmul",
           "target_id": "prefill-output",
-          "label": "output rows",
+          "label": "4.19 MB @ 600 GB/s \u2192 6.9905 \u00b5s",
           "direction": "forward",
           "category": "data",
-          "metrics": []
+          "metrics": [
+            {
+              "name": "Bytes",
+              "value": 4194304,
+              "unit": "bytes",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Peak path rate",
+              "value": 600,
+              "unit": "GB/s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Transfer bound",
+              "value": 6.9905,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            }
+          ]
         }
       ],
       "assumptions": [
@@ -598,17 +853,33 @@
           "kind": "operation",
           "summary": "FP16 input activation rows.",
           "position": {
-            "x": 130,
-            "y": 235
+            "x": 90,
+            "y": 210
           },
           "metrics": [
             {
-              "name": "Rows",
-              "value": 1,
-              "unit": "rows",
-              "evidence": "assumed",
+              "name": "Shape",
+              "value": "[1 \u00d7 4096]",
+              "unit": "",
+              "evidence": "theoretical",
               "description": "",
               "derivation": ""
+            },
+            {
+              "name": "HBM read",
+              "value": "8.19 KB",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "1 \u00d7 4096 \u00d7 2 bytes"
+            },
+            {
+              "name": "Transfer bound",
+              "value": 0.0137,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "8,192 bytes / 600 GB/s"
             }
           ],
           "drilldown_graph_id": null,
@@ -620,10 +891,18 @@
           "kind": "memory",
           "summary": "Shared FP16 projection weights.",
           "position": {
-            "x": 130,
-            "y": 440
+            "x": 90,
+            "y": 455
           },
           "metrics": [
+            {
+              "name": "HBM read",
+              "value": "33.55 MB",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "4096 \u00d7 4096 \u00d7 2 bytes"
+            },
             {
               "name": "Element size",
               "value": 2,
@@ -631,6 +910,14 @@
               "evidence": "assumed",
               "description": "",
               "derivation": ""
+            },
+            {
+              "name": "Transfer bound",
+              "value": 55.9241,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "33,554,432 bytes / 600 GB/s"
             }
           ],
           "drilldown_graph_id": null,
@@ -642,21 +929,61 @@
           "kind": "operation",
           "summary": "XW using GPU compute and memory resources.",
           "position": {
-            "x": 560,
+            "x": 520,
             "y": 300
           },
           "metrics": [
             {
-              "name": "Formula",
-              "value": "2MKN FLOPs",
+              "name": "Work",
+              "value": "33.55 MFLOPs",
               "unit": "",
               "evidence": "theoretical",
               "description": "",
-              "derivation": ""
+              "derivation": "2 \u00d7 1 \u00d7 4096 \u00d7 4096"
             },
             {
-              "name": "Calculation status",
-              "value": "Slice 1",
+              "name": "Total HBM traffic",
+              "value": "33.57 MB",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "weight read + input read + output write"
+            },
+            {
+              "name": "Arithmetic intensity",
+              "value": 0.9995,
+              "unit": "FLOPs/byte",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "33,554,432 FLOPs / 33,570,816 bytes"
+            },
+            {
+              "name": "Compute bound",
+              "value": 0.2796,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "33,554,432 FLOPs / 120 TFLOP/s"
+            },
+            {
+              "name": "Memory bound",
+              "value": 55.9514,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "33,570,816 bytes / 600 GB/s"
+            },
+            {
+              "name": "Roofline lower bound",
+              "value": 55.9514,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "max(compute bound, memory bound)"
+            },
+            {
+              "name": "Predicted bottleneck",
+              "value": "HBM bandwidth",
               "unit": "",
               "evidence": "theoretical",
               "description": "",
@@ -672,10 +999,35 @@
           "kind": "operation",
           "summary": "FP16 output activation rows.",
           "position": {
-            "x": 1010,
+            "x": 970,
             "y": 300
           },
-          "metrics": [],
+          "metrics": [
+            {
+              "name": "Shape",
+              "value": "[1 \u00d7 4096]",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "HBM write",
+              "value": "8.19 KB",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "1 \u00d7 4096 \u00d7 2 bytes"
+            },
+            {
+              "name": "Transfer bound",
+              "value": 0.0137,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "8,192 bytes / 600 GB/s"
+            }
+          ],
           "drilldown_graph_id": null,
           "lane": "process"
         }
@@ -685,28 +1037,103 @@
           "connection_id": "decode-x-flow",
           "source_id": "decode-input",
           "target_id": "decode-matmul",
-          "label": "input rows",
+          "label": "8.19 KB @ 600 GB/s \u2192 0.0137 \u00b5s",
           "direction": "forward",
           "category": "data",
-          "metrics": []
+          "metrics": [
+            {
+              "name": "Bytes",
+              "value": 8192,
+              "unit": "bytes",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Peak path rate",
+              "value": 600,
+              "unit": "GB/s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Transfer bound",
+              "value": 0.0137,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            }
+          ]
         },
         {
           "connection_id": "decode-w-flow",
           "source_id": "decode-weight",
           "target_id": "decode-matmul",
-          "label": "weight read",
+          "label": "33.55 MB @ 600 GB/s \u2192 55.9241 \u00b5s",
           "direction": "forward",
           "category": "data",
-          "metrics": []
+          "metrics": [
+            {
+              "name": "Bytes",
+              "value": 33554432,
+              "unit": "bytes",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Peak path rate",
+              "value": 600,
+              "unit": "GB/s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Transfer bound",
+              "value": 55.9241,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            }
+          ]
         },
         {
           "connection_id": "decode-y-flow",
           "source_id": "decode-matmul",
           "target_id": "decode-output",
-          "label": "output rows",
+          "label": "8.19 KB @ 600 GB/s \u2192 0.0137 \u00b5s",
           "direction": "forward",
           "category": "data",
-          "metrics": []
+          "metrics": [
+            {
+              "name": "Bytes",
+              "value": 8192,
+              "unit": "bytes",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Peak path rate",
+              "value": 600,
+              "unit": "GB/s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Transfer bound",
+              "value": 0.0137,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            }
+          ]
         }
       ],
       "assumptions": [
@@ -722,6 +1149,6 @@
       "flat",
       "hierarchical"
     ],
-    "calculation_status": "fixed topology; executable estimates arrive in Slice 1"
+    "calculation_status": "executable Problem 02 projection estimates"
   }
 }
