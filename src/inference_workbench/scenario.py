@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .contracts import AcceleratorModel, Component, ComponentKind, ComputeModel, MemoryModel, Metric, Position, SystemModel, VariantRegistry, WorkbenchScenario
+from .contracts import AcceleratorModel, Component, ComponentKind, ComputeModel, MemoryModel, Metric, PhaseModel, Position, SystemModel, VariantRegistry, WorkbenchScenario
 from .hardware import ComposableGPU, FlatMemoryModel, HierarchicalMemoryModel, SMArrayComputeModel
 from .system import SingleAcceleratorSystem
 from .workloads import ProjectionPhaseModel
@@ -23,6 +23,8 @@ def build_slice_zero_scenario(
     compute_model: ComputeModel | None = None,
     accelerator_model: AcceleratorModel | None = None,
     system_model: SystemModel | None = None,
+    prefill_model: PhaseModel | None = None,
+    decode_model: PhaseModel | None = None,
 ) -> WorkbenchScenario:
     """Composition root with optional injection at every major system boundary."""
 
@@ -56,11 +58,11 @@ def build_slice_zero_scenario(
             ),
     )
 
-    prefill = ProjectionPhaseModel(
+    prefill = prefill_model or ProjectionPhaseModel(
         "prefill", "Prefill", 512,
         "Processes 512 prompt rows together against a shared projection matrix.",
     )
-    decode = ProjectionPhaseModel(
+    decode = decode_model or ProjectionPhaseModel(
         "decode", "Decode", 1,
         "Processes one newly generated token row against the same projection matrix.",
     )

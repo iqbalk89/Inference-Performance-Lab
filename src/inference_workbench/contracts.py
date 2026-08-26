@@ -161,6 +161,14 @@ class SystemModel(ABC):
         raise NotImplementedError
 
 
+class PhaseModel(ABC):
+    """Injectable logical inference phase or workload implementation."""
+
+    @abstractmethod
+    def diagram(self) -> Diagram:
+        raise NotImplementedError
+
+
 BuilderT = TypeVar("BuilderT", bound=Callable[..., Any])
 
 

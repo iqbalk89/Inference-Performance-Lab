@@ -9,6 +9,7 @@ from inference_workbench.contracts import (
     Position,
 )
 from inference_workbench.scenario import build_slice_zero_scenario, memory_variants
+from inference_workbench.workloads import ProjectionPhaseModel
 
 
 def component_ids(scenario: dict, graph_id: str) -> set[str]:
@@ -84,6 +85,18 @@ class SliceZeroTests(unittest.TestCase):
         self.assertIn("test-accelerator-detail", scenario["diagrams"])
         system_edges = scenario["diagrams"]["system"]["connections"]
         self.assertTrue(any(edge["target_id"] == "test-accelerator" for edge in system_edges))
+
+    def test_phase_models_are_injectable(self) -> None:
+        custom_prefill = ProjectionPhaseModel(
+            "prefill", "Custom Prefill", 128, "Injected workload phase."
+        )
+        scenario = build_slice_zero_scenario(
+            prefill_model=custom_prefill
+        ).to_dict()
+
+        graph = scenario["diagrams"]["prefill-detail"]
+        self.assertEqual(graph["title"], "Custom Prefill: Problem 02 projection")
+        self.assertIn("X [128 × 4096]", {item["label"] for item in graph["components"]})
 
 
 if __name__ == "__main__":

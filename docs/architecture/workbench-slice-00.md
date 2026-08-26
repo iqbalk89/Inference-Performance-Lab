@@ -62,6 +62,7 @@ SystemModel
 AcceleratorModel
 MemoryModel
 ComputeModel
+PhaseModel
 ```
 
 The default GPU is assembled through composition:
@@ -119,6 +120,8 @@ build_slice_zero_scenario(
     compute_model=my_compute,
     accelerator_model=my_accelerator,
     system_model=my_system,
+    prefill_model=my_prefill,
+    decode_model=my_decode,
 )
 ```
 

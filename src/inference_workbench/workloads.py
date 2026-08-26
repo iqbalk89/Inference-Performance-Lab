@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .contracts import Component, ComponentKind, Connection, Diagram, EvidenceKind, Metric, Position
+from .contracts import Component, ComponentKind, Connection, Diagram, EvidenceKind, Metric, PhaseModel, Position
 
 
 @dataclass(frozen=True)
-class ProjectionPhaseModel:
+class ProjectionPhaseModel(PhaseModel):
     phase_id: str
     phase_name: str
     rows: int
