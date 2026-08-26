@@ -135,6 +135,7 @@ class SliceZeroTests(unittest.TestCase):
 
     def test_qkv_simulation_is_available(self) -> None:
         scenario = build_slice_zero_scenario().to_dict()
+        self.assertNotIn("qkv", component_ids(scenario, "gpu-0-detail"))
         graph = scenario["diagrams"]["qkv-detail"]
         labels = {item["label"] for item in graph["components"]}
         self.assertIn("W_QKV [4096 × 12288]", labels)
