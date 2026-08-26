@@ -37,8 +37,9 @@ For every problem, use this sequence:
 | # | Problem | Primary skills | Status |
 | ---: | --- | --- | --- |
 | [01](problems/01-transformer-projection-cost/problem.md) | What does one Transformer projection cost? | Parameters, weight bytes, matrix-multiplication FLOPs | Ready |
-| [02](problems/02-decode-vs-prefill-roofline/problem.md) | Decode vs. prefill: memory-bound or compute-bound? | Arithmetic intensity, ridge point, latency bounds, bottleneck classification | **Do next** |
-| [03](problems/03-combined-qkv-projection/problem.md) | What does a combined QKV projection cost? | Fused projections, attention input shapes, QKV traffic | Next |
+| [02](problems/02-decode-vs-prefill-roofline/problem.md) | Decode vs. prefill: memory-bound or compute-bound? | Arithmetic intensity, ridge point, latency bounds, bottleneck classification | Completed |
+| [03](problems/03-combined-qkv-projection/problem.md) | What does a combined QKV projection cost? | Fused projections, attention input shapes, QKV traffic | Completed |
+| [04](problems/04-attention-and-kv-cache-cost/problem.md) | What does attention and the KV cache cost? | Attention shapes, prefill/decode scaling, cache traffic, roofline estimates | **Do next** |
 
 ## Animated Solutions
 
@@ -46,9 +47,8 @@ The [Manim Visual Solution Set](visual-solutions/README.md) animates the
 mechanics and derivations. Attempt each written worksheet first, then render its
 solution with one command. Problem 01 is available now.
 
-Additional problems will progressively cover combined QKV projections, MLP
-projections, KV-cache capacity, batching, profiler reconciliation, and
-end-to-end latency.
+Additional problems will progressively cover MLP projections, KV-cache
+capacity, batching, profiler reconciliation, and end-to-end latency.
 
 ## Recommended Order
 
@@ -58,6 +58,9 @@ end-to-end latency.
 4. Solve Problem 02 with units, then use its hint ladder if needed.
 5. Repeat Problem 02 using [Interview Mode](problems/02-decode-vs-prefill-roofline/interview-mode.md)
    on another day without notes.
+6. Complete Problem 03 to model the fused QKV input to attention.
+7. Complete Problem 04 to model attention and KV-cache behavior separately for
+   prefill and decode.
 
 ## Units Reference
 
