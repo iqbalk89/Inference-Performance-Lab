@@ -1663,30 +1663,36 @@
           "lane": "process"
         },
         {
-          "component_id": "prefill-sampling",
-          "label": "First-token selection",
-          "kind": "operation",
-          "summary": "Selects the first generated token from the final prompt logits; that token becomes Decode input.",
+          "component_id": "prefill-prefill-boundary",
+          "label": "Prefill complete \u2192 Decode begins",
+          "kind": "analysis",
+          "summary": "The final prompt-position logits are ready and the KV cache has been populated. Sampling the first generated token occurs at this boundary, outside the Prefill forward pass.",
           "position": {
             "x": 2340,
             "y": 190
           },
-          "metrics": [],
+          "metrics": [
+            {
+              "name": "Boundary",
+              "value": "Final prompt logits \u2192 first-token sampling",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "TTFT relevance",
+              "value": "Included in end-to-end TTFT",
+              "unit": "",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
           "drilldown_graph_id": null,
-          "lane": "process"
-        },
-        {
-          "component_id": "prefill-next-token",
-          "label": "First generated token \u2192 Decode",
-          "kind": "tensor",
-          "summary": "The selected token marks the boundary between Prefill and Decode.",
-          "position": {
-            "x": 2540,
-            "y": 190
-          },
-          "metrics": [],
-          "drilldown_graph_id": null,
-          "lane": "process"
+          "lane": "analysis"
         }
       ],
       "connections": [
@@ -1801,22 +1807,12 @@
           "badge": ""
         },
         {
-          "connection_id": "prefill-logits-sampling",
+          "connection_id": "prefill-logits-prefill-boundary",
           "source_id": "prefill-logits",
-          "target_id": "prefill-sampling",
-          "label": "Scores enter decoding policy",
+          "target_id": "prefill-prefill-boundary",
+          "label": "Final prompt logits cross the phase boundary",
           "direction": "forward",
-          "category": "logical",
-          "metrics": [],
-          "badge": ""
-        },
-        {
-          "connection_id": "prefill-sampling-next-token",
-          "source_id": "prefill-sampling",
-          "target_id": "prefill-next-token",
-          "label": "Selected token ID",
-          "direction": "forward",
-          "category": "logical",
+          "category": "mapping",
           "metrics": [],
           "badge": ""
         }
@@ -1825,7 +1821,7 @@
         "Prefill processes 512 token rows in this simplified view.",
         "The layer stack is shown once but executes repeatedly for every Transformer layer.",
         "The QKV block links to its detailed fused-projection branch view.",
-        "Prefill ends at the first generated token; only Decode feeds a selected token back into another iteration."
+        "Prefill ends when final prompt-position logits are ready; only Decode samples and feeds a selected token back into another iteration."
       ],
       "charts": []
     },
@@ -2317,7 +2313,7 @@
         "Decode processes 1 token row in this simplified view.",
         "The layer stack is shown once but executes repeatedly for every Transformer layer.",
         "The QKV block links to its detailed fused-projection branch view.",
-        "Prefill ends at the first generated token; only Decode feeds a selected token back into another iteration."
+        "Prefill ends when final prompt-position logits are ready; only Decode samples and feeds a selected token back into another iteration."
       ],
       "charts": []
     },

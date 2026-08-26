@@ -82,8 +82,11 @@ class SliceZeroTests(unittest.TestCase):
         self.assertIn("Device token IDs", prefill_labels)
         self.assertIn("GPU embedding lookup", prefill_labels)
         self.assertIn("Embedding table in HBM", prefill_labels)
+        self.assertIn("Prefill complete → Decode begins", prefill_labels)
+        self.assertNotIn("First-token selection", prefill_labels)
         self.assertNotIn("CPU tokenizer", decode_labels)
         self.assertIn("Device token IDs", decode_labels)
+        self.assertIn("Sampling / selection", decode_labels)
         prefill_edges = scenario["diagrams"]["prefill-detail"]["connections"]
         decode_edges = scenario["diagrams"]["decode-detail"]["connections"]
         self.assertFalse(any(edge["target_id"] == "prefill-tokens" for edge in prefill_edges))

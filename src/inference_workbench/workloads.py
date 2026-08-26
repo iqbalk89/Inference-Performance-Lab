@@ -279,6 +279,15 @@ class InferencePipelinePhaseModel(PhaseModel):
                 Metric("Ingress", "System-level host link"),
             )).component(),
         )
+        tail_components = (
+            OperationBlock(ids["sampling"], "Sampling / selection", "Applies the configured decoding policy—greedy, temperature, top-k, or top-p—to choose the next token ID.", Position(2340, 190)).component(),
+            TensorBlock(ids["next-token"], "Next token ID", "The selected ID is fed back into the next decode iteration.", Position(2540, 190)).component(),
+        ) if self.phase_id == "decode" else (
+            AnalysisBlock(f"{prefix}-prefill-boundary", "Prefill complete → Decode begins", "The final prompt-position logits are ready and the KV cache has been populated. Sampling the first generated token occurs at this boundary, outside the Prefill forward pass.", Position(2340, 190), (
+                Metric("Boundary", "Final prompt logits → first-token sampling"),
+                Metric("TTFT relevance", "Included in end-to-end TTFT", evidence=EvidenceKind.ASSUMED),
+            )).component(),
+        )
         components = input_components + (
             ResourceBlock(ids["embedding-table"], "Embedding table in HBM", ComponentKind.MEMORY, "The learned vocabulary embedding table normally resides in GPU HBM and is read by a GPU gather kernel.", Position(650, 480), (
                 Metric("Location", "GPU HBM"),
@@ -303,11 +312,17 @@ class InferencePipelinePhaseModel(PhaseModel):
             TensorBlock(ids["logits"], "Vocabulary logits", "One score per possible next token. The highest-scoring entries are candidates, not yet a selected token.", Position(2140, 190), (
                 Metric("Output", "vocabulary scores"),
             )).component(),
-            OperationBlock(ids["sampling"], "First-token selection" if self.phase_id == "prefill" else "Sampling / selection", "Selects the first generated token from the final prompt logits; that token becomes Decode input." if self.phase_id == "prefill" else "Applies the configured decoding policy—greedy, temperature, top-k, or top-p—to choose the next token ID.", Position(2340, 190)).component(),
-            TensorBlock(ids["next-token"], "First generated token → Decode" if self.phase_id == "prefill" else "Next token ID", "The selected token marks the boundary between Prefill and Decode." if self.phase_id == "prefill" else "The selected ID is fed back into the next decode iteration.", Position(2540, 190)).component(),
-        )
+        ) + tail_components
         input_connections = (
             Path.logical(f"{prefix}-tokens-embedding", ids["tokens"], ids["embedding"], "Device IDs select embedding rows"),
+        )
+        tail_connections = (
+            (
+                Path.logical(f"{prefix}-logits-sampling", ids["logits"], ids["sampling"], "Scores enter decoding policy"),
+                Path.logical(f"{prefix}-sampling-next-token", ids["sampling"], ids["next-token"], "Selected token ID"),
+            ) if self.phase_id == "decode" else (
+                Path.mapping(f"{prefix}-logits-prefill-boundary", ids["logits"], f"{prefix}-prefill-boundary", "Final prompt logits cross the phase boundary"),
+            )
         )
         connections = input_connections + (
             Path.mapping(f"{prefix}-embedding-table-lookup", ids["embedding-table"], ids["embedding"], "GPU gather reads embedding rows"),
@@ -320,9 +335,7 @@ class InferencePipelinePhaseModel(PhaseModel):
             Path.logical(f"{prefix}-mlp-final-norm", ids["mlp"], ids["final-norm"], "Final hidden state"),
             Path.logical(f"{prefix}-norm-lm-head", ids["final-norm"], ids["lm-head"], "Normalized hidden state"),
             Path.logical(f"{prefix}-lm-head-logits", ids["lm-head"], ids["logits"], "Vocabulary scores"),
-            Path.logical(f"{prefix}-logits-sampling", ids["logits"], ids["sampling"], "Scores enter decoding policy"),
-            Path.logical(f"{prefix}-sampling-next-token", ids["sampling"], ids["next-token"], "Selected token ID"),
-        )
+        ) + tail_connections
         loop_connections = (
             Path.state(f"{prefix}-next-token-loop", ids["next-token"], ids["tokens"], "Decode loop feeds the next token"),
         ) if self.phase_id == "decode" else ()
@@ -334,6 +347,6 @@ class InferencePipelinePhaseModel(PhaseModel):
                 f"{self.phase_name} processes {self.rows} token row{'s' if self.rows != 1 else ''} in this simplified view.",
                 "The layer stack is shown once but executes repeatedly for every Transformer layer.",
                 "The QKV block links to its detailed fused-projection branch view.",
-                "Prefill ends at the first generated token; only Decode feeds a selected token back into another iteration.",
+                "Prefill ends when final prompt-position logits are ready; only Decode samples and feeds a selected token back into another iteration.",
             ),
         )
