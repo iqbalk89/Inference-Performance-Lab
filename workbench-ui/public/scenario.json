@@ -6239,18 +6239,18 @@
     },
     "qkv-detail": {
       "graph_id": "qkv-detail",
-      "title": "QKV projection: Problem 02 projection",
-      "subtitle": "Creates Q, K, and V with one fused [Q K V] projection before attention. This first level shows mathematics only\u2014not the GPU memory route.",
+      "title": "QKV projection: QKV projection branches",
+      "subtitle": "The fused matrix multiplication is one runtime operation, but its result has three distinct logical consumers: queries, keys, and values.",
       "parent_graph_id": "gpu-0-detail",
       "components": [
         {
           "component_id": "qkv-input",
           "label": "X [512 \u00d7 4096]",
           "kind": "tensor",
-          "summary": "Input activation tensor. Each row is one token position presented to this projection.",
+          "summary": "The same input rows feed all three logical projections.",
           "position": {
-            "x": 100,
-            "y": 135
+            "x": 80,
+            "y": 250
           },
           "metrics": [
             {
@@ -6351,10 +6351,10 @@
           "component_id": "qkv-weight",
           "label": "W_QKV [4096 \u00d7 12288]",
           "kind": "tensor",
-          "summary": "Learned projection weights. The same matrix is applied to every row of X.",
+          "summary": "One fused weight matrix containing the learned Q, K, and V projection weights side by side.",
           "position": {
-            "x": 100,
-            "y": 395
+            "x": 80,
+            "y": 500
           },
           "metrics": [
             {
@@ -6453,12 +6453,12 @@
         },
         {
           "component_id": "qkv-matmul",
-          "label": "Matrix multiplication",
+          "label": "Fused QKV projection",
           "kind": "operation",
-          "summary": "Computes Y = XW. Push in to see which bytes cross the HBM boundary.",
+          "summary": "One matrix multiplication computes three logical results. The output is then split into Q, K, and V views.",
           "position": {
-            "x": 500,
-            "y": 265
+            "x": 455,
+            "y": 350
           },
           "metrics": [
             {
@@ -6535,24 +6535,33 @@
                   "Uses the conventional approximate 2MKN count rather than exactly K multiplies and K\u22121 adds per dot product."
                 ]
               }
+            },
+            {
+              "name": "Output width",
+              "value": 12288,
+              "unit": "features",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
             }
           ],
           "drilldown_graph_id": "qkv-hbm-boundary",
           "lane": "process"
         },
         {
-          "component_id": "qkv-output",
-          "label": "[Q K V] [512 \u00d7 12288]",
+          "component_id": "qkv-q",
+          "label": "Q [512 \u00d7 4096]",
           "kind": "tensor",
-          "summary": "Output activation tensor produced by this projection.",
+          "summary": "Query vectors. Consumed by the QK\u1d40 score operation; not stored as a growing KV cache.",
           "position": {
-            "x": 900,
-            "y": 265
+            "x": 850,
+            "y": 120
           },
           "metrics": [
             {
               "name": "Shape",
-              "value": "[512 \u00d7 12288]",
+              "value": "[512 \u00d7 4096]",
               "unit": "",
               "evidence": "theoretical",
               "description": "",
@@ -6560,85 +6569,77 @@
               "calculation": null
             },
             {
-              "name": "Values",
-              "value": 6291456,
-              "unit": "values",
+              "name": "Role",
+              "value": "forms attention queries",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "qkv-k",
+          "label": "K [512 \u00d7 4096]",
+          "kind": "tensor",
+          "summary": "Key vectors. Compared with queries and retained in the KV cache for later decode steps.",
+          "position": {
+            "x": 850,
+            "y": 330
+          },
+          "metrics": [
+            {
+              "name": "Shape",
+              "value": "[512 \u00d7 4096]",
+              "unit": "",
               "evidence": "theoretical",
               "description": "",
               "derivation": "",
               "calculation": null
             },
             {
-              "name": "FP16 size",
-              "value": "12.58 MB",
+              "name": "Role",
+              "value": "forms attention keys + cache entries",
               "unit": "",
               "evidence": "theoretical",
               "description": "",
               "derivation": "",
-              "calculation": {
-                "title": "Output write",
-                "concept": "A tensor's byte size equals its number of scalar values multiplied by the storage occupied by each value. The simplified traffic model counts this tensor crossing the HBM boundary once.",
-                "formula": "bytes = number of values \u00d7 bytes per value",
-                "inputs": [
-                  {
-                    "symbol": "M",
-                    "value": "512",
-                    "meaning": "Number of token rows processed together",
-                    "source": "First dimension of X"
-                  },
-                  {
-                    "symbol": "K",
-                    "value": "4096",
-                    "meaning": "Number of input features consumed by each output dot product",
-                    "source": "Second dimension of X and first dimension of W"
-                  },
-                  {
-                    "symbol": "N",
-                    "value": "12288",
-                    "meaning": "Number of output features produced for each row",
-                    "source": "Second dimension of W and Y"
-                  },
-                  {
-                    "symbol": "s_w",
-                    "value": "2 bytes/value",
-                    "meaning": "Storage occupied by one FP16 weight",
-                    "source": "Problem datatype assumption"
-                  },
-                  {
-                    "symbol": "s_a",
-                    "value": "2 bytes/value",
-                    "meaning": "Storage occupied by one FP16 activation",
-                    "source": "Problem datatype assumption"
-                  }
-                ],
-                "steps": [
-                  {
-                    "title": "Read the tensor shape",
-                    "expression": "Y shape = M \u00d7 N = 512 \u00d7 12288",
-                    "explanation": "Multiply all shape dimensions to count scalar values."
-                  },
-                  {
-                    "title": "Count values",
-                    "expression": "6,291,456 values",
-                    "explanation": "This is the number of FP16 scalars in the tensor."
-                  },
-                  {
-                    "title": "Convert values to bytes",
-                    "expression": "6,291,456 values \u00d7 2 bytes/value = 12,582,912 bytes",
-                    "explanation": "FP16 occupies two bytes for each stored value."
-                  },
-                  {
-                    "title": "Readable scale",
-                    "expression": "12,582,912 bytes = 12.58 MB",
-                    "explanation": "The diagram uses decimal KB and MB so it matches GB/s hardware-rate units."
-                  }
-                ],
-                "unit_analysis": "values \u00d7 bytes/value = bytes; the value unit cancels.",
-                "interpretation": "The model counts 12.58 MB of output traffic at the HBM boundary.",
-                "assumptions": [
-                  "Counts one transfer and excludes cache effects, rereads, alignment, metadata, and workspace."
-                ]
-              }
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "qkv-v",
+          "label": "V [512 \u00d7 4096]",
+          "kind": "tensor",
+          "summary": "Value vectors. Mixed according to attention scores and retained in the KV cache.",
+          "position": {
+            "x": 850,
+            "y": 540
+          },
+          "metrics": [
+            {
+              "name": "Shape",
+              "value": "[512 \u00d7 4096]",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Role",
+              "value": "forms attention values + cache entries",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
             }
           ],
           "drilldown_graph_id": null,
@@ -6647,30 +6648,50 @@
       ],
       "connections": [
         {
-          "connection_id": "qkv-x-logical",
+          "connection_id": "qkv-x-to-fused",
           "source_id": "qkv-input",
           "target_id": "qkv-matmul",
-          "label": "X supplies activation rows",
+          "label": "X is reused by the fused projection",
           "direction": "forward",
           "category": "logical",
           "metrics": [],
           "badge": ""
         },
         {
-          "connection_id": "qkv-w-logical",
+          "connection_id": "qkv-w-to-fused",
           "source_id": "qkv-weight",
           "target_id": "qkv-matmul",
-          "label": "W supplies projection weights",
+          "label": "W_QKV supplies Q/K/V weights",
           "direction": "forward",
           "category": "logical",
           "metrics": [],
           "badge": ""
         },
         {
-          "connection_id": "qkv-y-logical",
+          "connection_id": "qkv-fused-to-q",
           "source_id": "qkv-matmul",
-          "target_id": "qkv-output",
-          "label": "XW produces Y",
+          "target_id": "qkv-q",
+          "label": "Split Q branch",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "qkv-fused-to-k",
+          "source_id": "qkv-matmul",
+          "target_id": "qkv-k",
+          "label": "Split K branch",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "qkv-fused-to-v",
+          "source_id": "qkv-matmul",
+          "target_id": "qkv-v",
+          "label": "Split V branch",
           "direction": "forward",
           "category": "logical",
           "metrics": [],
@@ -6678,7 +6699,8 @@
         }
       ],
       "assumptions": [
-        "FP16 weights and activations use two bytes per value."
+        "Q, K, and V are logical views of the fused output; they are not three independent runtime kernels in this fused representation.",
+        "The QK\u1d40 score, softmax, value mixing, and KV-cache operations are the next attention-stage models."
       ],
       "charts": []
     },

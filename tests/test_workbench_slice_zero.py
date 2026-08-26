@@ -139,9 +139,12 @@ class SliceZeroTests(unittest.TestCase):
         graph = scenario["diagrams"]["qkv-detail"]
         labels = {item["label"] for item in graph["components"]}
         self.assertIn("W_QKV [4096 × 12288]", labels)
-        self.assertIn("[Q K V] [512 × 12288]", labels)
+        self.assertIn("Q [512 × 4096]", labels)
+        self.assertIn("K [512 × 4096]", labels)
+        self.assertIn("V [512 × 4096]", labels)
         operation = next(item for item in graph["components"] if item["component_id"] == "qkv-matmul")
         self.assertEqual(operation["drilldown_graph_id"], "qkv-hbm-boundary")
+        self.assertEqual({edge["target_id"] for edge in graph["connections"] if edge["source_id"] == "qkv-matmul"}, {"qkv-q", "qkv-k", "qkv-v"})
 
     def test_projection_uses_progressive_reusable_views_and_output_writeback(self) -> None:
         scenario = build_slice_zero_scenario().to_dict()

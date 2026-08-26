@@ -40,6 +40,8 @@ class ProjectionPhaseModel(PhaseModel):
     def diagram(self) -> Diagram:
         """Level 1: the mathematical operator and tensor shapes only."""
         estimate = self._required_estimate()
+        if self.output_width == 12288 and self.output_label == "[Q K V]":
+            return self._qkv_operator_diagram(estimate)
         calculations = projection_calculations(estimate)
         prefix = self.phase_id
         input_id, weight_id = f"{prefix}-input", f"{prefix}-weight"
@@ -72,6 +74,57 @@ class ProjectionPhaseModel(PhaseModel):
             Path.logical(f"{prefix}-y-logical", matmul_id, output_id, "XW produces Y"),
         )
         return Diagram(f"{prefix}-detail", f"{self.phase_name}: Problem 02 projection", f"{self.explanation} This first level shows mathematics only—not the GPU memory route.", "gpu-0-detail", components, connections, ("FP16 weights and activations use two bytes per value.",))
+
+    def _qkv_operator_diagram(self, estimate: ProjectionEstimate) -> Diagram:
+        """Show the fused kernel's three logical output branches explicitly."""
+        calculations = projection_calculations(estimate)
+        prefix = self.phase_id
+        input_id, weight_id, fused_id = f"{prefix}-input", f"{prefix}-weight", f"{prefix}-matmul"
+        q_id, k_id, v_id = f"{prefix}-q", f"{prefix}-k", f"{prefix}-v"
+        components = (
+            TensorBlock(input_id, f"X [{self.rows} × {self.input_width}]", "The same input rows feed all three logical projections.", Position(80, 250), (
+                Metric("Shape", f"[{self.rows} × {self.input_width}]"),
+                Metric("Values", self.rows * self.input_width, "values"),
+                Metric("FP16 size", decimal_bytes(estimate.input_bytes), calculation=calculations["input_bytes"]),
+            )).component(),
+            TensorBlock(weight_id, f"W_QKV [{self.input_width} × {self.output_width}]", "One fused weight matrix containing the learned Q, K, and V projection weights side by side.", Position(80, 500), (
+                Metric("Shape", f"[{self.input_width} × {self.output_width}]"),
+                Metric("Values", self.input_width * self.output_width, "values"),
+                Metric("FP16 size", decimal_bytes(estimate.weight_bytes), calculation=calculations["weight_bytes"]),
+            )).component(),
+            OperationBlock(fused_id, "Fused QKV projection", "One matrix multiplication computes three logical results. The output is then split into Q, K, and V views.", Position(455, 350), (
+                Metric("Equation", "[Q K V] = XW_QKV"),
+                Metric("Work", decimal_flops(estimate.flops), calculation=calculations["work"]),
+                Metric("Output width", 12288, "features"),
+            ), self.boundary_graph_id).component(),
+            TensorBlock(q_id, f"Q [{self.rows} × 4096]", "Query vectors. Consumed by the QKᵀ score operation; not stored as a growing KV cache.", Position(850, 120), (
+                Metric("Shape", f"[{self.rows} × 4096]"),
+                Metric("Role", "forms attention queries"),
+            )).component(),
+            TensorBlock(k_id, f"K [{self.rows} × 4096]", "Key vectors. Compared with queries and retained in the KV cache for later decode steps.", Position(850, 330), (
+                Metric("Shape", f"[{self.rows} × 4096]"),
+                Metric("Role", "forms attention keys + cache entries"),
+            )).component(),
+            TensorBlock(v_id, f"V [{self.rows} × 4096]", "Value vectors. Mixed according to attention scores and retained in the KV cache.", Position(850, 540), (
+                Metric("Shape", f"[{self.rows} × 4096]"),
+                Metric("Role", "forms attention values + cache entries"),
+            )).component(),
+        )
+        connections = (
+            Path.logical(f"{prefix}-x-to-fused", input_id, fused_id, "X is reused by the fused projection"),
+            Path.logical(f"{prefix}-w-to-fused", weight_id, fused_id, "W_QKV supplies Q/K/V weights"),
+            Path.logical(f"{prefix}-fused-to-q", fused_id, q_id, "Split Q branch"),
+            Path.logical(f"{prefix}-fused-to-k", fused_id, k_id, "Split K branch"),
+            Path.logical(f"{prefix}-fused-to-v", fused_id, v_id, "Split V branch"),
+        )
+        return Diagram(
+            f"{prefix}-detail", f"{self.phase_name}: QKV projection branches",
+            "The fused matrix multiplication is one runtime operation, but its result has three distinct logical consumers: queries, keys, and values.",
+            "gpu-0-detail", components, connections, (
+                "Q, K, and V are logical views of the fused output; they are not three independent runtime kernels in this fused representation.",
+                "The QKᵀ score, softmax, value mixing, and KV-cache operations are the next attention-stage models.",
+            ),
+        )
 
     def _transfer_metrics(self, name: str, byte_count: int, calculation_key: str) -> tuple[Metric, ...]:
         estimate = self._required_estimate()
