@@ -585,7 +585,7 @@ working content is implemented.
 
 ## Delivery Plan
 
-### Slice 0 — Contracts and static prototype
+### Slice 0 — Contracts and static prototype — implemented
 
 - Define model, workload, hardware, execution-mapping, and result schemas.
 - Define units and evidence tags.
@@ -595,6 +595,9 @@ working content is implemented.
 
 Exit criterion: a user can navigate the hierarchy and explain what every block
 and arrow represents.
+
+Implementation and run instructions:
+[Workbench Slice 0](workbench-slice-00.md).
 
 ### Slice 1 — Executable projection model
 

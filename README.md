@@ -13,6 +13,10 @@ a hierarchical visual model that connects prefill and decode operations to
 hardware resources, validates predictions against measurements, and supports
 performance and architecture decisions.
 
+The initial interactive architecture is available in
+[Workbench Slice 0](docs/architecture/workbench-slice-00.md). Run it with
+`make workbench-install` followed by `make workbench-dev`.
+
 ## Long-Term Goals
 
 - Build a strong foundation in machine learning and transformer inference.

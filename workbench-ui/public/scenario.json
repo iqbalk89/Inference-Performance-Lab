@@ -1,0 +1,727 @@
+{
+  "scenario_id": "slice-0-problem-02",
+  "title": "Problem 02: System-to-GPU Explorer",
+  "initial_graph_id": "system",
+  "diagrams": {
+    "system": {
+      "graph_id": "system",
+      "title": "Inference System",
+      "subtitle": "Begin with the complete host and accelerator data path; click the GPU to push in.",
+      "parent_graph_id": null,
+      "components": [
+        {
+          "component_id": "client",
+          "label": "Client",
+          "kind": "system",
+          "summary": "Creates an inference request.",
+          "position": {
+            "x": 70,
+            "y": 260
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "server",
+          "label": "Inference Server",
+          "kind": "service",
+          "summary": "Queues, batches, and dispatches requests.",
+          "position": {
+            "x": 300,
+            "y": 260
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "cpu",
+          "label": "CPU Runtime",
+          "kind": "processor",
+          "summary": "Tokenizes input and orchestrates accelerator work.",
+          "position": {
+            "x": 540,
+            "y": 170
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "host-memory",
+          "label": "Host DRAM",
+          "kind": "memory",
+          "summary": "Stores host-side request and runtime data.",
+          "position": {
+            "x": 540,
+            "y": 390
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "host-link",
+          "label": "PCIe / Host Link",
+          "kind": "interconnect",
+          "summary": "Transfers commands and tensors between host and GPU.",
+          "position": {
+            "x": 790,
+            "y": 260
+          },
+          "metrics": [
+            {
+              "name": "Detailed transfer model",
+              "value": "Later slice",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "gpu-0",
+          "label": "Educational GPU",
+          "kind": "accelerator",
+          "summary": "Click to inspect inference phases mapped onto GPU hardware.",
+          "position": {
+            "x": 1010,
+            "y": 260
+          },
+          "metrics": [
+            {
+              "name": "Active scenario",
+              "value": "Problem 02",
+              "unit": "",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": ""
+            }
+          ],
+          "drilldown_graph_id": "gpu-0-detail",
+          "lane": "hardware"
+        }
+      ],
+      "connections": [
+        {
+          "connection_id": "client-server",
+          "source_id": "client",
+          "target_id": "server",
+          "label": "request",
+          "direction": "forward",
+          "category": "data",
+          "metrics": []
+        },
+        {
+          "connection_id": "server-cpu",
+          "source_id": "server",
+          "target_id": "cpu",
+          "label": "scheduled work",
+          "direction": "forward",
+          "category": "data",
+          "metrics": []
+        },
+        {
+          "connection_id": "cpu-dram",
+          "source_id": "cpu",
+          "target_id": "host-memory",
+          "label": "host data",
+          "direction": "both",
+          "category": "data",
+          "metrics": []
+        },
+        {
+          "connection_id": "cpu-link",
+          "source_id": "cpu",
+          "target_id": "host-link",
+          "label": "commands + tensors",
+          "direction": "both",
+          "category": "data",
+          "metrics": []
+        },
+        {
+          "connection_id": "link-gpu",
+          "source_id": "host-link",
+          "target_id": "gpu-0",
+          "label": "device transfer",
+          "direction": "both",
+          "category": "data",
+          "metrics": []
+        },
+        {
+          "connection_id": "gpu-server",
+          "source_id": "gpu-0",
+          "target_id": "server",
+          "label": "tokens + timing",
+          "direction": "forward",
+          "category": "result",
+          "metrics": []
+        }
+      ],
+      "assumptions": [
+        "This Slice 0 topology is educational and intentionally single-GPU."
+      ]
+    },
+    "gpu-0-detail": {
+      "graph_id": "gpu-0-detail",
+      "title": "Educational GPU",
+      "subtitle": "Logical inference phases above; injected physical resources below.",
+      "parent_graph_id": "system",
+      "components": [
+        {
+          "component_id": "prefill",
+          "label": "Prefill",
+          "kind": "phase",
+          "summary": "Processes all prompt-token rows and creates their KV-cache entries.",
+          "position": {
+            "x": 300,
+            "y": 90
+          },
+          "metrics": [
+            {
+              "name": "Problem 02 rows",
+              "value": 512,
+              "unit": "rows",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": ""
+            }
+          ],
+          "drilldown_graph_id": "prefill-detail",
+          "lane": "process"
+        },
+        {
+          "component_id": "decode",
+          "label": "Decode",
+          "kind": "phase",
+          "summary": "Processes one new row per active sequence and advances generation.",
+          "position": {
+            "x": 750,
+            "y": 90
+          },
+          "metrics": [
+            {
+              "name": "Problem 02 rows",
+              "value": 1,
+              "unit": "row",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": ""
+            }
+          ],
+          "drilldown_graph_id": "decode-detail",
+          "lane": "process"
+        },
+        {
+          "component_id": "hbm",
+          "label": "HBM",
+          "kind": "memory",
+          "summary": "GPU-resident weights, activations, and KV-cache storage.",
+          "position": {
+            "x": 90,
+            "y": 390
+          },
+          "metrics": [
+            {
+              "name": "Capacity",
+              "value": 24,
+              "unit": "GB",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Peak bandwidth",
+              "value": 600,
+              "unit": "GB/s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "memory-controllers",
+          "label": "Memory Controllers",
+          "kind": "interconnect",
+          "summary": "Channels requests between HBM and the GPU on-chip memory system.",
+          "position": {
+            "x": 340,
+            "y": 390
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "l2",
+          "label": "Shared L2 Cache",
+          "kind": "memory",
+          "summary": "GPU-wide cache shared by the SM array.",
+          "position": {
+            "x": 590,
+            "y": 390
+          },
+          "metrics": [
+            {
+              "name": "Capacity",
+              "value": 6,
+              "unit": "MB",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "sm-local-memory",
+          "label": "Registers + Shared/L1",
+          "kind": "memory",
+          "summary": "Per-SM storage closest to active threads and execution pipelines.",
+          "position": {
+            "x": 1090,
+            "y": 390
+          },
+          "metrics": [
+            {
+              "name": "Detailed traffic",
+              "value": "Profiler-backed in Slice 4",
+              "unit": "",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": ""
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "sm-array",
+          "label": "SM Array",
+          "kind": "compute",
+          "summary": "Schedules thread blocks across streaming multiprocessors.",
+          "position": {
+            "x": 840,
+            "y": 390
+          },
+          "metrics": [
+            {
+              "name": "SM count",
+              "value": 72,
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Peak FP16 compute",
+              "value": 120,
+              "unit": "TFLOP/s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        }
+      ],
+      "connections": [
+        {
+          "connection_id": "hbm-to-mc",
+          "source_id": "hbm",
+          "target_id": "memory-controllers",
+          "label": "HBM channels",
+          "direction": "both",
+          "category": "data",
+          "metrics": []
+        },
+        {
+          "connection_id": "mc-to-l2",
+          "source_id": "memory-controllers",
+          "target_id": "l2",
+          "label": "memory fabric",
+          "direction": "both",
+          "category": "data",
+          "metrics": []
+        },
+        {
+          "connection_id": "l2-to-local",
+          "source_id": "l2",
+          "target_id": "sm-local-memory",
+          "label": "cache-line traffic",
+          "direction": "both",
+          "category": "data",
+          "metrics": []
+        },
+        {
+          "connection_id": "prefill-uses-hbm",
+          "source_id": "prefill",
+          "target_id": "hbm",
+          "label": "resource demand",
+          "direction": "forward",
+          "category": "mapping",
+          "metrics": []
+        },
+        {
+          "connection_id": "prefill-uses-memory-controllers",
+          "source_id": "prefill",
+          "target_id": "memory-controllers",
+          "label": "resource demand",
+          "direction": "forward",
+          "category": "mapping",
+          "metrics": []
+        },
+        {
+          "connection_id": "prefill-uses-l2",
+          "source_id": "prefill",
+          "target_id": "l2",
+          "label": "resource demand",
+          "direction": "forward",
+          "category": "mapping",
+          "metrics": []
+        },
+        {
+          "connection_id": "prefill-uses-sm-local-memory",
+          "source_id": "prefill",
+          "target_id": "sm-local-memory",
+          "label": "resource demand",
+          "direction": "forward",
+          "category": "mapping",
+          "metrics": []
+        },
+        {
+          "connection_id": "prefill-uses-sm-array",
+          "source_id": "prefill",
+          "target_id": "sm-array",
+          "label": "resource demand",
+          "direction": "forward",
+          "category": "mapping",
+          "metrics": []
+        },
+        {
+          "connection_id": "decode-uses-hbm",
+          "source_id": "decode",
+          "target_id": "hbm",
+          "label": "resource demand",
+          "direction": "forward",
+          "category": "mapping",
+          "metrics": []
+        },
+        {
+          "connection_id": "decode-uses-memory-controllers",
+          "source_id": "decode",
+          "target_id": "memory-controllers",
+          "label": "resource demand",
+          "direction": "forward",
+          "category": "mapping",
+          "metrics": []
+        },
+        {
+          "connection_id": "decode-uses-l2",
+          "source_id": "decode",
+          "target_id": "l2",
+          "label": "resource demand",
+          "direction": "forward",
+          "category": "mapping",
+          "metrics": []
+        },
+        {
+          "connection_id": "decode-uses-sm-local-memory",
+          "source_id": "decode",
+          "target_id": "sm-local-memory",
+          "label": "resource demand",
+          "direction": "forward",
+          "category": "mapping",
+          "metrics": []
+        },
+        {
+          "connection_id": "decode-uses-sm-array",
+          "source_id": "decode",
+          "target_id": "sm-array",
+          "label": "resource demand",
+          "direction": "forward",
+          "category": "mapping",
+          "metrics": []
+        }
+      ],
+      "assumptions": [
+        "Slice 0 shows topology and fixed Problem 02 facts; calculations arrive in Slice 1.",
+        "Dashed mapping edges mean a process uses a resource; they are not physical buses."
+      ]
+    },
+    "prefill-detail": {
+      "graph_id": "prefill-detail",
+      "title": "Prefill: Problem 02 projection",
+      "subtitle": "Processes 512 prompt rows together against a shared projection matrix.",
+      "parent_graph_id": "gpu-0-detail",
+      "components": [
+        {
+          "component_id": "prefill-input",
+          "label": "X [512 \u00d7 4096]",
+          "kind": "operation",
+          "summary": "FP16 input activation rows.",
+          "position": {
+            "x": 130,
+            "y": 235
+          },
+          "metrics": [
+            {
+              "name": "Rows",
+              "value": 512,
+              "unit": "rows",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": ""
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-weight",
+          "label": "W [4096 \u00d7 4096]",
+          "kind": "memory",
+          "summary": "Shared FP16 projection weights.",
+          "position": {
+            "x": 130,
+            "y": 440
+          },
+          "metrics": [
+            {
+              "name": "Element size",
+              "value": 2,
+              "unit": "bytes",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": ""
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "prefill-matmul",
+          "label": "Matrix multiplication",
+          "kind": "operation",
+          "summary": "XW using GPU compute and memory resources.",
+          "position": {
+            "x": 560,
+            "y": 300
+          },
+          "metrics": [
+            {
+              "name": "Formula",
+              "value": "2MKN FLOPs",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Calculation status",
+              "value": "Slice 1",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-output",
+          "label": "Y [512 \u00d7 4096]",
+          "kind": "operation",
+          "summary": "FP16 output activation rows.",
+          "position": {
+            "x": 1010,
+            "y": 300
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        }
+      ],
+      "connections": [
+        {
+          "connection_id": "prefill-x-flow",
+          "source_id": "prefill-input",
+          "target_id": "prefill-matmul",
+          "label": "input rows",
+          "direction": "forward",
+          "category": "data",
+          "metrics": []
+        },
+        {
+          "connection_id": "prefill-w-flow",
+          "source_id": "prefill-weight",
+          "target_id": "prefill-matmul",
+          "label": "weight read",
+          "direction": "forward",
+          "category": "data",
+          "metrics": []
+        },
+        {
+          "connection_id": "prefill-y-flow",
+          "source_id": "prefill-matmul",
+          "target_id": "prefill-output",
+          "label": "output rows",
+          "direction": "forward",
+          "category": "data",
+          "metrics": []
+        }
+      ],
+      "assumptions": [
+        "FP16 weights and activations use two bytes per value.",
+        "The simplified scenario reads W and X once and writes Y once."
+      ]
+    },
+    "decode-detail": {
+      "graph_id": "decode-detail",
+      "title": "Decode: Problem 02 projection",
+      "subtitle": "Processes one newly generated token row against the same projection matrix.",
+      "parent_graph_id": "gpu-0-detail",
+      "components": [
+        {
+          "component_id": "decode-input",
+          "label": "X [1 \u00d7 4096]",
+          "kind": "operation",
+          "summary": "FP16 input activation rows.",
+          "position": {
+            "x": 130,
+            "y": 235
+          },
+          "metrics": [
+            {
+              "name": "Rows",
+              "value": 1,
+              "unit": "rows",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": ""
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-weight",
+          "label": "W [4096 \u00d7 4096]",
+          "kind": "memory",
+          "summary": "Shared FP16 projection weights.",
+          "position": {
+            "x": 130,
+            "y": 440
+          },
+          "metrics": [
+            {
+              "name": "Element size",
+              "value": 2,
+              "unit": "bytes",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": ""
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "decode-matmul",
+          "label": "Matrix multiplication",
+          "kind": "operation",
+          "summary": "XW using GPU compute and memory resources.",
+          "position": {
+            "x": 560,
+            "y": 300
+          },
+          "metrics": [
+            {
+              "name": "Formula",
+              "value": "2MKN FLOPs",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            },
+            {
+              "name": "Calculation status",
+              "value": "Slice 1",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": ""
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-output",
+          "label": "Y [1 \u00d7 4096]",
+          "kind": "operation",
+          "summary": "FP16 output activation rows.",
+          "position": {
+            "x": 1010,
+            "y": 300
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        }
+      ],
+      "connections": [
+        {
+          "connection_id": "decode-x-flow",
+          "source_id": "decode-input",
+          "target_id": "decode-matmul",
+          "label": "input rows",
+          "direction": "forward",
+          "category": "data",
+          "metrics": []
+        },
+        {
+          "connection_id": "decode-w-flow",
+          "source_id": "decode-weight",
+          "target_id": "decode-matmul",
+          "label": "weight read",
+          "direction": "forward",
+          "category": "data",
+          "metrics": []
+        },
+        {
+          "connection_id": "decode-y-flow",
+          "source_id": "decode-matmul",
+          "target_id": "decode-output",
+          "label": "output rows",
+          "direction": "forward",
+          "category": "data",
+          "metrics": []
+        }
+      ],
+      "assumptions": [
+        "FP16 weights and activations use two bytes per value.",
+        "The simplified scenario reads W and X once and writes Y once."
+      ]
+    }
+  },
+  "metadata": {
+    "slice": 0,
+    "memory_variant": "hierarchical",
+    "available_memory_variants": [
+      "flat",
+      "hierarchical"
+    ],
+    "calculation_status": "fixed topology; executable estimates arrive in Slice 1"
+  }
+}
