@@ -85,7 +85,8 @@ class ProjectionPhaseModel(PhaseModel):
         prefix = self.phase_id
         hbm_id = f"{prefix}-boundary-hbm"
         input_id, weight_id = f"{prefix}-input-read", f"{prefix}-weight-read"
-        output_id, accounting_id = f"{prefix}-output-write", f"{prefix}-roofline-accounting"
+        output_id, matmul_id = f"{prefix}-output-write", f"{prefix}-boundary-matmul"
+        accounting_id = f"{prefix}-roofline-accounting"
         input_metrics = self._transfer_metrics("Input read", estimate.input_bytes, "input_bytes")
         weight_metrics = self._transfer_metrics("Weight read", estimate.weight_bytes, "weight_bytes")
         output_metrics = self._transfer_metrics("Output write", estimate.output_bytes, "output_bytes")
@@ -97,8 +98,12 @@ class ProjectionPhaseModel(PhaseModel):
             )).component(),
             OperationBlock(input_id, "Read X", "One modeled read of the input activation tensor from HBM.", Position(390, 65), input_metrics).component(),
             OperationBlock(weight_id, "Read W", "One modeled read of the learned projection matrix from HBM.", Position(390, 275), weight_metrics).component(),
-            OperationBlock(output_id, "Write Y", "The output activation is explicitly written back across the HBM boundary.", Position(390, 485), output_metrics).component(),
-            OperationBlock(accounting_id, "Roofline accounting", "Combines work and HBM traffic. Push in to inspect the physical cache and execution path.", Position(780, 275), (
+            OperationBlock(matmul_id, "Matrix multiplication", "The operator remains visible here: read tiles of X and W are multiplied and accumulated to produce Y.", Position(650, 275), (
+                Metric("Equation", "Y = XW"),
+                Metric("Work", decimal_flops(estimate.flops), calculation=calculations["work"]),
+            )).component(),
+            OperationBlock(output_id, "Write Y", "The output activation is explicitly written back across the HBM boundary.", Position(920, 485), output_metrics).component(),
+            OperationBlock(accounting_id, "Roofline accounting", "Combines work and HBM traffic. This is the performance-model summary for the operator.", Position(960, 65), (
                 Metric("Work", decimal_flops(estimate.flops), calculation=calculations["work"]),
                 Metric("HBM traffic", decimal_bytes(estimate.total_hbm_bytes), calculation=calculations["total_bytes"]),
                 Metric("Arithmetic intensity", round(estimate.arithmetic_intensity, 4), "FLOPs/byte", calculation=calculations["arithmetic_intensity"]),
@@ -114,11 +119,12 @@ class ProjectionPhaseModel(PhaseModel):
             Path.transfer(f"{prefix}-x-boundary", hbm_id, input_id, "Read X from HBM", badge=badge(estimate.input_bytes), metrics=input_metrics),
             Path.transfer(f"{prefix}-w-boundary", hbm_id, weight_id, "Read W from HBM", badge=badge(estimate.weight_bytes), metrics=weight_metrics),
             Path.transfer(f"{prefix}-y-boundary", output_id, hbm_id, "Write Y to HBM", badge=badge(estimate.output_bytes), metrics=output_metrics),
-            Path.mapping(f"{prefix}-x-accounted", input_id, accounting_id, "Input traffic contributes to accounting"),
-            Path.mapping(f"{prefix}-w-accounted", weight_id, accounting_id, "Weight traffic contributes to accounting"),
-            Path.mapping(f"{prefix}-y-accounted", output_id, accounting_id, "Output traffic contributes to accounting"),
+            Path.logical(f"{prefix}-x-to-matmul", input_id, matmul_id, "Read X tiles into the operator"),
+            Path.logical(f"{prefix}-w-to-matmul", weight_id, matmul_id, "Read W tiles into the operator"),
+            Path.logical(f"{prefix}-matmul-to-y", matmul_id, output_id, "Matrix multiplication produces Y"),
+            Path.mapping(f"{prefix}-matmul-accounted", matmul_id, accounting_id, "Operator feeds the performance model"),
         )
-        return Diagram(self.boundary_graph_id, f"{self.phase_name}: HBM-boundary accounting", "This level counts X and W reads plus the Y write. It deliberately does not claim an L2 hit rate or internal cache traffic.", f"{prefix}-detail", components, connections, (
+        return Diagram(self.boundary_graph_id, f"{self.phase_name}: projection execution and HBM accounting", "The matrix multiplication stays visible while its HBM reads, output write, and roofline consequences are added around it.", f"{prefix}-detail", components, connections, (
             "The simplified model reads X once, reads W once, and writes Y once.",
             "The 600 GB/s HBM rate is an assumed educational hardware parameter.",
             "Cache effects, rereads, write allocation, alignment, and workspace are excluded.",
@@ -131,8 +137,13 @@ class ProjectionPhaseModel(PhaseModel):
         prefix = self.phase_id
         hbm_id, l2_id = f"{prefix}-physical-hbm", f"{prefix}-physical-l2"
         local_id, compute_id = f"{prefix}-sm-local", f"{prefix}-tensor-cores"
+        matmul_id = f"{prefix}-physical-matmul"
         unknown = "Unknown—measure or calibrate"
         components = (
+            OperationBlock(matmul_id, "Matrix multiplication", "The same XW operator is now mapped onto the physical memory and compute path below.", Position(540, 70), (
+                Metric("Equation", "Y = XW"),
+                Metric("Work", decimal_flops(estimate.flops), calculation=calculations["work"]),
+            )).component(),
             ResourceBlock(hbm_id, "HBM", ComponentKind.MEMORY, "Off-chip GPU memory. Boundary accounting counts X and W reads plus the Y write here.", Position(60, 280), (
                 Metric("Assumed peak bandwidth", 600, "GB/s", EvidenceKind.ASSUMED),
                 Metric("Boundary traffic", decimal_bytes(estimate.total_hbm_bytes), calculation=calculations["total_bytes"]),
@@ -152,6 +163,7 @@ class ProjectionPhaseModel(PhaseModel):
             )).component(),
         )
         connections = (
+            Path.mapping(f"{prefix}-physical-matmul-map", matmul_id, compute_id, "Matrix multiplication executes on Tensor Core pipelines"),
             Path.physical(f"{prefix}-physical-hbm-l2", hbm_id, l2_id, "Physical HBM and L2 path", badge="HBM boundary: assumed 600 GB/s"),
             Path.physical(f"{prefix}-physical-l2-local", l2_id, local_id, "On-chip L2 and SM path", badge="Rate requires hardware profile"),
             Path.physical(f"{prefix}-physical-local-compute", local_id, compute_id, "Tile delivery and result path", badge="Traffic requires profiling"),

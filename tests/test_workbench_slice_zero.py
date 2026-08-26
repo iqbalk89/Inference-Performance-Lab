@@ -144,6 +144,8 @@ class SliceZeroTests(unittest.TestCase):
         self.assertEqual(components["prefill-weight"]["kind"], "tensor")
         self.assertEqual(components["prefill-matmul"]["kind"], "operation")
         self.assertEqual(components["prefill-matmul"]["drilldown_graph_id"], "prefill-hbm-boundary")
+        boundary_components = {item["component_id"]: item for item in boundary["components"]}
+        self.assertEqual(boundary_components["prefill-boundary-matmul"]["kind"], "operation")
 
         output_write = connections["prefill-y-boundary"]
         self.assertEqual(output_write["source_id"], "prefill-output-write")
@@ -155,8 +157,8 @@ class SliceZeroTests(unittest.TestCase):
         )
 
         self.assertEqual({edge["category"] for edge in operator["connections"]}, {"logical"})
-        self.assertEqual({edge["category"] for edge in boundary["connections"]}, {"transfer", "mapping"})
-        self.assertEqual({edge["category"] for edge in execution["connections"]}, {"physical"})
+        self.assertEqual({edge["category"] for edge in boundary["connections"]}, {"transfer", "logical", "mapping"})
+        self.assertEqual({edge["category"] for edge in execution["connections"]}, {"physical", "mapping"})
         execution_components = {item["component_id"]: item for item in execution["components"]}
         self.assertIn("prefill-physical-l2", execution_components)
         self.assertIn("Unknown—measure or calibrate", {metric["value"] for metric in execution_components["prefill-physical-l2"]["metrics"]})

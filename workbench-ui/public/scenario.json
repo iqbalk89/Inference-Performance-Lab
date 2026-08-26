@@ -1791,8 +1791,8 @@
     },
     "prefill-hbm-boundary": {
       "graph_id": "prefill-hbm-boundary",
-      "title": "Prefill: HBM-boundary accounting",
-      "subtitle": "This level counts X and W reads plus the Y write. It deliberately does not claim an L2 hit rate or internal cache traffic.",
+      "title": "Prefill: projection execution and HBM accounting",
+      "subtitle": "The matrix multiplication stays visible while its HBM reads, output write, and roofline consequences are added around it.",
       "parent_graph_id": "prefill-detail",
       "components": [
         {
@@ -2197,12 +2197,101 @@
           "lane": "process"
         },
         {
+          "component_id": "prefill-boundary-matmul",
+          "label": "Matrix multiplication",
+          "kind": "operation",
+          "summary": "The operator remains visible here: read tiles of X and W are multiplied and accumulated to produce Y.",
+          "position": {
+            "x": 650,
+            "y": 275
+          },
+          "metrics": [
+            {
+              "name": "Equation",
+              "value": "Y = XW",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Work",
+              "value": "17.18 GFLOPs",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": {
+                "title": "Matrix-multiplication work",
+                "concept": "The projection creates an M-by-N output matrix. Every output value is a dot product containing K multiplications. Under the standard performance-modeling convention, each contribution counts as one multiply plus one add, or approximately two floating-point operations.",
+                "formula": "FLOPs = 2 \u00d7 M \u00d7 K \u00d7 N",
+                "inputs": [
+                  {
+                    "symbol": "M",
+                    "value": "512",
+                    "meaning": "Number of token rows processed together",
+                    "source": "First dimension of X"
+                  },
+                  {
+                    "symbol": "K",
+                    "value": "4096",
+                    "meaning": "Number of input features consumed by each output dot product",
+                    "source": "Second dimension of X and first dimension of W"
+                  },
+                  {
+                    "symbol": "N",
+                    "value": "4096",
+                    "meaning": "Number of output features produced for each row",
+                    "source": "Second dimension of W and Y"
+                  },
+                  {
+                    "symbol": "2",
+                    "value": "2 FLOPs/contribution",
+                    "meaning": "One multiplication plus one addition",
+                    "source": "FLOP-counting convention"
+                  }
+                ],
+                "steps": [
+                  {
+                    "title": "Count output values",
+                    "expression": "M \u00d7 N = 512 \u00d7 4096 = 2,097,152",
+                    "explanation": "There is one output value for every row and output feature."
+                  },
+                  {
+                    "title": "Count contributions",
+                    "expression": "2,097,152 outputs \u00d7 4096 contributions/output = 8,589,934,592 contributions",
+                    "explanation": "Each output is a length-K dot product."
+                  },
+                  {
+                    "title": "Convert contributions to FLOPs",
+                    "expression": "2 \u00d7 512 \u00d7 4096 \u00d7 4096 = 17,179,869,184 FLOPs",
+                    "explanation": "Each contribution is modeled as one multiplication and one addition."
+                  },
+                  {
+                    "title": "Readable scale",
+                    "expression": "17,179,869,184 FLOPs = 17.18 GFLOPs",
+                    "explanation": "Decimal prefixes are used for performance quantities."
+                  }
+                ],
+                "unit_analysis": "The row, feature, and contribution counts are dimensionless. Multiplying them by FLOPs/contribution leaves FLOPs.",
+                "interpretation": "This single projection performs 17.18 GFLOPs of arithmetic for 512 token rows.",
+                "assumptions": [
+                  "Uses the conventional approximate 2MKN count rather than exactly K multiplies and K\u22121 adds per dot product."
+                ]
+              }
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
           "component_id": "prefill-output-write",
           "label": "Write Y",
           "kind": "operation",
           "summary": "The output activation is explicitly written back across the HBM boundary.",
           "position": {
-            "x": 390,
+            "x": 920,
             "y": 485
           },
           "metrics": [
@@ -2350,10 +2439,10 @@
           "component_id": "prefill-roofline-accounting",
           "label": "Roofline accounting",
           "kind": "operation",
-          "summary": "Combines work and HBM traffic. Push in to inspect the physical cache and execution path.",
+          "summary": "Combines work and HBM traffic. This is the performance-model summary for the operator.",
           "position": {
-            "x": 780,
-            "y": 275
+            "x": 960,
+            "y": 65
           },
           "metrics": [
             {
@@ -3119,30 +3208,40 @@
           "badge": "4.19 MB \u00b7 600 GB/s \u00b7 6.9905 \u00b5s"
         },
         {
-          "connection_id": "prefill-x-accounted",
+          "connection_id": "prefill-x-to-matmul",
           "source_id": "prefill-input-read",
-          "target_id": "prefill-roofline-accounting",
-          "label": "Input traffic contributes to accounting",
+          "target_id": "prefill-boundary-matmul",
+          "label": "Read X tiles into the operator",
           "direction": "forward",
-          "category": "mapping",
+          "category": "logical",
           "metrics": [],
           "badge": ""
         },
         {
-          "connection_id": "prefill-w-accounted",
+          "connection_id": "prefill-w-to-matmul",
           "source_id": "prefill-weight-read",
-          "target_id": "prefill-roofline-accounting",
-          "label": "Weight traffic contributes to accounting",
+          "target_id": "prefill-boundary-matmul",
+          "label": "Read W tiles into the operator",
           "direction": "forward",
-          "category": "mapping",
+          "category": "logical",
           "metrics": [],
           "badge": ""
         },
         {
-          "connection_id": "prefill-y-accounted",
-          "source_id": "prefill-output-write",
+          "connection_id": "prefill-matmul-to-y",
+          "source_id": "prefill-boundary-matmul",
+          "target_id": "prefill-output-write",
+          "label": "Matrix multiplication produces Y",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-matmul-accounted",
+          "source_id": "prefill-boundary-matmul",
           "target_id": "prefill-roofline-accounting",
-          "label": "Output traffic contributes to accounting",
+          "label": "Operator feeds the performance model",
           "direction": "forward",
           "category": "mapping",
           "metrics": [],
@@ -3161,6 +3260,95 @@
       "subtitle": "This level shows where data can travel. It separates known HBM-boundary accounting from cache and on-chip quantities that remain unknown.",
       "parent_graph_id": "prefill-hbm-boundary",
       "components": [
+        {
+          "component_id": "prefill-physical-matmul",
+          "label": "Matrix multiplication",
+          "kind": "operation",
+          "summary": "The same XW operator is now mapped onto the physical memory and compute path below.",
+          "position": {
+            "x": 540,
+            "y": 70
+          },
+          "metrics": [
+            {
+              "name": "Equation",
+              "value": "Y = XW",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Work",
+              "value": "17.18 GFLOPs",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": {
+                "title": "Matrix-multiplication work",
+                "concept": "The projection creates an M-by-N output matrix. Every output value is a dot product containing K multiplications. Under the standard performance-modeling convention, each contribution counts as one multiply plus one add, or approximately two floating-point operations.",
+                "formula": "FLOPs = 2 \u00d7 M \u00d7 K \u00d7 N",
+                "inputs": [
+                  {
+                    "symbol": "M",
+                    "value": "512",
+                    "meaning": "Number of token rows processed together",
+                    "source": "First dimension of X"
+                  },
+                  {
+                    "symbol": "K",
+                    "value": "4096",
+                    "meaning": "Number of input features consumed by each output dot product",
+                    "source": "Second dimension of X and first dimension of W"
+                  },
+                  {
+                    "symbol": "N",
+                    "value": "4096",
+                    "meaning": "Number of output features produced for each row",
+                    "source": "Second dimension of W and Y"
+                  },
+                  {
+                    "symbol": "2",
+                    "value": "2 FLOPs/contribution",
+                    "meaning": "One multiplication plus one addition",
+                    "source": "FLOP-counting convention"
+                  }
+                ],
+                "steps": [
+                  {
+                    "title": "Count output values",
+                    "expression": "M \u00d7 N = 512 \u00d7 4096 = 2,097,152",
+                    "explanation": "There is one output value for every row and output feature."
+                  },
+                  {
+                    "title": "Count contributions",
+                    "expression": "2,097,152 outputs \u00d7 4096 contributions/output = 8,589,934,592 contributions",
+                    "explanation": "Each output is a length-K dot product."
+                  },
+                  {
+                    "title": "Convert contributions to FLOPs",
+                    "expression": "2 \u00d7 512 \u00d7 4096 \u00d7 4096 = 17,179,869,184 FLOPs",
+                    "explanation": "Each contribution is modeled as one multiplication and one addition."
+                  },
+                  {
+                    "title": "Readable scale",
+                    "expression": "17,179,869,184 FLOPs = 17.18 GFLOPs",
+                    "explanation": "Decimal prefixes are used for performance quantities."
+                  }
+                ],
+                "unit_analysis": "The row, feature, and contribution counts are dimensionless. Multiplying them by FLOPs/contribution leaves FLOPs.",
+                "interpretation": "This single projection performs 17.18 GFLOPs of arithmetic for 512 token rows.",
+                "assumptions": [
+                  "Uses the conventional approximate 2MKN count rather than exactly K multiplies and K\u22121 adds per dot product."
+                ]
+              }
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
         {
           "component_id": "prefill-physical-hbm",
           "label": "HBM",
@@ -3426,6 +3614,16 @@
         }
       ],
       "connections": [
+        {
+          "connection_id": "prefill-physical-matmul-map",
+          "source_id": "prefill-physical-matmul",
+          "target_id": "prefill-tensor-cores",
+          "label": "Matrix multiplication executes on Tensor Core pipelines",
+          "direction": "forward",
+          "category": "mapping",
+          "metrics": [],
+          "badge": ""
+        },
         {
           "connection_id": "prefill-physical-hbm-l2",
           "source_id": "prefill-physical-hbm",
@@ -3908,8 +4106,8 @@
     },
     "decode-hbm-boundary": {
       "graph_id": "decode-hbm-boundary",
-      "title": "Decode: HBM-boundary accounting",
-      "subtitle": "This level counts X and W reads plus the Y write. It deliberately does not claim an L2 hit rate or internal cache traffic.",
+      "title": "Decode: projection execution and HBM accounting",
+      "subtitle": "The matrix multiplication stays visible while its HBM reads, output write, and roofline consequences are added around it.",
       "parent_graph_id": "decode-detail",
       "components": [
         {
@@ -4314,12 +4512,101 @@
           "lane": "process"
         },
         {
+          "component_id": "decode-boundary-matmul",
+          "label": "Matrix multiplication",
+          "kind": "operation",
+          "summary": "The operator remains visible here: read tiles of X and W are multiplied and accumulated to produce Y.",
+          "position": {
+            "x": 650,
+            "y": 275
+          },
+          "metrics": [
+            {
+              "name": "Equation",
+              "value": "Y = XW",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Work",
+              "value": "33.55 MFLOPs",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": {
+                "title": "Matrix-multiplication work",
+                "concept": "The projection creates an M-by-N output matrix. Every output value is a dot product containing K multiplications. Under the standard performance-modeling convention, each contribution counts as one multiply plus one add, or approximately two floating-point operations.",
+                "formula": "FLOPs = 2 \u00d7 M \u00d7 K \u00d7 N",
+                "inputs": [
+                  {
+                    "symbol": "M",
+                    "value": "1",
+                    "meaning": "Number of token rows processed together",
+                    "source": "First dimension of X"
+                  },
+                  {
+                    "symbol": "K",
+                    "value": "4096",
+                    "meaning": "Number of input features consumed by each output dot product",
+                    "source": "Second dimension of X and first dimension of W"
+                  },
+                  {
+                    "symbol": "N",
+                    "value": "4096",
+                    "meaning": "Number of output features produced for each row",
+                    "source": "Second dimension of W and Y"
+                  },
+                  {
+                    "symbol": "2",
+                    "value": "2 FLOPs/contribution",
+                    "meaning": "One multiplication plus one addition",
+                    "source": "FLOP-counting convention"
+                  }
+                ],
+                "steps": [
+                  {
+                    "title": "Count output values",
+                    "expression": "M \u00d7 N = 1 \u00d7 4096 = 4,096",
+                    "explanation": "There is one output value for every row and output feature."
+                  },
+                  {
+                    "title": "Count contributions",
+                    "expression": "4,096 outputs \u00d7 4096 contributions/output = 16,777,216 contributions",
+                    "explanation": "Each output is a length-K dot product."
+                  },
+                  {
+                    "title": "Convert contributions to FLOPs",
+                    "expression": "2 \u00d7 1 \u00d7 4096 \u00d7 4096 = 33,554,432 FLOPs",
+                    "explanation": "Each contribution is modeled as one multiplication and one addition."
+                  },
+                  {
+                    "title": "Readable scale",
+                    "expression": "33,554,432 FLOPs = 33.55 MFLOPs",
+                    "explanation": "Decimal prefixes are used for performance quantities."
+                  }
+                ],
+                "unit_analysis": "The row, feature, and contribution counts are dimensionless. Multiplying them by FLOPs/contribution leaves FLOPs.",
+                "interpretation": "This single projection performs 33.55 MFLOPs of arithmetic for 1 token row.",
+                "assumptions": [
+                  "Uses the conventional approximate 2MKN count rather than exactly K multiplies and K\u22121 adds per dot product."
+                ]
+              }
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
           "component_id": "decode-output-write",
           "label": "Write Y",
           "kind": "operation",
           "summary": "The output activation is explicitly written back across the HBM boundary.",
           "position": {
-            "x": 390,
+            "x": 920,
             "y": 485
           },
           "metrics": [
@@ -4467,10 +4754,10 @@
           "component_id": "decode-roofline-accounting",
           "label": "Roofline accounting",
           "kind": "operation",
-          "summary": "Combines work and HBM traffic. Push in to inspect the physical cache and execution path.",
+          "summary": "Combines work and HBM traffic. This is the performance-model summary for the operator.",
           "position": {
-            "x": 780,
-            "y": 275
+            "x": 960,
+            "y": 65
           },
           "metrics": [
             {
@@ -5236,30 +5523,40 @@
           "badge": "8.19 KB \u00b7 600 GB/s \u00b7 0.0137 \u00b5s"
         },
         {
-          "connection_id": "decode-x-accounted",
+          "connection_id": "decode-x-to-matmul",
           "source_id": "decode-input-read",
-          "target_id": "decode-roofline-accounting",
-          "label": "Input traffic contributes to accounting",
+          "target_id": "decode-boundary-matmul",
+          "label": "Read X tiles into the operator",
           "direction": "forward",
-          "category": "mapping",
+          "category": "logical",
           "metrics": [],
           "badge": ""
         },
         {
-          "connection_id": "decode-w-accounted",
+          "connection_id": "decode-w-to-matmul",
           "source_id": "decode-weight-read",
-          "target_id": "decode-roofline-accounting",
-          "label": "Weight traffic contributes to accounting",
+          "target_id": "decode-boundary-matmul",
+          "label": "Read W tiles into the operator",
           "direction": "forward",
-          "category": "mapping",
+          "category": "logical",
           "metrics": [],
           "badge": ""
         },
         {
-          "connection_id": "decode-y-accounted",
-          "source_id": "decode-output-write",
+          "connection_id": "decode-matmul-to-y",
+          "source_id": "decode-boundary-matmul",
+          "target_id": "decode-output-write",
+          "label": "Matrix multiplication produces Y",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-matmul-accounted",
+          "source_id": "decode-boundary-matmul",
           "target_id": "decode-roofline-accounting",
-          "label": "Output traffic contributes to accounting",
+          "label": "Operator feeds the performance model",
           "direction": "forward",
           "category": "mapping",
           "metrics": [],
@@ -5278,6 +5575,95 @@
       "subtitle": "This level shows where data can travel. It separates known HBM-boundary accounting from cache and on-chip quantities that remain unknown.",
       "parent_graph_id": "decode-hbm-boundary",
       "components": [
+        {
+          "component_id": "decode-physical-matmul",
+          "label": "Matrix multiplication",
+          "kind": "operation",
+          "summary": "The same XW operator is now mapped onto the physical memory and compute path below.",
+          "position": {
+            "x": 540,
+            "y": 70
+          },
+          "metrics": [
+            {
+              "name": "Equation",
+              "value": "Y = XW",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Work",
+              "value": "33.55 MFLOPs",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": {
+                "title": "Matrix-multiplication work",
+                "concept": "The projection creates an M-by-N output matrix. Every output value is a dot product containing K multiplications. Under the standard performance-modeling convention, each contribution counts as one multiply plus one add, or approximately two floating-point operations.",
+                "formula": "FLOPs = 2 \u00d7 M \u00d7 K \u00d7 N",
+                "inputs": [
+                  {
+                    "symbol": "M",
+                    "value": "1",
+                    "meaning": "Number of token rows processed together",
+                    "source": "First dimension of X"
+                  },
+                  {
+                    "symbol": "K",
+                    "value": "4096",
+                    "meaning": "Number of input features consumed by each output dot product",
+                    "source": "Second dimension of X and first dimension of W"
+                  },
+                  {
+                    "symbol": "N",
+                    "value": "4096",
+                    "meaning": "Number of output features produced for each row",
+                    "source": "Second dimension of W and Y"
+                  },
+                  {
+                    "symbol": "2",
+                    "value": "2 FLOPs/contribution",
+                    "meaning": "One multiplication plus one addition",
+                    "source": "FLOP-counting convention"
+                  }
+                ],
+                "steps": [
+                  {
+                    "title": "Count output values",
+                    "expression": "M \u00d7 N = 1 \u00d7 4096 = 4,096",
+                    "explanation": "There is one output value for every row and output feature."
+                  },
+                  {
+                    "title": "Count contributions",
+                    "expression": "4,096 outputs \u00d7 4096 contributions/output = 16,777,216 contributions",
+                    "explanation": "Each output is a length-K dot product."
+                  },
+                  {
+                    "title": "Convert contributions to FLOPs",
+                    "expression": "2 \u00d7 1 \u00d7 4096 \u00d7 4096 = 33,554,432 FLOPs",
+                    "explanation": "Each contribution is modeled as one multiplication and one addition."
+                  },
+                  {
+                    "title": "Readable scale",
+                    "expression": "33,554,432 FLOPs = 33.55 MFLOPs",
+                    "explanation": "Decimal prefixes are used for performance quantities."
+                  }
+                ],
+                "unit_analysis": "The row, feature, and contribution counts are dimensionless. Multiplying them by FLOPs/contribution leaves FLOPs.",
+                "interpretation": "This single projection performs 33.55 MFLOPs of arithmetic for 1 token row.",
+                "assumptions": [
+                  "Uses the conventional approximate 2MKN count rather than exactly K multiplies and K\u22121 adds per dot product."
+                ]
+              }
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
         {
           "component_id": "decode-physical-hbm",
           "label": "HBM",
@@ -5543,6 +5929,16 @@
         }
       ],
       "connections": [
+        {
+          "connection_id": "decode-physical-matmul-map",
+          "source_id": "decode-physical-matmul",
+          "target_id": "decode-tensor-cores",
+          "label": "Matrix multiplication executes on Tensor Core pipelines",
+          "direction": "forward",
+          "category": "mapping",
+          "metrics": [],
+          "badge": ""
+        },
         {
           "connection_id": "decode-physical-hbm-l2",
           "source_id": "decode-physical-hbm",

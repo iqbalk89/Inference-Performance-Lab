@@ -69,13 +69,16 @@ X tensor ──┐
 W tensor ──┘
 ```
 
-Level 2 answers, “Which bytes does the simplified model count at the HBM
-boundary?”
+Level 2 answers, “How does the operator execute, and which bytes does the
+simplified model count at the HBM boundary?” The matrix multiplication remains
+in the center; the HBM reads and output write are attached to it rather than
+replacing it.
 
 ```text
-             ┌──▶ read X
-HBM boundary ├──▶ read W       ─ ─ ▶ roofline accounting
-             ◀─── write Y
+             ┌──▶ read X ──▶┐
+HBM boundary ├──▶ read W ──▶│ matrix multiplication ──▶ write Y ──▶ HBM
+             └──────────────┘             │
+                                  ─ ─ ─ ▶ roofline accounting
 ```
 
 Level 3 answers, “Through which physical resources can data travel?”
