@@ -56,10 +56,11 @@ class SliceZeroTests(unittest.TestCase):
         scenario = build_slice_zero_scenario().to_dict()
 
         self.assertEqual(scenario["initial_graph_id"], "system")
-        self.assertEqual(
-            set(scenario["diagrams"]),
-            {"system", "gpu-0-detail", "prefill-detail", "decode-detail"},
-        )
+        self.assertEqual(set(scenario["diagrams"]), {
+            "system", "gpu-0-detail",
+            "prefill-detail", "prefill-hbm-boundary", "prefill-execution-path",
+            "decode-detail", "decode-hbm-boundary", "decode-execution-path",
+        })
         self.assertLessEqual(
             {"client", "server", "cpu", "host-memory", "host-link", "gpu-0"},
             component_ids(scenario, "system"),
@@ -131,30 +132,34 @@ class SliceZeroTests(unittest.TestCase):
         self.assertEqual(graph["title"], "Custom Prefill: Problem 02 projection")
         self.assertIn("X [128 × 4096]", {item["label"] for item in graph["components"]})
 
-    def test_projection_uses_reusable_blocks_and_explicit_output_writeback(self) -> None:
+    def test_projection_uses_progressive_reusable_views_and_output_writeback(self) -> None:
         scenario = build_slice_zero_scenario().to_dict()
-        graph = scenario["diagrams"]["prefill-detail"]
-        components = {item["component_id"]: item for item in graph["components"]}
-        connections = {item["connection_id"]: item for item in graph["connections"]}
+        operator = scenario["diagrams"]["prefill-detail"]
+        boundary = scenario["diagrams"]["prefill-hbm-boundary"]
+        execution = scenario["diagrams"]["prefill-execution-path"]
+        components = {item["component_id"]: item for item in operator["components"]}
+        connections = {item["connection_id"]: item for item in boundary["connections"]}
 
         self.assertEqual(components["prefill-input"]["kind"], "tensor")
         self.assertEqual(components["prefill-weight"]["kind"], "tensor")
         self.assertEqual(components["prefill-matmul"]["kind"], "operation")
-        self.assertEqual(components["prefill-hbm"]["lane"], "hardware")
+        self.assertEqual(components["prefill-matmul"]["drilldown_graph_id"], "prefill-hbm-boundary")
 
-        output_write = connections["prefill-output-write"]
-        self.assertEqual(output_write["source_id"], "prefill-output")
-        self.assertEqual(output_write["target_id"], "prefill-hbm")
+        output_write = connections["prefill-y-boundary"]
+        self.assertEqual(output_write["source_id"], "prefill-output-write")
+        self.assertEqual(output_write["target_id"], "prefill-boundary-hbm")
         self.assertEqual(output_write["category"], "transfer")
         self.assertIn("GB/s", output_write["badge"])
         self.assertTrue(
-            all(metric["calculation"] for metric in output_write["metrics"] if metric["name"] != "Peak HBM rate")
+            all(metric["calculation"] for metric in output_write["metrics"] if metric["name"] != "Assumed HBM rate")
         )
 
-        self.assertLessEqual(
-            {"logical", "transfer", "physical", "mapping"},
-            {edge["category"] for edge in connections.values()},
-        )
+        self.assertEqual({edge["category"] for edge in operator["connections"]}, {"logical"})
+        self.assertEqual({edge["category"] for edge in boundary["connections"]}, {"transfer", "mapping"})
+        self.assertEqual({edge["category"] for edge in execution["connections"]}, {"physical"})
+        execution_components = {item["component_id"]: item for item in execution["components"]}
+        self.assertIn("prefill-physical-l2", execution_components)
+        self.assertIn("Unknown—measure or calibrate", {metric["value"] for metric in execution_components["prefill-physical-l2"]["metrics"]})
 
 
 if __name__ == "__main__":

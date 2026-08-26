@@ -38,11 +38,12 @@ class OperationBlock(DiagramBlock):
     summary: str
     position: Position
     metrics: tuple[Metric, ...] = ()
+    drilldown_graph_id: str | None = None
 
     def component(self) -> Component:
         return Component(
             self.block_id, self.label, ComponentKind.OPERATION, self.summary,
-            self.position, self.metrics, lane="process",
+            self.position, self.metrics, self.drilldown_graph_id, lane="process",
         )
 
 
@@ -54,11 +55,12 @@ class ResourceBlock(DiagramBlock):
     summary: str
     position: Position
     metrics: tuple[Metric, ...] = ()
+    drilldown_graph_id: str | None = None
 
     def component(self) -> Component:
         return Component(
             self.block_id, self.label, self.kind, self.summary,
-            self.position, self.metrics, lane="hardware",
+            self.position, self.metrics, self.drilldown_graph_id, lane="hardware",
         )
 
 

@@ -198,6 +198,10 @@ class PhaseModel(ABC):
     def diagram(self) -> Diagram:
         raise NotImplementedError
 
+    def diagrams(self) -> tuple[Diagram, ...]:
+        """Return the phase's complete progressive drill-down hierarchy."""
+        return (self.diagram(),)
+
 
 BuilderT = TypeVar("BuilderT", bound=Callable[..., Any])
 

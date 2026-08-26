@@ -121,7 +121,7 @@ def build_slice_zero_scenario(
         "slice-0-problem-02",
         "Problem 02: System-to-GPU Explorer",
         "system",
-        (system.diagram(gpu), gpu.diagram(), prefill.diagram(), decode.diagram()),
+        (system.diagram(gpu), gpu.diagram(), *prefill.diagrams(), *decode.diagrams()),
         {
             "slice": 0,
             "memory_variant": memory_variant,

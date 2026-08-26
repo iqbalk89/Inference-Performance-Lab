@@ -59,6 +59,7 @@ button { font: inherit; }
 
 .lane-labels { position: absolute; z-index: 3; pointer-events: none; inset: 24px auto auto 25px; display: grid; gap: 240px; color: #7089ab; font-size: 10px; letter-spacing: .16em; font-weight: 800; }
 .phase-lanes { gap: 365px; }
+.view-label { position: absolute; z-index: 3; pointer-events: none; top: 24px; left: 25px; padding: 7px 10px; border: 1px solid #304b6d; border-radius: 7px; background: #09172ad9; color: #7e9abb; font-size: 10px; letter-spacing: .16em; font-weight: 800; }
 .interaction-hint { position: absolute; z-index: 3; left: 20px; bottom: 16px; border: 1px solid #2d4564; border-radius: 8px; padding: 7px 10px; background: #081427d9; color: #8ea5c2; font-size: 11px; }
 
 .inspector { padding: 26px 24px; background: #091426e6; overflow: auto; }

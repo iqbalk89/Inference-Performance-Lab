@@ -53,6 +53,7 @@ export default function App() {
     type: connection.category === 'mapping' ? 'straight' : 'smoothstep',
     animated: connection.category !== 'mapping',
     data: connection,
+    markerStart: connection.direction === 'both' ? { type: MarkerType.ArrowClosed } : undefined,
     markerEnd: { type: MarkerType.ArrowClosed },
     className: `edge-${connection.category}`,
     labelBgPadding: [7, 4],
@@ -99,7 +100,9 @@ export default function App() {
       <section className="workspace">
         <div className="canvas-panel">
           {graphId === 'gpu-0-detail' && <div className="lane-labels"><span>INFERENCE PROCESS</span><span>GPU HARDWARE</span></div>}
-          {(graphId === 'prefill-detail' || graphId === 'decode-detail') && <div className="lane-labels phase-lanes"><span>LOGICAL TENSOR FLOW</span><span>PHYSICAL GPU HARDWARE</span></div>}
+          {(graphId === 'prefill-detail' || graphId === 'decode-detail') && <div className="view-label">LEVEL 1 · OPERATOR MATH</div>}
+          {graphId?.endsWith('-hbm-boundary') && <div className="view-label">LEVEL 2 · HBM BOUNDARY LEDGER</div>}
+          {graphId?.endsWith('-execution-path') && <div className="view-label">LEVEL 3 · PHYSICAL GPU PATH</div>}
           <ReactFlow<ComponentFlowNode, Edge>
             nodes={nodes}
             edges={edges}

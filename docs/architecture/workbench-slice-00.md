@@ -45,40 +45,55 @@ Interactions:
 Inference System
 └── Educational GPU
     ├── Prefill
-    │   └── Problem 02 [512 × 4096] projection
+    │   └── Level 1: Problem 02 operator math
+    │       └── Level 2: HBM-boundary ledger
+    │           └── Level 3: physical GPU execution path
     └── Decode
-        └── Problem 02 [1 × 4096] projection
+        └── Level 1: Problem 02 operator math
+            └── Level 2: HBM-boundary ledger
+                └── Level 3: physical GPU execution path
 ```
 
 The GPU view separates logical process blocks from physical hardware blocks.
 Dashed mapping lines say that a process demands a hardware resource; solid
 arrows represent physical or logical data paths.
 
-The prefill and decode projection views use two explicit lanes:
+The prefill and decode projections use progressive views instead of combining
+multiple abstraction levels on one canvas.
+
+Level 1 answers, “What mathematics occurs?”
 
 ```text
-LOGICAL TENSOR FLOW
 X tensor ──┐
            ├──▶ matrix multiplication ──▶ Y tensor
 W tensor ──┘
-
-PHYSICAL GPU HARDWARE
-HBM ◀──▶ shared L2 ◀──▶ SMs + Tensor Cores
 ```
 
-The lanes answer different questions. The upper lane explains the mathematics:
-which tensors participate in the operation and which tensor it produces. The
-lower lane explains where bytes reside and where computation executes. Cyan
-transfer arrows connect the two views and count traffic at the HBM boundary:
-HBM reads `X`, HBM reads `W`, and the resulting `Y` is explicitly written back
-to HBM. The final `Y → HBM` arrow is important because output bytes contribute
-to total traffic and therefore to arithmetic intensity and the memory-time
-bound.
+Level 2 answers, “Which bytes does the simplified model count at the HBM
+boundary?”
+
+```text
+             ┌──▶ read X
+HBM boundary ├──▶ read W       ─ ─ ▶ roofline accounting
+             ◀─── write Y
+```
+
+Level 3 answers, “Through which physical resources can data travel?”
+
+```text
+HBM ◀──▶ shared L2 ◀──▶ SM-local storage ◀──▶ Tensor Core pipelines
+```
+
+The `Y → HBM` direction is explicit in Level 2 because output bytes contribute
+to total traffic, arithmetic intensity, and the memory-time bound. Level 3
+introduces L2 only when discussing the physical route. Its hit rate and
+internal traffic are displayed as `Unknown—measure or calibrate`; the workbench
+does not invent cache behavior merely to fill the diagram.
 
 This is intentionally a boundary-level model. It does not claim that data
 physically jumps directly from HBM into a mathematical tensor node. Actual
 transactions travel through memory controllers and caches; those details are
-shown in the hardware lane and will be quantified when cache behavior is
+shown in Level 3 and will be quantified when cache behavior is
 modeled or measured.
 
 Path badges are intentionally compact:
