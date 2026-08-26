@@ -58,8 +58,9 @@ class SliceZeroTests(unittest.TestCase):
         self.assertEqual(scenario["initial_graph_id"], "system")
         self.assertEqual(set(scenario["diagrams"]), {
             "system", "gpu-0-detail",
-            "prefill-detail", "prefill-hbm-boundary", "prefill-execution-path",
-            "decode-detail", "decode-hbm-boundary", "decode-execution-path",
+            "prefill-detail", "decode-detail",
+            "prefill-projection-detail", "prefill-projection-hbm-boundary", "prefill-projection-execution-path",
+            "decode-projection-detail", "decode-projection-hbm-boundary", "decode-projection-execution-path",
             "qkv-detail", "qkv-hbm-boundary", "qkv-execution-path",
         })
         self.assertLessEqual(
@@ -70,6 +71,11 @@ class SliceZeroTests(unittest.TestCase):
             {"hbm", "l2", "sm-array", "prefill", "decode"},
             component_ids(scenario, "gpu-0-detail"),
         )
+
+        pipeline_labels = {item["label"] for item in scenario["diagrams"]["prefill-detail"]["components"]}
+        self.assertIn("QKV projection", pipeline_labels)
+        self.assertIn("Attention", pipeline_labels)
+        self.assertIn("KV cache", pipeline_labels)
 
     def test_memory_implementation_is_swappable_without_changing_consumers(self) -> None:
         hierarchical = build_slice_zero_scenario(memory_variant="hierarchical").to_dict()
@@ -148,23 +154,23 @@ class SliceZeroTests(unittest.TestCase):
 
     def test_projection_uses_progressive_reusable_views_and_output_writeback(self) -> None:
         scenario = build_slice_zero_scenario().to_dict()
-        operator = scenario["diagrams"]["prefill-detail"]
-        boundary = scenario["diagrams"]["prefill-hbm-boundary"]
-        execution = scenario["diagrams"]["prefill-execution-path"]
+        operator = scenario["diagrams"]["prefill-projection-detail"]
+        boundary = scenario["diagrams"]["prefill-projection-hbm-boundary"]
+        execution = scenario["diagrams"]["prefill-projection-execution-path"]
         components = {item["component_id"]: item for item in operator["components"]}
         connections = {item["connection_id"]: item for item in boundary["connections"]}
 
-        self.assertEqual(components["prefill-input"]["kind"], "tensor")
-        self.assertEqual(components["prefill-weight"]["kind"], "tensor")
-        self.assertEqual(components["prefill-matmul"]["kind"], "operation")
-        self.assertEqual(components["prefill-matmul"]["drilldown_graph_id"], "prefill-hbm-boundary")
+        self.assertEqual(components["prefill-projection-input"]["kind"], "tensor")
+        self.assertEqual(components["prefill-projection-weight"]["kind"], "tensor")
+        self.assertEqual(components["prefill-projection-matmul"]["kind"], "operation")
+        self.assertEqual(components["prefill-projection-matmul"]["drilldown_graph_id"], "prefill-projection-hbm-boundary")
         boundary_components = {item["component_id"]: item for item in boundary["components"]}
-        self.assertEqual(boundary_components["prefill-boundary-matmul"]["kind"], "operation")
-        self.assertEqual(boundary_components["prefill-roofline-accounting"]["kind"], "analysis")
+        self.assertEqual(boundary_components["prefill-projection-boundary-matmul"]["kind"], "operation")
+        self.assertEqual(boundary_components["prefill-projection-roofline-accounting"]["kind"], "analysis")
 
-        output_write = connections["prefill-y-boundary"]
-        self.assertEqual(output_write["source_id"], "prefill-output-write")
-        self.assertEqual(output_write["target_id"], "prefill-boundary-hbm")
+        output_write = connections["prefill-projection-y-boundary"]
+        self.assertEqual(output_write["source_id"], "prefill-projection-output-write")
+        self.assertEqual(output_write["target_id"], "prefill-projection-boundary-hbm")
         self.assertEqual(output_write["category"], "transfer")
         self.assertIn("GB/s", output_write["badge"])
         self.assertTrue(
@@ -175,8 +181,8 @@ class SliceZeroTests(unittest.TestCase):
         self.assertEqual({edge["category"] for edge in boundary["connections"]}, {"transfer", "logical", "mapping"})
         self.assertEqual({edge["category"] for edge in execution["connections"]}, {"physical", "mapping"})
         execution_components = {item["component_id"]: item for item in execution["components"]}
-        self.assertIn("prefill-physical-l2", execution_components)
-        self.assertIn("Unknown—measure or calibrate", {metric["value"] for metric in execution_components["prefill-physical-l2"]["metrics"]})
+        self.assertIn("prefill-projection-physical-l2", execution_components)
+        self.assertIn("Unknown—measure or calibrate", {metric["value"] for metric in execution_components["prefill-projection-physical-l2"]["metrics"]})
 
         charts = boundary["charts"]
         self.assertEqual(len(charts), 1)

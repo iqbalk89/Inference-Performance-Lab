@@ -122,3 +122,7 @@ class Path:
     @staticmethod
     def mapping(path_id: str, source: str, target: str, name: str) -> Connection:
         return Connection(path_id, source, target, name, category="mapping")
+
+    @staticmethod
+    def state(path_id: str, source: str, target: str, name: str) -> Connection:
+        return Connection(path_id, source, target, name, direction="both", category="state")

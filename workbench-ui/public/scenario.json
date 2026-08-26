@@ -1349,12 +1349,874 @@
     },
     "prefill-detail": {
       "graph_id": "prefill-detail",
-      "title": "Prefill: Problem 02 projection",
-      "subtitle": "Processes 512 prompt rows together against a shared projection matrix. This first level shows mathematics only\u2014not the GPU memory route.",
+      "title": "Prefill: end-to-end inference pipeline",
+      "subtitle": "The full phase is a sequence of operators. QKV is one operation inside the Transformer layer; it is not a separate inference phase.",
       "parent_graph_id": "gpu-0-detail",
       "components": [
         {
-          "component_id": "prefill-input",
+          "component_id": "prefill-tokens",
+          "label": "Token IDs",
+          "kind": "tensor",
+          "summary": "The tokenizer converts the request into integer vocabulary IDs. Prompt rows are processed together in prefill; decode contributes one new ID at a time.",
+          "position": {
+            "x": 40,
+            "y": 230
+          },
+          "metrics": [
+            {
+              "name": "Rows",
+              "value": 512,
+              "unit": "rows",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-embedding",
+          "label": "Embedding lookup",
+          "kind": "operation",
+          "summary": "Maps each token ID to its initial hidden vector. This is a lookup/gather, not a dense projection.",
+          "position": {
+            "x": 240,
+            "y": 230
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-layers",
+          "label": "Transformer layer stack",
+          "kind": "operation",
+          "summary": "Repeats the same high-level layer pattern for every layer: norm, QKV, attention, output projection, norm, and MLP.",
+          "position": {
+            "x": 450,
+            "y": 230
+          },
+          "metrics": [
+            {
+              "name": "Rows per phase",
+              "value": 512,
+              "unit": "rows",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-qkv",
+          "label": "QKV projection",
+          "kind": "operation",
+          "summary": "Creates Q, K, and V. This is one of the detailed operator models available in the workbench.",
+          "position": {
+            "x": 680,
+            "y": 90
+          },
+          "metrics": [
+            {
+              "name": "Fused work",
+              "value": "17.18 GFLOPs",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": {
+                "title": "Matrix-multiplication work",
+                "concept": "The projection creates an M-by-N output matrix. Every output value is a dot product containing K multiplications. Under the standard performance-modeling convention, each contribution counts as one multiply plus one add, or approximately two floating-point operations.",
+                "formula": "FLOPs = 2 \u00d7 M \u00d7 K \u00d7 N",
+                "inputs": [
+                  {
+                    "symbol": "M",
+                    "value": "512",
+                    "meaning": "Number of token rows processed together",
+                    "source": "First dimension of X"
+                  },
+                  {
+                    "symbol": "K",
+                    "value": "4096",
+                    "meaning": "Number of input features consumed by each output dot product",
+                    "source": "Second dimension of X and first dimension of W"
+                  },
+                  {
+                    "symbol": "N",
+                    "value": "4096",
+                    "meaning": "Number of output features produced for each row",
+                    "source": "Second dimension of W and Y"
+                  },
+                  {
+                    "symbol": "2",
+                    "value": "2 FLOPs/contribution",
+                    "meaning": "One multiplication plus one addition",
+                    "source": "FLOP-counting convention"
+                  }
+                ],
+                "steps": [
+                  {
+                    "title": "Count output values",
+                    "expression": "M \u00d7 N = 512 \u00d7 4096 = 2,097,152",
+                    "explanation": "There is one output value for every row and output feature."
+                  },
+                  {
+                    "title": "Count contributions",
+                    "expression": "2,097,152 outputs \u00d7 4096 contributions/output = 8,589,934,592 contributions",
+                    "explanation": "Each output is a length-K dot product."
+                  },
+                  {
+                    "title": "Convert contributions to FLOPs",
+                    "expression": "2 \u00d7 512 \u00d7 4096 \u00d7 4096 = 17,179,869,184 FLOPs",
+                    "explanation": "Each contribution is modeled as one multiplication and one addition."
+                  },
+                  {
+                    "title": "Readable scale",
+                    "expression": "17,179,869,184 FLOPs = 17.18 GFLOPs",
+                    "explanation": "Decimal prefixes are used for performance quantities."
+                  }
+                ],
+                "unit_analysis": "The row, feature, and contribution counts are dimensionless. Multiplying them by FLOPs/contribution leaves FLOPs.",
+                "interpretation": "This single projection performs 17.18 GFLOPs of arithmetic for 512 token rows.",
+                "assumptions": [
+                  "Uses the conventional approximate 2MKN count rather than exactly K multiplies and K\u22121 adds per dot product."
+                ]
+              }
+            }
+          ],
+          "drilldown_graph_id": "qkv-detail",
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-attention",
+          "label": "Attention",
+          "kind": "operation",
+          "summary": "Forms attention scores from Q and K, applies the causal rule, normalizes scores, and mixes V.",
+          "position": {
+            "x": 880,
+            "y": 90
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-cache",
+          "label": "KV cache",
+          "kind": "operation",
+          "summary": "Receives the prompt K/V rows so later decode steps can reuse them.",
+          "position": {
+            "x": 880,
+            "y": 360
+          },
+          "metrics": [
+            {
+              "name": "Role",
+              "value": "persistent K/V state",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Capacity model",
+              "value": "Next modeling slice",
+              "unit": "",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-output-projection",
+          "label": "Attention output projection",
+          "kind": "operation",
+          "summary": "Projects the attention result back to the model width, then participates in a residual connection.",
+          "position": {
+            "x": 1100,
+            "y": 90
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-mlp",
+          "label": "MLP / feed-forward block",
+          "kind": "operation",
+          "summary": "Expands the hidden width, applies the nonlinear transformation, and projects back down.",
+          "position": {
+            "x": 1100,
+            "y": 300
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-final-norm",
+          "label": "Final normalization",
+          "kind": "operation",
+          "summary": "Normalizes the final hidden state before vocabulary prediction.",
+          "position": {
+            "x": 1310,
+            "y": 190
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-lm-head",
+          "label": "LM head",
+          "kind": "operation",
+          "summary": "Projects the final hidden vector into one score per vocabulary item.",
+          "position": {
+            "x": 1510,
+            "y": 190
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-logits",
+          "label": "Vocabulary logits",
+          "kind": "tensor",
+          "summary": "One score per possible next token. The highest-scoring entries are candidates, not yet a selected token.",
+          "position": {
+            "x": 1710,
+            "y": 190
+          },
+          "metrics": [
+            {
+              "name": "Output",
+              "value": "vocabulary scores",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-sampling",
+          "label": "Sampling / selection",
+          "kind": "operation",
+          "summary": "Applies the configured decoding policy\u2014greedy, temperature, top-k, or top-p\u2014to choose the next token ID.",
+          "position": {
+            "x": 1910,
+            "y": 190
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-next-token",
+          "label": "Next token ID",
+          "kind": "tensor",
+          "summary": "The selected ID is emitted or fed back into the decode loop.",
+          "position": {
+            "x": 2110,
+            "y": 190
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        }
+      ],
+      "connections": [
+        {
+          "connection_id": "prefill-tokens-embedding",
+          "source_id": "prefill-tokens",
+          "target_id": "prefill-embedding",
+          "label": "IDs select embedding rows",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-embedding-layers",
+          "source_id": "prefill-embedding",
+          "target_id": "prefill-layers",
+          "label": "Hidden states enter every layer",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-layers-qkv",
+          "source_id": "prefill-layers",
+          "target_id": "prefill-qkv",
+          "label": "Layer hidden state enters QKV",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-qkv-attention",
+          "source_id": "prefill-qkv",
+          "target_id": "prefill-attention",
+          "label": "Q/K/V feed attention",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-attention-cache",
+          "source_id": "prefill-attention",
+          "target_id": "prefill-cache",
+          "label": "Read or write K/V state",
+          "direction": "both",
+          "category": "state",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-attention-output",
+          "source_id": "prefill-attention",
+          "target_id": "prefill-output-projection",
+          "label": "Attention context enters output projection",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-output-mlp",
+          "source_id": "prefill-output-projection",
+          "target_id": "prefill-mlp",
+          "label": "Residual stream enters feed-forward block",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-mlp-final-norm",
+          "source_id": "prefill-mlp",
+          "target_id": "prefill-final-norm",
+          "label": "Final hidden state",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-norm-lm-head",
+          "source_id": "prefill-final-norm",
+          "target_id": "prefill-lm-head",
+          "label": "Normalized hidden state",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-lm-head-logits",
+          "source_id": "prefill-lm-head",
+          "target_id": "prefill-logits",
+          "label": "Vocabulary scores",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-logits-sampling",
+          "source_id": "prefill-logits",
+          "target_id": "prefill-sampling",
+          "label": "Scores enter decoding policy",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-sampling-next-token",
+          "source_id": "prefill-sampling",
+          "target_id": "prefill-next-token",
+          "label": "Selected token ID",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-next-token-output",
+          "source_id": "prefill-next-token",
+          "target_id": "prefill-tokens",
+          "label": "First generated token begins the next step",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        }
+      ],
+      "assumptions": [
+        "Prefill processes 512 token rows in this simplified view.",
+        "The layer stack is shown once but executes repeatedly for every Transformer layer.",
+        "The QKV block links to its detailed fused-projection branch view."
+      ],
+      "charts": []
+    },
+    "decode-detail": {
+      "graph_id": "decode-detail",
+      "title": "Decode: end-to-end inference pipeline",
+      "subtitle": "The full phase is a sequence of operators. QKV is one operation inside the Transformer layer; it is not a separate inference phase.",
+      "parent_graph_id": "gpu-0-detail",
+      "components": [
+        {
+          "component_id": "decode-tokens",
+          "label": "Token IDs",
+          "kind": "tensor",
+          "summary": "The tokenizer converts the request into integer vocabulary IDs. Prompt rows are processed together in prefill; decode contributes one new ID at a time.",
+          "position": {
+            "x": 40,
+            "y": 230
+          },
+          "metrics": [
+            {
+              "name": "Rows",
+              "value": 1,
+              "unit": "rows",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-embedding",
+          "label": "Embedding lookup",
+          "kind": "operation",
+          "summary": "Maps each token ID to its initial hidden vector. This is a lookup/gather, not a dense projection.",
+          "position": {
+            "x": 240,
+            "y": 230
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-layers",
+          "label": "Transformer layer stack",
+          "kind": "operation",
+          "summary": "Repeats the same high-level layer pattern for every layer: norm, QKV, attention, output projection, norm, and MLP.",
+          "position": {
+            "x": 450,
+            "y": 230
+          },
+          "metrics": [
+            {
+              "name": "Rows per phase",
+              "value": 1,
+              "unit": "rows",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-qkv",
+          "label": "QKV projection",
+          "kind": "operation",
+          "summary": "Creates Q, K, and V. This is one of the detailed operator models available in the workbench.",
+          "position": {
+            "x": 680,
+            "y": 90
+          },
+          "metrics": [
+            {
+              "name": "Fused work",
+              "value": "33.55 MFLOPs",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": {
+                "title": "Matrix-multiplication work",
+                "concept": "The projection creates an M-by-N output matrix. Every output value is a dot product containing K multiplications. Under the standard performance-modeling convention, each contribution counts as one multiply plus one add, or approximately two floating-point operations.",
+                "formula": "FLOPs = 2 \u00d7 M \u00d7 K \u00d7 N",
+                "inputs": [
+                  {
+                    "symbol": "M",
+                    "value": "1",
+                    "meaning": "Number of token rows processed together",
+                    "source": "First dimension of X"
+                  },
+                  {
+                    "symbol": "K",
+                    "value": "4096",
+                    "meaning": "Number of input features consumed by each output dot product",
+                    "source": "Second dimension of X and first dimension of W"
+                  },
+                  {
+                    "symbol": "N",
+                    "value": "4096",
+                    "meaning": "Number of output features produced for each row",
+                    "source": "Second dimension of W and Y"
+                  },
+                  {
+                    "symbol": "2",
+                    "value": "2 FLOPs/contribution",
+                    "meaning": "One multiplication plus one addition",
+                    "source": "FLOP-counting convention"
+                  }
+                ],
+                "steps": [
+                  {
+                    "title": "Count output values",
+                    "expression": "M \u00d7 N = 1 \u00d7 4096 = 4,096",
+                    "explanation": "There is one output value for every row and output feature."
+                  },
+                  {
+                    "title": "Count contributions",
+                    "expression": "4,096 outputs \u00d7 4096 contributions/output = 16,777,216 contributions",
+                    "explanation": "Each output is a length-K dot product."
+                  },
+                  {
+                    "title": "Convert contributions to FLOPs",
+                    "expression": "2 \u00d7 1 \u00d7 4096 \u00d7 4096 = 33,554,432 FLOPs",
+                    "explanation": "Each contribution is modeled as one multiplication and one addition."
+                  },
+                  {
+                    "title": "Readable scale",
+                    "expression": "33,554,432 FLOPs = 33.55 MFLOPs",
+                    "explanation": "Decimal prefixes are used for performance quantities."
+                  }
+                ],
+                "unit_analysis": "The row, feature, and contribution counts are dimensionless. Multiplying them by FLOPs/contribution leaves FLOPs.",
+                "interpretation": "This single projection performs 33.55 MFLOPs of arithmetic for 1 token row.",
+                "assumptions": [
+                  "Uses the conventional approximate 2MKN count rather than exactly K multiplies and K\u22121 adds per dot product."
+                ]
+              }
+            }
+          ],
+          "drilldown_graph_id": "qkv-detail",
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-attention",
+          "label": "Attention",
+          "kind": "operation",
+          "summary": "Forms attention scores from Q and K, applies the causal rule, normalizes scores, and mixes V.",
+          "position": {
+            "x": 880,
+            "y": 90
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-cache",
+          "label": "KV cache",
+          "kind": "operation",
+          "summary": "Reads prior K/V for every decode step and appends the new K/V rows.",
+          "position": {
+            "x": 880,
+            "y": 360
+          },
+          "metrics": [
+            {
+              "name": "Role",
+              "value": "persistent K/V state",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Capacity model",
+              "value": "Next modeling slice",
+              "unit": "",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-output-projection",
+          "label": "Attention output projection",
+          "kind": "operation",
+          "summary": "Projects the attention result back to the model width, then participates in a residual connection.",
+          "position": {
+            "x": 1100,
+            "y": 90
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-mlp",
+          "label": "MLP / feed-forward block",
+          "kind": "operation",
+          "summary": "Expands the hidden width, applies the nonlinear transformation, and projects back down.",
+          "position": {
+            "x": 1100,
+            "y": 300
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-final-norm",
+          "label": "Final normalization",
+          "kind": "operation",
+          "summary": "Normalizes the final hidden state before vocabulary prediction.",
+          "position": {
+            "x": 1310,
+            "y": 190
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-lm-head",
+          "label": "LM head",
+          "kind": "operation",
+          "summary": "Projects the final hidden vector into one score per vocabulary item.",
+          "position": {
+            "x": 1510,
+            "y": 190
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-logits",
+          "label": "Vocabulary logits",
+          "kind": "tensor",
+          "summary": "One score per possible next token. The highest-scoring entries are candidates, not yet a selected token.",
+          "position": {
+            "x": 1710,
+            "y": 190
+          },
+          "metrics": [
+            {
+              "name": "Output",
+              "value": "vocabulary scores",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-sampling",
+          "label": "Sampling / selection",
+          "kind": "operation",
+          "summary": "Applies the configured decoding policy\u2014greedy, temperature, top-k, or top-p\u2014to choose the next token ID.",
+          "position": {
+            "x": 1910,
+            "y": 190
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-next-token",
+          "label": "Next token ID",
+          "kind": "tensor",
+          "summary": "The selected ID is emitted or fed back into the decode loop.",
+          "position": {
+            "x": 2110,
+            "y": 190
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        }
+      ],
+      "connections": [
+        {
+          "connection_id": "decode-tokens-embedding",
+          "source_id": "decode-tokens",
+          "target_id": "decode-embedding",
+          "label": "IDs select embedding rows",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-embedding-layers",
+          "source_id": "decode-embedding",
+          "target_id": "decode-layers",
+          "label": "Hidden states enter every layer",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-layers-qkv",
+          "source_id": "decode-layers",
+          "target_id": "decode-qkv",
+          "label": "Layer hidden state enters QKV",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-qkv-attention",
+          "source_id": "decode-qkv",
+          "target_id": "decode-attention",
+          "label": "Q/K/V feed attention",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-attention-cache",
+          "source_id": "decode-attention",
+          "target_id": "decode-cache",
+          "label": "Read or write K/V state",
+          "direction": "both",
+          "category": "state",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-attention-output",
+          "source_id": "decode-attention",
+          "target_id": "decode-output-projection",
+          "label": "Attention context enters output projection",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-output-mlp",
+          "source_id": "decode-output-projection",
+          "target_id": "decode-mlp",
+          "label": "Residual stream enters feed-forward block",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-mlp-final-norm",
+          "source_id": "decode-mlp",
+          "target_id": "decode-final-norm",
+          "label": "Final hidden state",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-norm-lm-head",
+          "source_id": "decode-final-norm",
+          "target_id": "decode-lm-head",
+          "label": "Normalized hidden state",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-lm-head-logits",
+          "source_id": "decode-lm-head",
+          "target_id": "decode-logits",
+          "label": "Vocabulary scores",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-logits-sampling",
+          "source_id": "decode-logits",
+          "target_id": "decode-sampling",
+          "label": "Scores enter decoding policy",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-sampling-next-token",
+          "source_id": "decode-sampling",
+          "target_id": "decode-next-token",
+          "label": "Selected token ID",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-next-token-loop",
+          "source_id": "decode-next-token",
+          "target_id": "decode-tokens",
+          "label": "Decode loop feeds the next token",
+          "direction": "both",
+          "category": "state",
+          "metrics": [],
+          "badge": ""
+        }
+      ],
+      "assumptions": [
+        "Decode processes 1 token row in this simplified view.",
+        "The layer stack is shown once but executes repeatedly for every Transformer layer.",
+        "The QKV block links to its detailed fused-projection branch view."
+      ],
+      "charts": []
+    },
+    "prefill-projection-detail": {
+      "graph_id": "prefill-projection-detail",
+      "title": "Prefill projection: Problem 02 projection",
+      "subtitle": "Detailed Problem 02 projection inside the prefill pipeline. This first level shows mathematics only\u2014not the GPU memory route.",
+      "parent_graph_id": "gpu-0-detail",
+      "components": [
+        {
+          "component_id": "prefill-projection-input",
           "label": "X [512 \u00d7 4096]",
           "kind": "tensor",
           "summary": "Input activation tensor. Each row is one token position presented to this projection.",
@@ -1458,7 +2320,7 @@
           "lane": "process"
         },
         {
-          "component_id": "prefill-weight",
+          "component_id": "prefill-projection-weight",
           "label": "W [4096 \u00d7 4096]",
           "kind": "tensor",
           "summary": "Learned projection weights. The same matrix is applied to every row of X.",
@@ -1562,7 +2424,7 @@
           "lane": "process"
         },
         {
-          "component_id": "prefill-matmul",
+          "component_id": "prefill-projection-matmul",
           "label": "Matrix multiplication",
           "kind": "operation",
           "summary": "Computes Y = XW. Push in to see which bytes cross the HBM boundary.",
@@ -1647,11 +2509,11 @@
               }
             }
           ],
-          "drilldown_graph_id": "prefill-hbm-boundary",
+          "drilldown_graph_id": "prefill-projection-hbm-boundary",
           "lane": "process"
         },
         {
-          "component_id": "prefill-output",
+          "component_id": "prefill-projection-output",
           "label": "Y [512 \u00d7 4096]",
           "kind": "tensor",
           "summary": "Output activation tensor produced by this projection.",
@@ -1757,9 +2619,9 @@
       ],
       "connections": [
         {
-          "connection_id": "prefill-x-logical",
-          "source_id": "prefill-input",
-          "target_id": "prefill-matmul",
+          "connection_id": "prefill-projection-x-logical",
+          "source_id": "prefill-projection-input",
+          "target_id": "prefill-projection-matmul",
           "label": "X supplies activation rows",
           "direction": "forward",
           "category": "logical",
@@ -1767,9 +2629,9 @@
           "badge": ""
         },
         {
-          "connection_id": "prefill-w-logical",
-          "source_id": "prefill-weight",
-          "target_id": "prefill-matmul",
+          "connection_id": "prefill-projection-w-logical",
+          "source_id": "prefill-projection-weight",
+          "target_id": "prefill-projection-matmul",
           "label": "W supplies projection weights",
           "direction": "forward",
           "category": "logical",
@@ -1777,9 +2639,9 @@
           "badge": ""
         },
         {
-          "connection_id": "prefill-y-logical",
-          "source_id": "prefill-matmul",
-          "target_id": "prefill-output",
+          "connection_id": "prefill-projection-y-logical",
+          "source_id": "prefill-projection-matmul",
+          "target_id": "prefill-projection-output",
           "label": "XW produces Y",
           "direction": "forward",
           "category": "logical",
@@ -1792,14 +2654,14 @@
       ],
       "charts": []
     },
-    "prefill-hbm-boundary": {
-      "graph_id": "prefill-hbm-boundary",
-      "title": "Prefill: projection execution and HBM accounting",
+    "prefill-projection-hbm-boundary": {
+      "graph_id": "prefill-projection-hbm-boundary",
+      "title": "Prefill projection: projection execution and HBM accounting",
       "subtitle": "The matrix multiplication stays visible while its HBM reads, output write, and roofline consequences are added around it.",
-      "parent_graph_id": "prefill-detail",
+      "parent_graph_id": "prefill-projection-detail",
       "components": [
         {
-          "component_id": "prefill-boundary-hbm",
+          "component_id": "prefill-projection-boundary-hbm",
           "label": "HBM boundary",
           "kind": "memory",
           "summary": "Traffic is counted when data is read from or written to off-chip GPU memory.",
@@ -1900,7 +2762,7 @@
           "lane": "hardware"
         },
         {
-          "component_id": "prefill-input-read",
+          "component_id": "prefill-projection-input-read",
           "label": "Read X",
           "kind": "operation",
           "summary": "One modeled read of the input activation tensor from HBM.",
@@ -2050,7 +2912,7 @@
           "lane": "process"
         },
         {
-          "component_id": "prefill-weight-read",
+          "component_id": "prefill-projection-weight-read",
           "label": "Read W",
           "kind": "operation",
           "summary": "One modeled read of the learned projection matrix from HBM.",
@@ -2200,7 +3062,7 @@
           "lane": "process"
         },
         {
-          "component_id": "prefill-boundary-matmul",
+          "component_id": "prefill-projection-boundary-matmul",
           "label": "Matrix multiplication",
           "kind": "operation",
           "summary": "The operator remains visible here: read tiles of X and W are multiplied and accumulated to produce Y.",
@@ -2289,7 +3151,7 @@
           "lane": "process"
         },
         {
-          "component_id": "prefill-output-write",
+          "component_id": "prefill-projection-output-write",
           "label": "Write Y",
           "kind": "operation",
           "summary": "The output activation is explicitly written back across the HBM boundary.",
@@ -2439,7 +3301,7 @@
           "lane": "process"
         },
         {
-          "component_id": "prefill-roofline-accounting",
+          "component_id": "prefill-projection-roofline-accounting",
           "label": "Roofline performance model",
           "kind": "analysis",
           "summary": "Analyzes the inference operator using FLOPs, HBM traffic, arithmetic intensity, and hardware limits. This block is not part of runtime execution.",
@@ -2764,15 +3626,15 @@
               }
             }
           ],
-          "drilldown_graph_id": "prefill-execution-path",
+          "drilldown_graph_id": "prefill-projection-execution-path",
           "lane": "analysis"
         }
       ],
       "connections": [
         {
-          "connection_id": "prefill-x-boundary",
-          "source_id": "prefill-boundary-hbm",
-          "target_id": "prefill-input-read",
+          "connection_id": "prefill-projection-x-boundary",
+          "source_id": "prefill-projection-boundary-hbm",
+          "target_id": "prefill-projection-input-read",
           "label": "Read X from HBM",
           "direction": "forward",
           "category": "transfer",
@@ -2917,9 +3779,9 @@
           "badge": "4.19 MB \u00b7 600 GB/s \u00b7 6.9905 \u00b5s"
         },
         {
-          "connection_id": "prefill-w-boundary",
-          "source_id": "prefill-boundary-hbm",
-          "target_id": "prefill-weight-read",
+          "connection_id": "prefill-projection-w-boundary",
+          "source_id": "prefill-projection-boundary-hbm",
+          "target_id": "prefill-projection-weight-read",
           "label": "Read W from HBM",
           "direction": "forward",
           "category": "transfer",
@@ -3064,9 +3926,9 @@
           "badge": "33.55 MB \u00b7 600 GB/s \u00b7 55.9241 \u00b5s"
         },
         {
-          "connection_id": "prefill-y-boundary",
-          "source_id": "prefill-output-write",
-          "target_id": "prefill-boundary-hbm",
+          "connection_id": "prefill-projection-y-boundary",
+          "source_id": "prefill-projection-output-write",
+          "target_id": "prefill-projection-boundary-hbm",
           "label": "Write Y to HBM",
           "direction": "forward",
           "category": "transfer",
@@ -3211,9 +4073,9 @@
           "badge": "4.19 MB \u00b7 600 GB/s \u00b7 6.9905 \u00b5s"
         },
         {
-          "connection_id": "prefill-x-to-matmul",
-          "source_id": "prefill-input-read",
-          "target_id": "prefill-boundary-matmul",
+          "connection_id": "prefill-projection-x-to-matmul",
+          "source_id": "prefill-projection-input-read",
+          "target_id": "prefill-projection-boundary-matmul",
           "label": "Read X tiles into the operator",
           "direction": "forward",
           "category": "logical",
@@ -3221,9 +4083,9 @@
           "badge": ""
         },
         {
-          "connection_id": "prefill-w-to-matmul",
-          "source_id": "prefill-weight-read",
-          "target_id": "prefill-boundary-matmul",
+          "connection_id": "prefill-projection-w-to-matmul",
+          "source_id": "prefill-projection-weight-read",
+          "target_id": "prefill-projection-boundary-matmul",
           "label": "Read W tiles into the operator",
           "direction": "forward",
           "category": "logical",
@@ -3231,9 +4093,9 @@
           "badge": ""
         },
         {
-          "connection_id": "prefill-matmul-to-y",
-          "source_id": "prefill-boundary-matmul",
-          "target_id": "prefill-output-write",
+          "connection_id": "prefill-projection-matmul-to-y",
+          "source_id": "prefill-projection-boundary-matmul",
+          "target_id": "prefill-projection-output-write",
           "label": "Matrix multiplication produces Y",
           "direction": "forward",
           "category": "logical",
@@ -3241,9 +4103,9 @@
           "badge": ""
         },
         {
-          "connection_id": "prefill-matmul-accounted",
-          "source_id": "prefill-boundary-matmul",
-          "target_id": "prefill-roofline-accounting",
+          "connection_id": "prefill-projection-matmul-accounted",
+          "source_id": "prefill-projection-boundary-matmul",
+          "target_id": "prefill-projection-roofline-accounting",
           "label": "Operator feeds the performance model",
           "direction": "forward",
           "category": "mapping",
@@ -3258,7 +4120,7 @@
       ],
       "charts": [
         {
-          "chart_id": "prefill-roofline-study",
+          "chart_id": "prefill-projection-roofline-study",
           "kind": "roofline-sensitivity",
           "title": "Projection sensitivity: token rows vs. ideal latency",
           "description": "Change M, HBM bandwidth, or peak compute to see how the ideal memory and compute bounds move. This is a model, not measured kernel latency.",
@@ -3385,14 +4247,14 @@
         }
       ]
     },
-    "prefill-execution-path": {
-      "graph_id": "prefill-execution-path",
-      "title": "Prefill: physical GPU execution path",
+    "prefill-projection-execution-path": {
+      "graph_id": "prefill-projection-execution-path",
+      "title": "Prefill projection: physical GPU execution path",
       "subtitle": "This level shows where data can travel. It separates known HBM-boundary accounting from cache and on-chip quantities that remain unknown.",
-      "parent_graph_id": "prefill-hbm-boundary",
+      "parent_graph_id": "prefill-projection-hbm-boundary",
       "components": [
         {
-          "component_id": "prefill-physical-matmul",
+          "component_id": "prefill-projection-physical-matmul",
           "label": "Matrix multiplication",
           "kind": "operation",
           "summary": "The same XW operator is now mapped onto the physical memory and compute path below.",
@@ -3481,7 +4343,7 @@
           "lane": "process"
         },
         {
-          "component_id": "prefill-physical-hbm",
+          "component_id": "prefill-projection-physical-hbm",
           "label": "HBM",
           "kind": "memory",
           "summary": "Off-chip GPU memory. Boundary accounting counts X and W reads plus the Y write here.",
@@ -3582,7 +4444,7 @@
           "lane": "hardware"
         },
         {
-          "component_id": "prefill-physical-l2",
+          "component_id": "prefill-projection-physical-l2",
           "label": "Shared L2 cache",
           "kind": "memory",
           "summary": "GPU-wide cache between HBM and the SMs. It may reduce HBM rereads, but this model has no measured hit rate.",
@@ -3614,7 +4476,7 @@
           "lane": "hardware"
         },
         {
-          "component_id": "prefill-sm-local",
+          "component_id": "prefill-projection-sm-local",
           "label": "SM-local storage",
           "kind": "memory",
           "summary": "Software-managed shared memory and registers hold tiles and partial results close to execution.",
@@ -3646,7 +4508,7 @@
           "lane": "hardware"
         },
         {
-          "component_id": "prefill-tensor-cores",
+          "component_id": "prefill-projection-tensor-cores",
           "label": "Tensor Core pipelines",
           "kind": "compute",
           "summary": "Physical matrix pipelines execute tiled multiply-accumulate work across the SM array.",
@@ -3746,9 +4608,9 @@
       ],
       "connections": [
         {
-          "connection_id": "prefill-physical-matmul-map",
-          "source_id": "prefill-physical-matmul",
-          "target_id": "prefill-tensor-cores",
+          "connection_id": "prefill-projection-physical-matmul-map",
+          "source_id": "prefill-projection-physical-matmul",
+          "target_id": "prefill-projection-tensor-cores",
           "label": "Matrix multiplication executes on Tensor Core pipelines",
           "direction": "forward",
           "category": "mapping",
@@ -3756,9 +4618,9 @@
           "badge": ""
         },
         {
-          "connection_id": "prefill-physical-hbm-l2",
-          "source_id": "prefill-physical-hbm",
-          "target_id": "prefill-physical-l2",
+          "connection_id": "prefill-projection-physical-hbm-l2",
+          "source_id": "prefill-projection-physical-hbm",
+          "target_id": "prefill-projection-physical-l2",
           "label": "Physical HBM and L2 path",
           "direction": "both",
           "category": "physical",
@@ -3766,9 +4628,9 @@
           "badge": "HBM boundary: assumed 600 GB/s"
         },
         {
-          "connection_id": "prefill-physical-l2-local",
-          "source_id": "prefill-physical-l2",
-          "target_id": "prefill-sm-local",
+          "connection_id": "prefill-projection-physical-l2-local",
+          "source_id": "prefill-projection-physical-l2",
+          "target_id": "prefill-projection-sm-local",
           "label": "On-chip L2 and SM path",
           "direction": "both",
           "category": "physical",
@@ -3776,9 +4638,9 @@
           "badge": "Rate requires hardware profile"
         },
         {
-          "connection_id": "prefill-physical-local-compute",
-          "source_id": "prefill-sm-local",
-          "target_id": "prefill-tensor-cores",
+          "connection_id": "prefill-projection-physical-local-compute",
+          "source_id": "prefill-projection-sm-local",
+          "target_id": "prefill-projection-tensor-cores",
           "label": "Tile delivery and result path",
           "direction": "both",
           "category": "physical",
@@ -3792,14 +4654,14 @@
       ],
       "charts": []
     },
-    "decode-detail": {
-      "graph_id": "decode-detail",
-      "title": "Decode: Problem 02 projection",
-      "subtitle": "Processes one newly generated token row against the same projection matrix. This first level shows mathematics only\u2014not the GPU memory route.",
+    "decode-projection-detail": {
+      "graph_id": "decode-projection-detail",
+      "title": "Decode projection: Problem 02 projection",
+      "subtitle": "Detailed Problem 02 projection inside the decode pipeline. This first level shows mathematics only\u2014not the GPU memory route.",
       "parent_graph_id": "gpu-0-detail",
       "components": [
         {
-          "component_id": "decode-input",
+          "component_id": "decode-projection-input",
           "label": "X [1 \u00d7 4096]",
           "kind": "tensor",
           "summary": "Input activation tensor. Each row is one token position presented to this projection.",
@@ -3903,7 +4765,7 @@
           "lane": "process"
         },
         {
-          "component_id": "decode-weight",
+          "component_id": "decode-projection-weight",
           "label": "W [4096 \u00d7 4096]",
           "kind": "tensor",
           "summary": "Learned projection weights. The same matrix is applied to every row of X.",
@@ -4007,7 +4869,7 @@
           "lane": "process"
         },
         {
-          "component_id": "decode-matmul",
+          "component_id": "decode-projection-matmul",
           "label": "Matrix multiplication",
           "kind": "operation",
           "summary": "Computes Y = XW. Push in to see which bytes cross the HBM boundary.",
@@ -4092,11 +4954,11 @@
               }
             }
           ],
-          "drilldown_graph_id": "decode-hbm-boundary",
+          "drilldown_graph_id": "decode-projection-hbm-boundary",
           "lane": "process"
         },
         {
-          "component_id": "decode-output",
+          "component_id": "decode-projection-output",
           "label": "Y [1 \u00d7 4096]",
           "kind": "tensor",
           "summary": "Output activation tensor produced by this projection.",
@@ -4202,9 +5064,9 @@
       ],
       "connections": [
         {
-          "connection_id": "decode-x-logical",
-          "source_id": "decode-input",
-          "target_id": "decode-matmul",
+          "connection_id": "decode-projection-x-logical",
+          "source_id": "decode-projection-input",
+          "target_id": "decode-projection-matmul",
           "label": "X supplies activation rows",
           "direction": "forward",
           "category": "logical",
@@ -4212,9 +5074,9 @@
           "badge": ""
         },
         {
-          "connection_id": "decode-w-logical",
-          "source_id": "decode-weight",
-          "target_id": "decode-matmul",
+          "connection_id": "decode-projection-w-logical",
+          "source_id": "decode-projection-weight",
+          "target_id": "decode-projection-matmul",
           "label": "W supplies projection weights",
           "direction": "forward",
           "category": "logical",
@@ -4222,9 +5084,9 @@
           "badge": ""
         },
         {
-          "connection_id": "decode-y-logical",
-          "source_id": "decode-matmul",
-          "target_id": "decode-output",
+          "connection_id": "decode-projection-y-logical",
+          "source_id": "decode-projection-matmul",
+          "target_id": "decode-projection-output",
           "label": "XW produces Y",
           "direction": "forward",
           "category": "logical",
@@ -4237,14 +5099,14 @@
       ],
       "charts": []
     },
-    "decode-hbm-boundary": {
-      "graph_id": "decode-hbm-boundary",
-      "title": "Decode: projection execution and HBM accounting",
+    "decode-projection-hbm-boundary": {
+      "graph_id": "decode-projection-hbm-boundary",
+      "title": "Decode projection: projection execution and HBM accounting",
       "subtitle": "The matrix multiplication stays visible while its HBM reads, output write, and roofline consequences are added around it.",
-      "parent_graph_id": "decode-detail",
+      "parent_graph_id": "decode-projection-detail",
       "components": [
         {
-          "component_id": "decode-boundary-hbm",
+          "component_id": "decode-projection-boundary-hbm",
           "label": "HBM boundary",
           "kind": "memory",
           "summary": "Traffic is counted when data is read from or written to off-chip GPU memory.",
@@ -4345,7 +5207,7 @@
           "lane": "hardware"
         },
         {
-          "component_id": "decode-input-read",
+          "component_id": "decode-projection-input-read",
           "label": "Read X",
           "kind": "operation",
           "summary": "One modeled read of the input activation tensor from HBM.",
@@ -4495,7 +5357,7 @@
           "lane": "process"
         },
         {
-          "component_id": "decode-weight-read",
+          "component_id": "decode-projection-weight-read",
           "label": "Read W",
           "kind": "operation",
           "summary": "One modeled read of the learned projection matrix from HBM.",
@@ -4645,7 +5507,7 @@
           "lane": "process"
         },
         {
-          "component_id": "decode-boundary-matmul",
+          "component_id": "decode-projection-boundary-matmul",
           "label": "Matrix multiplication",
           "kind": "operation",
           "summary": "The operator remains visible here: read tiles of X and W are multiplied and accumulated to produce Y.",
@@ -4734,7 +5596,7 @@
           "lane": "process"
         },
         {
-          "component_id": "decode-output-write",
+          "component_id": "decode-projection-output-write",
           "label": "Write Y",
           "kind": "operation",
           "summary": "The output activation is explicitly written back across the HBM boundary.",
@@ -4884,7 +5746,7 @@
           "lane": "process"
         },
         {
-          "component_id": "decode-roofline-accounting",
+          "component_id": "decode-projection-roofline-accounting",
           "label": "Roofline performance model",
           "kind": "analysis",
           "summary": "Analyzes the inference operator using FLOPs, HBM traffic, arithmetic intensity, and hardware limits. This block is not part of runtime execution.",
@@ -5209,15 +6071,15 @@
               }
             }
           ],
-          "drilldown_graph_id": "decode-execution-path",
+          "drilldown_graph_id": "decode-projection-execution-path",
           "lane": "analysis"
         }
       ],
       "connections": [
         {
-          "connection_id": "decode-x-boundary",
-          "source_id": "decode-boundary-hbm",
-          "target_id": "decode-input-read",
+          "connection_id": "decode-projection-x-boundary",
+          "source_id": "decode-projection-boundary-hbm",
+          "target_id": "decode-projection-input-read",
           "label": "Read X from HBM",
           "direction": "forward",
           "category": "transfer",
@@ -5362,9 +6224,9 @@
           "badge": "8.19 KB \u00b7 600 GB/s \u00b7 0.0137 \u00b5s"
         },
         {
-          "connection_id": "decode-w-boundary",
-          "source_id": "decode-boundary-hbm",
-          "target_id": "decode-weight-read",
+          "connection_id": "decode-projection-w-boundary",
+          "source_id": "decode-projection-boundary-hbm",
+          "target_id": "decode-projection-weight-read",
           "label": "Read W from HBM",
           "direction": "forward",
           "category": "transfer",
@@ -5509,9 +6371,9 @@
           "badge": "33.55 MB \u00b7 600 GB/s \u00b7 55.9241 \u00b5s"
         },
         {
-          "connection_id": "decode-y-boundary",
-          "source_id": "decode-output-write",
-          "target_id": "decode-boundary-hbm",
+          "connection_id": "decode-projection-y-boundary",
+          "source_id": "decode-projection-output-write",
+          "target_id": "decode-projection-boundary-hbm",
           "label": "Write Y to HBM",
           "direction": "forward",
           "category": "transfer",
@@ -5656,9 +6518,9 @@
           "badge": "8.19 KB \u00b7 600 GB/s \u00b7 0.0137 \u00b5s"
         },
         {
-          "connection_id": "decode-x-to-matmul",
-          "source_id": "decode-input-read",
-          "target_id": "decode-boundary-matmul",
+          "connection_id": "decode-projection-x-to-matmul",
+          "source_id": "decode-projection-input-read",
+          "target_id": "decode-projection-boundary-matmul",
           "label": "Read X tiles into the operator",
           "direction": "forward",
           "category": "logical",
@@ -5666,9 +6528,9 @@
           "badge": ""
         },
         {
-          "connection_id": "decode-w-to-matmul",
-          "source_id": "decode-weight-read",
-          "target_id": "decode-boundary-matmul",
+          "connection_id": "decode-projection-w-to-matmul",
+          "source_id": "decode-projection-weight-read",
+          "target_id": "decode-projection-boundary-matmul",
           "label": "Read W tiles into the operator",
           "direction": "forward",
           "category": "logical",
@@ -5676,9 +6538,9 @@
           "badge": ""
         },
         {
-          "connection_id": "decode-matmul-to-y",
-          "source_id": "decode-boundary-matmul",
-          "target_id": "decode-output-write",
+          "connection_id": "decode-projection-matmul-to-y",
+          "source_id": "decode-projection-boundary-matmul",
+          "target_id": "decode-projection-output-write",
           "label": "Matrix multiplication produces Y",
           "direction": "forward",
           "category": "logical",
@@ -5686,9 +6548,9 @@
           "badge": ""
         },
         {
-          "connection_id": "decode-matmul-accounted",
-          "source_id": "decode-boundary-matmul",
-          "target_id": "decode-roofline-accounting",
+          "connection_id": "decode-projection-matmul-accounted",
+          "source_id": "decode-projection-boundary-matmul",
+          "target_id": "decode-projection-roofline-accounting",
           "label": "Operator feeds the performance model",
           "direction": "forward",
           "category": "mapping",
@@ -5703,7 +6565,7 @@
       ],
       "charts": [
         {
-          "chart_id": "decode-roofline-study",
+          "chart_id": "decode-projection-roofline-study",
           "kind": "roofline-sensitivity",
           "title": "Projection sensitivity: token rows vs. ideal latency",
           "description": "Change M, HBM bandwidth, or peak compute to see how the ideal memory and compute bounds move. This is a model, not measured kernel latency.",
@@ -5830,14 +6692,14 @@
         }
       ]
     },
-    "decode-execution-path": {
-      "graph_id": "decode-execution-path",
-      "title": "Decode: physical GPU execution path",
+    "decode-projection-execution-path": {
+      "graph_id": "decode-projection-execution-path",
+      "title": "Decode projection: physical GPU execution path",
       "subtitle": "This level shows where data can travel. It separates known HBM-boundary accounting from cache and on-chip quantities that remain unknown.",
-      "parent_graph_id": "decode-hbm-boundary",
+      "parent_graph_id": "decode-projection-hbm-boundary",
       "components": [
         {
-          "component_id": "decode-physical-matmul",
+          "component_id": "decode-projection-physical-matmul",
           "label": "Matrix multiplication",
           "kind": "operation",
           "summary": "The same XW operator is now mapped onto the physical memory and compute path below.",
@@ -5926,7 +6788,7 @@
           "lane": "process"
         },
         {
-          "component_id": "decode-physical-hbm",
+          "component_id": "decode-projection-physical-hbm",
           "label": "HBM",
           "kind": "memory",
           "summary": "Off-chip GPU memory. Boundary accounting counts X and W reads plus the Y write here.",
@@ -6027,7 +6889,7 @@
           "lane": "hardware"
         },
         {
-          "component_id": "decode-physical-l2",
+          "component_id": "decode-projection-physical-l2",
           "label": "Shared L2 cache",
           "kind": "memory",
           "summary": "GPU-wide cache between HBM and the SMs. It may reduce HBM rereads, but this model has no measured hit rate.",
@@ -6059,7 +6921,7 @@
           "lane": "hardware"
         },
         {
-          "component_id": "decode-sm-local",
+          "component_id": "decode-projection-sm-local",
           "label": "SM-local storage",
           "kind": "memory",
           "summary": "Software-managed shared memory and registers hold tiles and partial results close to execution.",
@@ -6091,7 +6953,7 @@
           "lane": "hardware"
         },
         {
-          "component_id": "decode-tensor-cores",
+          "component_id": "decode-projection-tensor-cores",
           "label": "Tensor Core pipelines",
           "kind": "compute",
           "summary": "Physical matrix pipelines execute tiled multiply-accumulate work across the SM array.",
@@ -6191,9 +7053,9 @@
       ],
       "connections": [
         {
-          "connection_id": "decode-physical-matmul-map",
-          "source_id": "decode-physical-matmul",
-          "target_id": "decode-tensor-cores",
+          "connection_id": "decode-projection-physical-matmul-map",
+          "source_id": "decode-projection-physical-matmul",
+          "target_id": "decode-projection-tensor-cores",
           "label": "Matrix multiplication executes on Tensor Core pipelines",
           "direction": "forward",
           "category": "mapping",
@@ -6201,9 +7063,9 @@
           "badge": ""
         },
         {
-          "connection_id": "decode-physical-hbm-l2",
-          "source_id": "decode-physical-hbm",
-          "target_id": "decode-physical-l2",
+          "connection_id": "decode-projection-physical-hbm-l2",
+          "source_id": "decode-projection-physical-hbm",
+          "target_id": "decode-projection-physical-l2",
           "label": "Physical HBM and L2 path",
           "direction": "both",
           "category": "physical",
@@ -6211,9 +7073,9 @@
           "badge": "HBM boundary: assumed 600 GB/s"
         },
         {
-          "connection_id": "decode-physical-l2-local",
-          "source_id": "decode-physical-l2",
-          "target_id": "decode-sm-local",
+          "connection_id": "decode-projection-physical-l2-local",
+          "source_id": "decode-projection-physical-l2",
+          "target_id": "decode-projection-sm-local",
           "label": "On-chip L2 and SM path",
           "direction": "both",
           "category": "physical",
@@ -6221,9 +7083,9 @@
           "badge": "Rate requires hardware profile"
         },
         {
-          "connection_id": "decode-physical-local-compute",
-          "source_id": "decode-sm-local",
-          "target_id": "decode-tensor-cores",
+          "connection_id": "decode-projection-physical-local-compute",
+          "source_id": "decode-projection-sm-local",
+          "target_id": "decode-projection-tensor-cores",
           "label": "Tile delivery and result path",
           "direction": "both",
           "category": "physical",

@@ -244,3 +244,86 @@ class ProjectionPhaseModel(PhaseModel):
 
     def diagrams(self) -> tuple[Diagram, ...]:
         return (self.diagram(), self.boundary_diagram(), self.execution_diagram())
+
+
+@dataclass(frozen=True)
+class InferencePipelinePhaseModel(PhaseModel):
+    """End-to-end phase view: the operator sequence around each matmul."""
+
+    phase_id: str
+    phase_name: str
+    rows: int
+    estimate: ProjectionEstimate
+    qkv_graph_id: str = "qkv-detail"
+
+    def diagram(self) -> Diagram:
+        prefix = self.phase_id
+        ids = {
+            name: f"{prefix}-{name}"
+            for name in (
+                "tokens", "embedding", "layers", "qkv", "attention", "cache",
+                "output-projection", "mlp", "final-norm", "lm-head", "logits",
+                "sampling", "next-token",
+            )
+        }
+        calculations = projection_calculations(self.estimate)
+        cache_summary = (
+            "Reads prior K/V for every decode step and appends the new K/V rows."
+            if self.phase_id == "decode" else
+            "Receives the prompt K/V rows so later decode steps can reuse them."
+        )
+        components = (
+            TensorBlock(ids["tokens"], "Token IDs", "The tokenizer converts the request into integer vocabulary IDs. Prompt rows are processed together in prefill; decode contributes one new ID at a time.", Position(40, 230), (
+                Metric("Rows", self.rows, "rows", EvidenceKind.ASSUMED),
+            )).component(),
+            OperationBlock(ids["embedding"], "Embedding lookup", "Maps each token ID to its initial hidden vector. This is a lookup/gather, not a dense projection.", Position(240, 230)).component(),
+            OperationBlock(ids["layers"], "Transformer layer stack", "Repeats the same high-level layer pattern for every layer: norm, QKV, attention, output projection, norm, and MLP.", Position(450, 230), (
+                Metric("Rows per phase", self.rows, "rows", EvidenceKind.ASSUMED),
+            )).component(),
+            OperationBlock(ids["qkv"], "QKV projection", "Creates Q, K, and V. This is one of the detailed operator models available in the workbench.", Position(680, 90), (
+                Metric("Fused work", decimal_flops(self.estimate.flops), calculation=calculations["work"]),
+            ), self.qkv_graph_id).component(),
+            OperationBlock(ids["attention"], "Attention", "Forms attention scores from Q and K, applies the causal rule, normalizes scores, and mixes V.", Position(880, 90)).component(),
+            OperationBlock(ids["cache"], "KV cache", cache_summary, Position(880, 360), (
+                Metric("Role", "persistent K/V state"),
+                Metric("Capacity model", "Next modeling slice", evidence=EvidenceKind.ASSUMED),
+            )).component(),
+            OperationBlock(ids["output-projection"], "Attention output projection", "Projects the attention result back to the model width, then participates in a residual connection.", Position(1100, 90)).component(),
+            OperationBlock(ids["mlp"], "MLP / feed-forward block", "Expands the hidden width, applies the nonlinear transformation, and projects back down.", Position(1100, 300)).component(),
+            OperationBlock(ids["final-norm"], "Final normalization", "Normalizes the final hidden state before vocabulary prediction.", Position(1310, 190)).component(),
+            OperationBlock(ids["lm-head"], "LM head", "Projects the final hidden vector into one score per vocabulary item.", Position(1510, 190)).component(),
+            TensorBlock(ids["logits"], "Vocabulary logits", "One score per possible next token. The highest-scoring entries are candidates, not yet a selected token.", Position(1710, 190), (
+                Metric("Output", "vocabulary scores"),
+            )).component(),
+            OperationBlock(ids["sampling"], "Sampling / selection", "Applies the configured decoding policy—greedy, temperature, top-k, or top-p—to choose the next token ID.", Position(1910, 190)).component(),
+            TensorBlock(ids["next-token"], "Next token ID", "The selected ID is emitted or fed back into the decode loop.", Position(2110, 190)).component(),
+        )
+        connections = (
+            Path.logical(f"{prefix}-tokens-embedding", ids["tokens"], ids["embedding"], "IDs select embedding rows"),
+            Path.logical(f"{prefix}-embedding-layers", ids["embedding"], ids["layers"], "Hidden states enter every layer"),
+            Path.logical(f"{prefix}-layers-qkv", ids["layers"], ids["qkv"], "Layer hidden state enters QKV"),
+            Path.logical(f"{prefix}-qkv-attention", ids["qkv"], ids["attention"], "Q/K/V feed attention"),
+            Path.state(f"{prefix}-attention-cache", ids["attention"], ids["cache"], "Read or write K/V state"),
+            Path.logical(f"{prefix}-attention-output", ids["attention"], ids["output-projection"], "Attention context enters output projection"),
+            Path.logical(f"{prefix}-output-mlp", ids["output-projection"], ids["mlp"], "Residual stream enters feed-forward block"),
+            Path.logical(f"{prefix}-mlp-final-norm", ids["mlp"], ids["final-norm"], "Final hidden state"),
+            Path.logical(f"{prefix}-norm-lm-head", ids["final-norm"], ids["lm-head"], "Normalized hidden state"),
+            Path.logical(f"{prefix}-lm-head-logits", ids["lm-head"], ids["logits"], "Vocabulary scores"),
+            Path.logical(f"{prefix}-logits-sampling", ids["logits"], ids["sampling"], "Scores enter decoding policy"),
+            Path.logical(f"{prefix}-sampling-next-token", ids["sampling"], ids["next-token"], "Selected token ID"),
+        )
+        loop_connections = (
+            Path.state(f"{prefix}-next-token-loop", ids["next-token"], ids["tokens"], "Decode loop feeds the next token"),
+        ) if self.phase_id == "decode" else (
+            Path.logical(f"{prefix}-next-token-output", ids["next-token"], ids["tokens"], "First generated token begins the next step"),
+        )
+        return Diagram(
+            f"{prefix}-detail", f"{self.phase_name}: end-to-end inference pipeline",
+            "The full phase is a sequence of operators. QKV is one operation inside the Transformer layer; it is not a separate inference phase.",
+            "gpu-0-detail", components, connections + loop_connections,
+            (
+                f"{self.phase_name} processes {self.rows} token row{'s' if self.rows != 1 else ''} in this simplified view.",
+                "The layer stack is shown once but executes repeatedly for every Transformer layer.",
+                "The QKV block links to its detailed fused-projection branch view.",
+            ),
+        )

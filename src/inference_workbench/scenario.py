@@ -7,7 +7,7 @@ from .estimates import decimal_bytes, decimal_flops, problem_02_estimate, projec
 from .hardware import ComposableGPU, FlatMemoryModel, HierarchicalMemoryModel, SMArrayComputeModel
 from .estimates import problem_02_estimate
 from .system import SingleAcceleratorSystem
-from .workloads import ProjectionPhaseModel
+from .workloads import InferencePipelinePhaseModel, ProjectionPhaseModel
 
 
 memory_variants: VariantRegistry = VariantRegistry()
@@ -111,16 +111,16 @@ def build_slice_zero_scenario(
             ),
     )
 
-    prefill = prefill_model or ProjectionPhaseModel(
-        "prefill", "Prefill", 512,
-        "Processes 512 prompt rows together against a shared projection matrix.",
-        prefill_estimate,
+    prefill_operator = ProjectionPhaseModel(
+        "prefill-projection", "Prefill projection", 512,
+        "Detailed Problem 02 projection inside the prefill pipeline.", prefill_estimate,
     )
-    decode = decode_model or ProjectionPhaseModel(
-        "decode", "Decode", 1,
-        "Processes one newly generated token row against the same projection matrix.",
-        decode_estimate,
+    decode_operator = ProjectionPhaseModel(
+        "decode-projection", "Decode projection", 1,
+        "Detailed Problem 02 projection inside the decode pipeline.", decode_estimate,
     )
+    prefill = prefill_model or InferencePipelinePhaseModel("prefill", "Prefill", 512, prefill_estimate)
+    decode = decode_model or InferencePipelinePhaseModel("decode", "Decode", 1, decode_estimate)
     qkv_model = ProjectionPhaseModel(
         "qkv", "QKV projection", 512,
         "Creates Q, K, and V with one fused [Q K V] projection before attention.",
@@ -136,7 +136,13 @@ def build_slice_zero_scenario(
         "slice-0-problem-02",
         "Problem 02: System-to-GPU Explorer",
         "system",
-        (system.diagram(gpu), gpu.diagram(), *prefill.diagrams(), *decode.diagrams(), *qkv_model.diagrams()),
+        (
+            system.diagram(gpu), gpu.diagram(),
+            *prefill.diagrams(), *decode.diagrams(),
+            *(prefill_operator.diagrams() if prefill_model is None else ()),
+            *(decode_operator.diagrams() if decode_model is None else ()),
+            *qkv_model.diagrams(),
+        ),
         {
             "slice": 0,
             "memory_variant": memory_variant,
