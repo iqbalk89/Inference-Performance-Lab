@@ -337,3 +337,74 @@ class InferencePipelinePhaseModel(PhaseModel):
                 "Prefill ends at the first generated token; only Decode feeds a selected token back into another iteration.",
             ),
         )
+
+
+@dataclass(frozen=True)
+class InferenceOverviewModel(PhaseModel):
+    """Combined swim-lane view of the repeated prefill/decode operator chain."""
+
+    def diagram(self) -> Diagram:
+        stage_names = (
+            ("qkv", "① Q/K/V projection", "Q = XW_Q, K = XW_K, V = XW_V", "GEMM / fused GEMM"),
+            ("scores", "② Q × Kᵀ", "Prefill: full prompt attention; Decode: one query against K cache", "GEMM / FlashAttention"),
+            ("softmax", "③ Softmax + mask", "Prefill applies a causal mask; Decode normalizes over the cached context", "Softmax / fused attention"),
+            ("values", "④ Attention × V", "Mixes value rows using the normalized attention scores", "GEMM / FlashAttention"),
+            ("output", "⑤ O projection", "Projects the attention result back to model width", "GEMM / flat GEMM"),
+            ("ffn", "⑥ Feed-forward", "MLP expansion, activation, and projection back to model width", "GEMM / fused MLP"),
+        )
+        components: list = []
+        connections: list = []
+        lane_specs = (
+            ("prefill", "PREFILL", 512, 120),
+            ("decode", "DECODE", 1, 470),
+        )
+        for lane_id, lane_label, rows, y in lane_specs:
+            previous = None
+            for index, (stage_id, label, equation, kernel) in enumerate(stage_names):
+                component_id = f"{lane_id}-{stage_id}"
+                summary = f"{lane_label}: {equation}. This stage processes {rows} token row{'s' if rows != 1 else ''} in the current step."
+                if stage_id == "qkv":
+                    summary += " Prefill produces prompt K/V rows; Decode produces one new K/V row and one query row."
+                if stage_id == "scores":
+                    summary += " Decode reads the previously retained K/V rows."
+                components.append(OperationBlock(component_id, f"{lane_label} · {label}", summary, Position(90 + index * 300, y), (
+                    Metric("Kernel family", kernel),
+                    Metric("Rows", rows, "rows", EvidenceKind.ASSUMED),
+                ), "qkv-detail" if stage_id == "qkv" else None).component())
+                if previous is not None:
+                    connections.append(Path.logical(f"{lane_id}-{previous}-{stage_id}", f"{lane_id}-{previous}", component_id, f"{lane_label}: stage {index} output"))
+                previous = stage_id
+
+        cache_id = "overview-kv-cache"
+        components.append(OperationBlock(cache_id, "KV cache", "Persistent per-layer K/V state. Prefill writes the prompt rows; Decode reads the existing rows and appends the newly generated row.", Position(980, 300), (
+            Metric("Prefill", "write prompt K/V"),
+            Metric("Decode", "read + append K/V"),
+            Metric("Capacity", "Context-length model", evidence=EvidenceKind.ASSUMED),
+        )).component())
+        connections.extend((
+            Path.state("overview-prefill-cache", "prefill-qkv", cache_id, "Prefill writes K/V rows"),
+            Path.state("overview-decode-cache", cache_id, "decode-scores", "Decode reads cached K/V rows"),
+            Path.state("overview-decode-cache-update", "decode-qkv", cache_id, "Decode appends the new K/V row"),
+        ))
+        components.extend((
+            TensorBlock("overview-prompt", "Prompt tokens", "All prompt token IDs enter the Prefill lane together.", Position(20, 120), (
+                Metric("Rows", 512, "tokens", EvidenceKind.ASSUMED),
+            )).component(),
+            TensorBlock("overview-generated", "Generated token loop", "Decode emits one selected token, then feeds it into the next Decode step.", Position(1850, 470), (
+                Metric("Rows per step", 1, "token", EvidenceKind.ASSUMED),
+            )).component(),
+        ))
+        connections.extend((
+            Path.logical("overview-prompt-prefill", "overview-prompt", "prefill-qkv", "Prompt enters Prefill"),
+            Path.state("overview-decode-loop", "decode-ffn", "overview-generated", "Decode produces logits and a token"),
+            Path.state("overview-generated-next", "overview-generated", "decode-qkv", "Next token starts another Decode step"),
+        ))
+        return Diagram(
+            "inference-overview", "Inference pipeline: Prefill and Decode",
+            "Two execution lanes share the same Transformer operator sequence. Prefill builds the KV cache; Decode repeatedly reads and updates it.",
+            "gpu-0-detail", tuple(components), tuple(connections), (
+                "The six stages represent the repeated Transformer-layer workload, not one single layer only.",
+                "Residual connections and normalization are included in stage summaries but are not drawn as separate boxes in this overview.",
+                "Prefill and Decode use different shapes and cache behavior even when they invoke the same operator families.",
+            ),
+        )

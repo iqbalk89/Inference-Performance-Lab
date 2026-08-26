@@ -450,6 +450,19 @@
       "parent_graph_id": "system",
       "components": [
         {
+          "component_id": "inference-overview",
+          "label": "Full inference pipeline",
+          "kind": "operation",
+          "summary": "Combined Prefill/Decode swim-lane view of QKV, attention, KV-cache, output projection, and feed-forward stages.",
+          "position": {
+            "x": 525,
+            "y": 170
+          },
+          "metrics": [],
+          "drilldown_graph_id": "inference-overview",
+          "lane": "process"
+        },
+        {
           "component_id": "prefill",
           "label": "Prefill",
           "kind": "phase",
@@ -1301,6 +1314,26 @@
           "badge": ""
         },
         {
+          "connection_id": "inference-overview-uses-hbm",
+          "source_id": "inference-overview",
+          "target_id": "hbm",
+          "label": "resource demand",
+          "direction": "forward",
+          "category": "mapping",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "inference-overview-uses-sm-array",
+          "source_id": "inference-overview",
+          "target_id": "sm-array",
+          "label": "resource demand",
+          "direction": "forward",
+          "category": "mapping",
+          "metrics": [],
+          "badge": ""
+        },
+        {
           "connection_id": "prefill-uses-hbm",
           "source_id": "prefill",
           "target_id": "hbm",
@@ -1344,6 +1377,653 @@
       "assumptions": [
         "Problem 02 values are executable idealized estimates, not measured performance.",
         "Dashed mapping edges mean a process uses a resource; they are not physical buses."
+      ],
+      "charts": []
+    },
+    "inference-overview": {
+      "graph_id": "inference-overview",
+      "title": "Inference pipeline: Prefill and Decode",
+      "subtitle": "Two execution lanes share the same Transformer operator sequence. Prefill builds the KV cache; Decode repeatedly reads and updates it.",
+      "parent_graph_id": "gpu-0-detail",
+      "components": [
+        {
+          "component_id": "prefill-qkv",
+          "label": "PREFILL \u00b7 \u2460 Q/K/V projection",
+          "kind": "operation",
+          "summary": "PREFILL: Q = XW_Q, K = XW_K, V = XW_V. This stage processes 512 token rows in the current step. Prefill produces prompt K/V rows; Decode produces one new K/V row and one query row.",
+          "position": {
+            "x": 90,
+            "y": 120
+          },
+          "metrics": [
+            {
+              "name": "Kernel family",
+              "value": "GEMM / fused GEMM",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Rows",
+              "value": 512,
+              "unit": "rows",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": "qkv-detail",
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-scores",
+          "label": "PREFILL \u00b7 \u2461 Q \u00d7 K\u1d40",
+          "kind": "operation",
+          "summary": "PREFILL: Prefill: full prompt attention; Decode: one query against K cache. This stage processes 512 token rows in the current step. Decode reads the previously retained K/V rows.",
+          "position": {
+            "x": 390,
+            "y": 120
+          },
+          "metrics": [
+            {
+              "name": "Kernel family",
+              "value": "GEMM / FlashAttention",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Rows",
+              "value": 512,
+              "unit": "rows",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-softmax",
+          "label": "PREFILL \u00b7 \u2462 Softmax + mask",
+          "kind": "operation",
+          "summary": "PREFILL: Prefill applies a causal mask; Decode normalizes over the cached context. This stage processes 512 token rows in the current step.",
+          "position": {
+            "x": 690,
+            "y": 120
+          },
+          "metrics": [
+            {
+              "name": "Kernel family",
+              "value": "Softmax / fused attention",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Rows",
+              "value": 512,
+              "unit": "rows",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-values",
+          "label": "PREFILL \u00b7 \u2463 Attention \u00d7 V",
+          "kind": "operation",
+          "summary": "PREFILL: Mixes value rows using the normalized attention scores. This stage processes 512 token rows in the current step.",
+          "position": {
+            "x": 990,
+            "y": 120
+          },
+          "metrics": [
+            {
+              "name": "Kernel family",
+              "value": "GEMM / FlashAttention",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Rows",
+              "value": 512,
+              "unit": "rows",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-output",
+          "label": "PREFILL \u00b7 \u2464 O projection",
+          "kind": "operation",
+          "summary": "PREFILL: Projects the attention result back to model width. This stage processes 512 token rows in the current step.",
+          "position": {
+            "x": 1290,
+            "y": 120
+          },
+          "metrics": [
+            {
+              "name": "Kernel family",
+              "value": "GEMM / flat GEMM",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Rows",
+              "value": 512,
+              "unit": "rows",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-ffn",
+          "label": "PREFILL \u00b7 \u2465 Feed-forward",
+          "kind": "operation",
+          "summary": "PREFILL: MLP expansion, activation, and projection back to model width. This stage processes 512 token rows in the current step.",
+          "position": {
+            "x": 1590,
+            "y": 120
+          },
+          "metrics": [
+            {
+              "name": "Kernel family",
+              "value": "GEMM / fused MLP",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Rows",
+              "value": 512,
+              "unit": "rows",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-qkv",
+          "label": "DECODE \u00b7 \u2460 Q/K/V projection",
+          "kind": "operation",
+          "summary": "DECODE: Q = XW_Q, K = XW_K, V = XW_V. This stage processes 1 token row in the current step. Prefill produces prompt K/V rows; Decode produces one new K/V row and one query row.",
+          "position": {
+            "x": 90,
+            "y": 470
+          },
+          "metrics": [
+            {
+              "name": "Kernel family",
+              "value": "GEMM / fused GEMM",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Rows",
+              "value": 1,
+              "unit": "rows",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": "qkv-detail",
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-scores",
+          "label": "DECODE \u00b7 \u2461 Q \u00d7 K\u1d40",
+          "kind": "operation",
+          "summary": "DECODE: Prefill: full prompt attention; Decode: one query against K cache. This stage processes 1 token row in the current step. Decode reads the previously retained K/V rows.",
+          "position": {
+            "x": 390,
+            "y": 470
+          },
+          "metrics": [
+            {
+              "name": "Kernel family",
+              "value": "GEMM / FlashAttention",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Rows",
+              "value": 1,
+              "unit": "rows",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-softmax",
+          "label": "DECODE \u00b7 \u2462 Softmax + mask",
+          "kind": "operation",
+          "summary": "DECODE: Prefill applies a causal mask; Decode normalizes over the cached context. This stage processes 1 token row in the current step.",
+          "position": {
+            "x": 690,
+            "y": 470
+          },
+          "metrics": [
+            {
+              "name": "Kernel family",
+              "value": "Softmax / fused attention",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Rows",
+              "value": 1,
+              "unit": "rows",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-values",
+          "label": "DECODE \u00b7 \u2463 Attention \u00d7 V",
+          "kind": "operation",
+          "summary": "DECODE: Mixes value rows using the normalized attention scores. This stage processes 1 token row in the current step.",
+          "position": {
+            "x": 990,
+            "y": 470
+          },
+          "metrics": [
+            {
+              "name": "Kernel family",
+              "value": "GEMM / FlashAttention",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Rows",
+              "value": 1,
+              "unit": "rows",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-output",
+          "label": "DECODE \u00b7 \u2464 O projection",
+          "kind": "operation",
+          "summary": "DECODE: Projects the attention result back to model width. This stage processes 1 token row in the current step.",
+          "position": {
+            "x": 1290,
+            "y": 470
+          },
+          "metrics": [
+            {
+              "name": "Kernel family",
+              "value": "GEMM / flat GEMM",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Rows",
+              "value": 1,
+              "unit": "rows",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-ffn",
+          "label": "DECODE \u00b7 \u2465 Feed-forward",
+          "kind": "operation",
+          "summary": "DECODE: MLP expansion, activation, and projection back to model width. This stage processes 1 token row in the current step.",
+          "position": {
+            "x": 1590,
+            "y": 470
+          },
+          "metrics": [
+            {
+              "name": "Kernel family",
+              "value": "GEMM / fused MLP",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Rows",
+              "value": 1,
+              "unit": "rows",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "overview-kv-cache",
+          "label": "KV cache",
+          "kind": "operation",
+          "summary": "Persistent per-layer K/V state. Prefill writes the prompt rows; Decode reads the existing rows and appends the newly generated row.",
+          "position": {
+            "x": 980,
+            "y": 300
+          },
+          "metrics": [
+            {
+              "name": "Prefill",
+              "value": "write prompt K/V",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Decode",
+              "value": "read + append K/V",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Capacity",
+              "value": "Context-length model",
+              "unit": "",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "overview-prompt",
+          "label": "Prompt tokens",
+          "kind": "tensor",
+          "summary": "All prompt token IDs enter the Prefill lane together.",
+          "position": {
+            "x": 20,
+            "y": 120
+          },
+          "metrics": [
+            {
+              "name": "Rows",
+              "value": 512,
+              "unit": "tokens",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "overview-generated",
+          "label": "Generated token loop",
+          "kind": "tensor",
+          "summary": "Decode emits one selected token, then feeds it into the next Decode step.",
+          "position": {
+            "x": 1850,
+            "y": 470
+          },
+          "metrics": [
+            {
+              "name": "Rows per step",
+              "value": 1,
+              "unit": "token",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        }
+      ],
+      "connections": [
+        {
+          "connection_id": "prefill-qkv-scores",
+          "source_id": "prefill-qkv",
+          "target_id": "prefill-scores",
+          "label": "PREFILL: stage 1 output",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-scores-softmax",
+          "source_id": "prefill-scores",
+          "target_id": "prefill-softmax",
+          "label": "PREFILL: stage 2 output",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-softmax-values",
+          "source_id": "prefill-softmax",
+          "target_id": "prefill-values",
+          "label": "PREFILL: stage 3 output",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-values-output",
+          "source_id": "prefill-values",
+          "target_id": "prefill-output",
+          "label": "PREFILL: stage 4 output",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-output-ffn",
+          "source_id": "prefill-output",
+          "target_id": "prefill-ffn",
+          "label": "PREFILL: stage 5 output",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-qkv-scores",
+          "source_id": "decode-qkv",
+          "target_id": "decode-scores",
+          "label": "DECODE: stage 1 output",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-scores-softmax",
+          "source_id": "decode-scores",
+          "target_id": "decode-softmax",
+          "label": "DECODE: stage 2 output",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-softmax-values",
+          "source_id": "decode-softmax",
+          "target_id": "decode-values",
+          "label": "DECODE: stage 3 output",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-values-output",
+          "source_id": "decode-values",
+          "target_id": "decode-output",
+          "label": "DECODE: stage 4 output",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-output-ffn",
+          "source_id": "decode-output",
+          "target_id": "decode-ffn",
+          "label": "DECODE: stage 5 output",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "overview-prefill-cache",
+          "source_id": "prefill-qkv",
+          "target_id": "overview-kv-cache",
+          "label": "Prefill writes K/V rows",
+          "direction": "both",
+          "category": "state",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "overview-decode-cache",
+          "source_id": "overview-kv-cache",
+          "target_id": "decode-scores",
+          "label": "Decode reads cached K/V rows",
+          "direction": "both",
+          "category": "state",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "overview-decode-cache-update",
+          "source_id": "decode-qkv",
+          "target_id": "overview-kv-cache",
+          "label": "Decode appends the new K/V row",
+          "direction": "both",
+          "category": "state",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "overview-prompt-prefill",
+          "source_id": "overview-prompt",
+          "target_id": "prefill-qkv",
+          "label": "Prompt enters Prefill",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "overview-decode-loop",
+          "source_id": "decode-ffn",
+          "target_id": "overview-generated",
+          "label": "Decode produces logits and a token",
+          "direction": "both",
+          "category": "state",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "overview-generated-next",
+          "source_id": "overview-generated",
+          "target_id": "decode-qkv",
+          "label": "Next token starts another Decode step",
+          "direction": "both",
+          "category": "state",
+          "metrics": [],
+          "badge": ""
+        }
+      ],
+      "assumptions": [
+        "The six stages represent the repeated Transformer-layer workload, not one single layer only.",
+        "Residual connections and normalization are included in stage summaries but are not drawn as separate boxes in this overview.",
+        "Prefill and Decode use different shapes and cache behavior even when they invoke the same operator families."
       ],
       "charts": []
     },
