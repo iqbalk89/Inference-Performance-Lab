@@ -343,7 +343,74 @@ Prefill reuses the weights across enough rows to cross the GPU's balance point.
 
 ### D6. Lower-bound time per row
 
-Divide call time by the number of rows in that call:
+First, notice that **each row requires the same amount of mathematical work**.
+Whether the row belongs to decode or prefill, it is multiplied by the same
+`[4096 × 4096]` weight matrix:
+
+```text
+work per row = 2 × 1 × 4096 × 4096
+             = 33,554,432 FLOPs
+```
+
+Prefill is more efficient per row because it does not execute 512 isolated
+decode-sized calls. It forms one large matrix multiplication:
+
+```text
+[512 × 4096] × [4096 × 4096] → [512 × 4096]
+```
+
+The GPU can work on many output rows and columns in parallel. More importantly
+for this model, the same weight tiles can be used for many input rows after
+being fetched from HBM. The 512 rows therefore **share one modeled read of the
+weight matrix**.
+
+#### Compare the HBM traffic charged to each row
+
+Decode has only one row, so that row bears the entire weight-read cost:
+
+```text
+decode traffic per row
+= 33,570,816 total bytes / 1 row
+= 33,570,816 bytes/row
+```
+
+Prefill spreads its one weight read across 512 rows:
+
+```text
+prefill traffic per row
+= 41,943,040 total bytes / 512 rows
+= 81,920 bytes/row
+```
+
+The prefill value can also be decomposed:
+
+```text
+amortized weight bytes per row = 33,554,432 / 512 = 65,536 bytes
+input bytes per row            = 4096 × 2          =  8,192 bytes
+output bytes per row           = 4096 × 2          =  8,192 bytes
+                                                       ────────────
+total modeled bytes per row                           = 81,920 bytes
+```
+
+“Amortized” means assigning each row an equal share of a cost paid once by the
+whole call. It does not mean the weight matrix physically becomes smaller or
+that each row mathematically uses only part of it. Every row still depends on
+the full matrix; the implementation reuses weight data while processing many
+rows together.
+
+Thus, compared with decode, prefill performs the same `33,554,432 FLOPs` per
+row while moving approximately:
+
+```text
+33,570,816 / 81,920 ≈ 409.8× fewer HBM bytes per row
+```
+
+That reuse is why arithmetic intensity rises and why the GPU can spend more of
+its time performing arithmetic instead of waiting for weights from HBM.
+
+#### Convert total-call time into amortized time per row
+
+Now divide each modeled call lower bound by the number of rows it completes:
 
 ```text
 decode  = 55.9514 µs / 1 row
@@ -353,15 +420,68 @@ prefill = 143.1656 µs / 512 rows
         ≈ 0.2796 µs/token row
 ```
 
+The prefill result is about `200×` lower per row:
+
+```text
+55.9514 / 0.2796 ≈ 200
+```
+
+In this idealized example, prefill crosses into the compute-bound region. Its
+amortized time per row therefore approaches the time needed to perform one
+row's arithmetic at the peak compute rate:
+
+```text
+33,554,432 FLOPs/row / (120 × 10¹² FLOPs/s)
+≈ 0.2796 µs/row
+```
+
+This is not a universal claim that prefill is always exactly 200 times more
+efficient. It follows from this matrix shape, row count, traffic model, and
+hypothetical hardware rates.
+
 ### D7. Per-row time versus call latency
+
+The phrase `0.2796 µs/token row` can be misleading if interpreted as “each
+prefill token finishes after 0.2796 µs.” That is not what division by 512 means.
+The 512 rows are processed together in one large operation and the modeled
+operation completes after approximately `143.1656 µs`.
 
 ```text
 decode call lower bound  = 55.9514 µs
 prefill call lower bound = 143.1656 µs
 ```
 
-Prefill is more efficient per row but its complete call still takes longer.
-Per-row efficiency, throughput, and call latency are different metrics.
+So two statements are simultaneously true:
+
+1. **The prefill call has higher total latency.** It completes much more work,
+   so `143.1656 µs > 55.9514 µs`.
+2. **The prefill call has better row throughput.** It completes 512 rows in
+   `143.1656 µs`, rather than paying a separate `55.9514 µs` memory-dominated
+   call for every row.
+
+If the 512 rows were processed as 512 separate decode-like calls under this
+model, their total lower-bound time would be:
+
+```text
+512 × 55.9514 µs ≈ 28,647.1 µs ≈ 28.65 ms
+```
+
+Processing them together has a modeled lower bound of only `143.1656 µs`
+because the large matrix multiplication exposes parallel work and amortizes
+the weight traffic. This comparison explains the efficiency gain; it is not a
+claim that real prompt tokens should be processed as independent decode calls.
+
+The metric interpretations are:
+
+| Metric | Question it answers | Result here |
+| --- | --- | --- |
+| Call latency | How long until this entire operation finishes? | Decode is lower |
+| Amortized time per row | How much total call time is charged to each completed row? | Prefill is lower |
+| Row throughput | How many rows can the operation complete per unit time? | Prefill is higher |
+
+The lesson is that **doing more total work can take longer while still using the
+GPU much more efficiently**. Batching work improves reuse and parallelism, but
+the individual request or call may wait longer for the larger batch to finish.
 
 ## Part E — Crossover
 
