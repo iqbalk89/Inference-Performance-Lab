@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .contracts import AcceleratorModel, Component, Connection, Diagram, EvidenceKind, Metric, SystemModel
+from .estimates import transfer_calculation
 
 
 @dataclass(frozen=True)
@@ -36,8 +37,9 @@ class SingleAcceleratorSystem(SystemModel):
                     metrics=(
                         Metric("Prefill payload", 2048, "bytes", EvidenceKind.THEORETICAL, derivation="512 token IDs × 4 bytes"),
                         Metric("Assumed peak rate", 32, "GB/s", EvidenceKind.ASSUMED),
-                        Metric("Ideal transfer bound", 0.064, "µs", EvidenceKind.THEORETICAL, derivation="2,048 / 32 × 10⁹ seconds"),
+                        Metric("Ideal transfer bound", 0.064, "µs", EvidenceKind.THEORETICAL, derivation="2,048 / 32 × 10⁹ seconds", calculation=transfer_calculation(name="Host-to-GPU token ID", byte_count=2048, bandwidth_gbps=32, source="512 token IDs × 4 bytes/ID")),
                     ),
+                    badge="2.05 KB · 32 GB/s · 0.064 µs",
                 ),
             ),
             ("This Slice 0 topology is educational and intentionally single-GPU.",),

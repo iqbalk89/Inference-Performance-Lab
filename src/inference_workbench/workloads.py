@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .contracts import Component, ComponentKind, Connection, Diagram, EvidenceKind, Metric, PhaseModel, Position
-from .estimates import ProjectionEstimate, decimal_bytes, decimal_flops
+from .estimates import ProjectionEstimate, decimal_bytes, decimal_flops, projection_calculations, transfer_calculation
 
 
 @dataclass(frozen=True)
@@ -20,6 +20,7 @@ class ProjectionPhaseModel(PhaseModel):
         if self.estimate is None:
             raise ValueError("ProjectionPhaseModel requires an estimate before visualization")
         estimate = self.estimate
+        calculations = projection_calculations(estimate)
         return Diagram(
             f"{self.phase_id}-detail",
             f"{self.phase_name}: Problem 02 projection",
@@ -32,8 +33,8 @@ class ProjectionPhaseModel(PhaseModel):
                     Position(90, 210),
                     (
                         Metric("Shape", f"[{self.rows} × 4096]"),
-                        Metric("HBM read", decimal_bytes(estimate.input_bytes), derivation=f"{self.rows} × 4096 × 2 bytes"),
-                        Metric("Transfer bound", round(estimate.transfer_time_us(estimate.input_bytes), 4), "µs", derivation=f"{estimate.input_bytes:,} bytes / 600 GB/s"),
+                        Metric("HBM read", decimal_bytes(estimate.input_bytes), derivation=f"{self.rows} × 4096 × 2 bytes", calculation=calculations["input_bytes"]),
+                        Metric("Transfer bound", round(estimate.transfer_time_us(estimate.input_bytes), 4), "µs", derivation=f"{estimate.input_bytes:,} bytes / 600 GB/s", calculation=transfer_calculation(name="Input read", byte_count=estimate.input_bytes, bandwidth_gbps=600, source="Input-byte calculation")),
                     ),
                     lane="process",
                 ),
@@ -42,9 +43,9 @@ class ProjectionPhaseModel(PhaseModel):
                     ComponentKind.MEMORY, "Shared FP16 projection weights.",
                     Position(90, 455),
                     (
-                        Metric("HBM read", decimal_bytes(estimate.weight_bytes), derivation="4096 × 4096 × 2 bytes"),
+                        Metric("HBM read", decimal_bytes(estimate.weight_bytes), derivation="4096 × 4096 × 2 bytes", calculation=calculations["weight_bytes"]),
                         Metric("Element size", 2, "bytes", EvidenceKind.ASSUMED),
-                        Metric("Transfer bound", round(estimate.transfer_time_us(estimate.weight_bytes), 4), "µs", derivation=f"{estimate.weight_bytes:,} bytes / 600 GB/s"),
+                        Metric("Transfer bound", round(estimate.transfer_time_us(estimate.weight_bytes), 4), "µs", derivation=f"{estimate.weight_bytes:,} bytes / 600 GB/s", calculation=transfer_calculation(name="Weight read", byte_count=estimate.weight_bytes, bandwidth_gbps=600, source="Weight-byte calculation")),
                     ),
                     lane="hardware",
                 ),
@@ -53,13 +54,14 @@ class ProjectionPhaseModel(PhaseModel):
                     ComponentKind.OPERATION, "XW using GPU compute and memory resources.",
                     Position(520, 300),
                     (
-                        Metric("Work", decimal_flops(estimate.flops), derivation=f"2 × {self.rows} × 4096 × 4096"),
-                        Metric("Total HBM traffic", decimal_bytes(estimate.total_hbm_bytes), derivation="weight read + input read + output write"),
-                        Metric("Arithmetic intensity", round(estimate.arithmetic_intensity, 4), "FLOPs/byte", derivation=f"{estimate.flops:,} FLOPs / {estimate.total_hbm_bytes:,} bytes"),
-                        Metric("Compute bound", round(estimate.compute_time_us, 4), "µs", derivation=f"{estimate.flops:,} FLOPs / 120 TFLOP/s"),
-                        Metric("Memory bound", round(estimate.memory_time_us, 4), "µs", derivation=f"{estimate.total_hbm_bytes:,} bytes / 600 GB/s"),
-                        Metric("Roofline lower bound", round(estimate.lower_bound_us, 4), "µs", derivation="max(compute bound, memory bound)"),
-                        Metric("Predicted bottleneck", estimate.bottleneck),
+                        Metric("Work", decimal_flops(estimate.flops), derivation=f"2 × {self.rows} × 4096 × 4096", calculation=calculations["work"]),
+                        Metric("Total HBM traffic", decimal_bytes(estimate.total_hbm_bytes), derivation="weight read + input read + output write", calculation=calculations["total_bytes"]),
+                        Metric("Arithmetic intensity", round(estimate.arithmetic_intensity, 4), "FLOPs/byte", derivation=f"{estimate.flops:,} FLOPs / {estimate.total_hbm_bytes:,} bytes", calculation=calculations["arithmetic_intensity"]),
+                        Metric("Hardware ridge point", estimate.hardware.ridge_point_flops_per_byte, "FLOPs/byte", calculation=calculations["ridge_point"]),
+                        Metric("Compute bound", round(estimate.compute_time_us, 4), "µs", derivation=f"{estimate.flops:,} FLOPs / 120 TFLOP/s", calculation=calculations["compute_time"]),
+                        Metric("Memory bound", round(estimate.memory_time_us, 4), "µs", derivation=f"{estimate.total_hbm_bytes:,} bytes / 600 GB/s", calculation=calculations["memory_time"]),
+                        Metric("Roofline lower bound", round(estimate.lower_bound_us, 4), "µs", derivation="max(compute bound, memory bound)", calculation=calculations["lower_bound"]),
+                        Metric("Predicted bottleneck", estimate.bottleneck, calculation=calculations["bottleneck"]),
                     ),
                     lane="process",
                 ),
@@ -69,8 +71,8 @@ class ProjectionPhaseModel(PhaseModel):
                     Position(970, 300),
                     (
                         Metric("Shape", f"[{self.rows} × 4096]"),
-                        Metric("HBM write", decimal_bytes(estimate.output_bytes), derivation=f"{self.rows} × 4096 × 2 bytes"),
-                        Metric("Transfer bound", round(estimate.transfer_time_us(estimate.output_bytes), 4), "µs", derivation=f"{estimate.output_bytes:,} bytes / 600 GB/s"),
+                        Metric("HBM write", decimal_bytes(estimate.output_bytes), derivation=f"{self.rows} × 4096 × 2 bytes", calculation=calculations["output_bytes"]),
+                        Metric("Transfer bound", round(estimate.transfer_time_us(estimate.output_bytes), 4), "µs", derivation=f"{estimate.output_bytes:,} bytes / 600 GB/s", calculation=transfer_calculation(name="Output write", byte_count=estimate.output_bytes, bandwidth_gbps=600, source="Output-byte calculation")),
                     ), lane="process",
                 ),
             ),
@@ -79,28 +81,31 @@ class ProjectionPhaseModel(PhaseModel):
                     f"{self.phase_id}-x-flow", f"{self.phase_id}-input", f"{self.phase_id}-matmul",
                     f"{decimal_bytes(estimate.input_bytes)} @ 600 GB/s → {estimate.transfer_time_us(estimate.input_bytes):.4f} µs",
                     metrics=(
-                        Metric("Bytes", estimate.input_bytes, "bytes"),
+                        Metric("Bytes", estimate.input_bytes, "bytes", calculation=calculations["input_bytes"]),
                         Metric("Peak path rate", 600, "GB/s"),
-                        Metric("Transfer bound", round(estimate.transfer_time_us(estimate.input_bytes), 4), "µs"),
+                        Metric("Transfer bound", round(estimate.transfer_time_us(estimate.input_bytes), 4), "µs", calculation=transfer_calculation(name="Input read", byte_count=estimate.input_bytes, bandwidth_gbps=600, source="Input-byte calculation")),
                     ),
+                    badge=f"{decimal_bytes(estimate.input_bytes)} · 600 GB/s · {estimate.transfer_time_us(estimate.input_bytes):.4f} µs",
                 ),
                 Connection(
                     f"{self.phase_id}-w-flow", f"{self.phase_id}-weight", f"{self.phase_id}-matmul",
                     f"{decimal_bytes(estimate.weight_bytes)} @ 600 GB/s → {estimate.transfer_time_us(estimate.weight_bytes):.4f} µs",
                     metrics=(
-                        Metric("Bytes", estimate.weight_bytes, "bytes"),
+                        Metric("Bytes", estimate.weight_bytes, "bytes", calculation=calculations["weight_bytes"]),
                         Metric("Peak path rate", 600, "GB/s"),
-                        Metric("Transfer bound", round(estimate.transfer_time_us(estimate.weight_bytes), 4), "µs"),
+                        Metric("Transfer bound", round(estimate.transfer_time_us(estimate.weight_bytes), 4), "µs", calculation=transfer_calculation(name="Weight read", byte_count=estimate.weight_bytes, bandwidth_gbps=600, source="Weight-byte calculation")),
                     ),
+                    badge=f"{decimal_bytes(estimate.weight_bytes)} · 600 GB/s · {estimate.transfer_time_us(estimate.weight_bytes):.4f} µs",
                 ),
                 Connection(
                     f"{self.phase_id}-y-flow", f"{self.phase_id}-matmul", f"{self.phase_id}-output",
                     f"{decimal_bytes(estimate.output_bytes)} @ 600 GB/s → {estimate.transfer_time_us(estimate.output_bytes):.4f} µs",
                     metrics=(
-                        Metric("Bytes", estimate.output_bytes, "bytes"),
+                        Metric("Bytes", estimate.output_bytes, "bytes", calculation=calculations["output_bytes"]),
                         Metric("Peak path rate", 600, "GB/s"),
-                        Metric("Transfer bound", round(estimate.transfer_time_us(estimate.output_bytes), 4), "µs"),
+                        Metric("Transfer bound", round(estimate.transfer_time_us(estimate.output_bytes), 4), "µs", calculation=transfer_calculation(name="Output write", byte_count=estimate.output_bytes, bandwidth_gbps=600, source="Output-byte calculation")),
                     ),
+                    badge=f"{decimal_bytes(estimate.output_bytes)} · 600 GB/s · {estimate.transfer_time_us(estimate.output_bytes):.4f} µs",
                 ),
             ),
             (

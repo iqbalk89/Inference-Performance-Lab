@@ -28,6 +28,33 @@ class ComponentKind(StrEnum):
 
 
 @dataclass(frozen=True)
+class CalculationInput:
+    symbol: str
+    value: str
+    meaning: str
+    source: str
+
+
+@dataclass(frozen=True)
+class CalculationStep:
+    title: str
+    expression: str
+    explanation: str
+
+
+@dataclass(frozen=True)
+class CalculationDetail:
+    title: str
+    concept: str
+    formula: str
+    inputs: tuple[CalculationInput, ...]
+    steps: tuple[CalculationStep, ...]
+    unit_analysis: str
+    interpretation: str
+    assumptions: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class Metric:
     name: str
     value: float | int | str
@@ -35,6 +62,7 @@ class Metric:
     evidence: EvidenceKind = EvidenceKind.THEORETICAL
     description: str = ""
     derivation: str = ""
+    calculation: CalculationDetail | None = None
 
 
 @dataclass(frozen=True)
@@ -71,6 +99,7 @@ class Connection:
     direction: str = "forward"
     category: str = "data"
     metrics: tuple[Metric, ...] = ()
+    badge: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         result = asdict(self)

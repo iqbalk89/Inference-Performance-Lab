@@ -61,7 +61,11 @@ class HierarchicalMemoryModel(MemoryModel):
 
     def connections(self) -> tuple[Connection, ...]:
         return (
-            Connection("hbm-to-mc", "hbm", "memory-controllers", "HBM channels", "both"),
+            Connection(
+                "hbm-to-mc", "hbm", "memory-controllers", "HBM channels", "both",
+                metrics=(Metric("Peak path rate", self.hbm_bandwidth_gbps, "GB/s"),),
+                badge=f"{self.hbm_bandwidth_gbps:g} GB/s",
+            ),
             Connection("mc-to-l2", "memory-controllers", "l2", "memory fabric", "both"),
         )
 
@@ -125,8 +129,8 @@ class ComposableGPU(AcceleratorModel):
         summary_metrics = (Metric("Active scenario", "Problem 02", evidence=EvidenceKind.ASSUMED),)
         if prefill_metrics and decode_metrics:
             summary_metrics = (
-                Metric("Prefill lower bound", prefill_metrics[0].value, prefill_metrics[0].unit),
-                Metric("Decode lower bound", decode_metrics[0].value, decode_metrics[0].unit),
+                Metric("Prefill lower bound", prefill_metrics[0].value, prefill_metrics[0].unit, calculation=prefill_metrics[0].calculation),
+                Metric("Decode lower bound", decode_metrics[0].value, decode_metrics[0].unit, calculation=decode_metrics[0].calculation),
                 Metric("Hardware", "120 TFLOP/s · 600 GB/s"),
             )
         return Component(

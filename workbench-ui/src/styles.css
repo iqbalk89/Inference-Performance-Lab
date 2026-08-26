@@ -63,10 +63,13 @@ button { font: inherit; }
 .empty-inspector { display: flex; flex-direction: column; justify-content: center; }
 .metric-list { display: grid; gap: 10px; margin-top: 24px; }
 .metric-card { padding: 13px; background: #10213a; border: 1px solid #2b4565; border-radius: 10px; }
+.metric-button { width: 100%; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.metric-button:hover { border-color: #52d3a4; background: #132a45; transform: translateY(-1px); }
 .metric-card > div { display: flex; justify-content: space-between; gap: 8px; color: #9db1cb; font-size: 11px; }
 .metric-card strong { display: block; margin-top: 7px; font-size: 18px; }
 .metric-card p { color: #98adc7; font-size: 11px; }
 .metric-card code { display: block; color: #f7c95b; white-space: normal; }
+.open-calculation { display: flex; justify-content: space-between; margin-top: 11px; padding-top: 9px; border-top: 1px solid #29415f; color: #52d3a4; font-size: 10px; font-weight: 750; }
 .evidence { padding: 2px 5px; border-radius: 4px; font-size: 8px; text-transform: uppercase; letter-spacing: .08em; font-style: normal; background: #243a57; }
 .evidence.assumed { color: #f7c95b; }.evidence.measured { color: #52d3a4; }
 .notice { margin-top: 20px; padding: 10px 12px; border-left: 2px solid #e1a943; background: #2d251955; color: #c9b98e !important; }
@@ -82,6 +85,31 @@ button { font: inherit; }
 .state-screen { height: 100%; display: grid; place-content: center; justify-items: center; background: #07101f; color: #dce9f9; }
 .loader { width: 34px; height: 34px; border: 3px solid #253b58; border-top-color: #52d3a4; border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.calculation-overlay { position: fixed; z-index: 1000; inset: 0; padding: 28px; display: grid; place-items: center; background: #030814d9; backdrop-filter: blur(8px); }
+.calculation-sheet { width: min(1080px, 96vw); max-height: 92vh; overflow: hidden; display: grid; grid-template-rows: auto 1fr; border: 1px solid #426383; border-radius: 18px; background: #091527; box-shadow: 0 30px 100px #000b; }
+.calculation-header { display: flex; justify-content: space-between; align-items: start; gap: 20px; padding: 24px 28px 19px; border-bottom: 1px solid #28405e; background: #0d1d33; }
+.calculation-header h2 { margin: 8px 0 0; font-size: 28px; }
+.close-calculation { width: 38px; height: 38px; border: 1px solid #466485; border-radius: 9px; background: #132742; color: #eaf3ff; font-size: 25px; cursor: pointer; }
+.close-calculation:hover { border-color: #f7c95b; }
+.calculation-content { padding: 26px 30px 38px; overflow: auto; display: grid; gap: 24px; }
+.calculation-content section { padding: 20px; border: 1px solid #294360; border-radius: 13px; background: #0e1d32; }
+.calculation-content h3 { margin: 0 0 12px; color: #dceaff; font-size: 16px; }
+.calculation-content p { margin: 0; color: #afc1d8; line-height: 1.65; font-size: 13px; }
+.concept-section { border-left: 3px solid #52d3a4 !important; }
+.formula-display, .step-expression { padding: 14px 16px; border: 1px solid #3c5776; border-radius: 9px; background: #071323; color: #f7c95b; font-family: Menlo, Consolas, monospace; font-size: 14px; }
+.input-table { display: grid; gap: 1px; background: #29405b; border: 1px solid #29405b; border-radius: 9px; overflow: hidden; }
+.input-table-header, .input-table-row { display: grid; grid-template-columns: .6fr 1fr 1.7fr 1.7fr; gap: 12px; padding: 11px 13px; background: #0b192c; align-items: start; }
+.input-table-header { color: #7891b0; font-size: 9px; text-transform: uppercase; letter-spacing: .1em; font-weight: 800; }
+.input-table-row { color: #adbed3; font-size: 11px; }
+.input-table-row code { color: #f7c95b; }.input-table-row strong { color: #e8f2ff; }
+.calculation-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.calculation-steps li { display: grid; grid-template-columns: 34px 1fr; gap: 12px; }
+.step-number { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: #1e4c4a; color: #67dfb0; font-weight: 800; }
+.calculation-steps h4 { margin: 4px 0 8px; font-size: 13px; }
+.calculation-steps p { margin-top: 8px; font-size: 12px; }
+.unit-section { border-left: 3px solid #65b8ff !important; }.interpretation-section { border-left: 3px solid #f7c95b !important; }
+.calculation-assumptions { margin: 0; padding-left: 20px; color: #b4c4d8; font-size: 12px; line-height: 1.8; }
 
 @media (max-width: 900px) {
   .workspace { grid-template-columns: 1fr; grid-template-rows: 620px auto; }

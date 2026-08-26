@@ -1,5 +1,29 @@
 export type EvidenceKind = 'theoretical' | 'assumed' | 'calibrated' | 'measured'
 
+export interface CalculationInput {
+  symbol: string
+  value: string
+  meaning: string
+  source: string
+}
+
+export interface CalculationStep {
+  title: string
+  expression: string
+  explanation: string
+}
+
+export interface CalculationDetail {
+  title: string
+  concept: string
+  formula: string
+  inputs: CalculationInput[]
+  steps: CalculationStep[]
+  unit_analysis: string
+  interpretation: string
+  assumptions: string[]
+}
+
 export interface Metric {
   name: string
   value: string | number
@@ -7,6 +31,7 @@ export interface Metric {
   evidence: EvidenceKind
   description: string
   derivation: string
+  calculation: CalculationDetail | null
 }
 
 export interface ComponentData {
@@ -30,6 +55,7 @@ export interface ConnectionData {
   direction: string
   category: string
   metrics: Metric[]
+  badge: string
 }
 
 export interface DiagramData {

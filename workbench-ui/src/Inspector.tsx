@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { CalculationDetail } from './CalculationDetail'
 import type { ComponentData, ConnectionData } from './types'
 
 interface InspectorProps {
@@ -6,6 +8,21 @@ interface InspectorProps {
 }
 
 export function Inspector({ component, connection }: InspectorProps) {
+  const [activeCalculation, setActiveCalculation] = useState<import('./types').CalculationDetail | null>(null)
+
+  const metricCard = (metric: import('./types').Metric) => {
+    const content = <>
+      <div><span>{metric.name}</span><em className={`evidence ${metric.evidence}`}>{metric.evidence}</em></div>
+      <strong>{metric.value}{metric.unit ? ` ${metric.unit}` : ''}</strong>
+      {metric.description && <p>{metric.description}</p>}
+      {metric.derivation && <code>{metric.derivation}</code>}
+      {metric.calculation && <span className="open-calculation">Open full calculation <b>→</b></span>}
+    </>
+    return metric.calculation
+      ? <button className="metric-card metric-button" key={metric.name} onClick={() => setActiveCalculation(metric.calculation)}>{content}</button>
+      : <div className="metric-card" key={metric.name}>{content}</div>
+  }
+
   if (!component && !connection) {
     return (
       <aside className="inspector empty-inspector">
@@ -28,15 +45,10 @@ export function Inspector({ component, connection }: InspectorProps) {
         </dl>
         {connection.metrics.length > 0 ? (
           <div className="metric-list">
-            {connection.metrics.map((metric) => (
-              <div className="metric-card" key={metric.name}>
-                <div><span>{metric.name}</span><em className={`evidence ${metric.evidence}`}>{metric.evidence}</em></div>
-                <strong>{metric.value}{metric.unit ? ` ${metric.unit}` : ''}</strong>
-                {metric.derivation && <code>{metric.derivation}</code>}
-              </div>
-            ))}
+            {connection.metrics.map(metricCard)}
           </div>
         ) : <p className="notice">This path has topology only; a measured rate is not yet available.</p>}
+        {activeCalculation && <CalculationDetail calculation={activeCalculation} onClose={() => setActiveCalculation(null)} />}
       </aside>
     )
   }
@@ -48,17 +60,11 @@ export function Inspector({ component, connection }: InspectorProps) {
       <p>{component!.summary}</p>
       {component!.metrics.length > 0 ? (
         <div className="metric-list">
-          {component!.metrics.map((metric) => (
-            <div className="metric-card" key={metric.name}>
-              <div><span>{metric.name}</span><em className={`evidence ${metric.evidence}`}>{metric.evidence}</em></div>
-              <strong>{metric.value}{metric.unit ? ` ${metric.unit}` : ''}</strong>
-              {metric.description && <p>{metric.description}</p>}
-              {metric.derivation && <code>{metric.derivation}</code>}
-            </div>
-          ))}
+          {component!.metrics.map(metricCard)}
         </div>
       ) : <p className="notice">No quantitative metrics are assigned at Slice 0.</p>}
       {component!.drilldown_graph_id && <p className="notice">Double-click this block to push into its next level.</p>}
+      {activeCalculation && <CalculationDetail calculation={activeCalculation} onClose={() => setActiveCalculation(null)} />}
     </aside>
   )
 }

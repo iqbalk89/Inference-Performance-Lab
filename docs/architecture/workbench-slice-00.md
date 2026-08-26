@@ -33,6 +33,8 @@ Open the URL printed by Vite, normally `http://127.0.0.1:5173`.
 Interactions:
 
 - click a block or edge to inspect it;
+- click any inspector metric labeled `Open full calculation` for its complete
+  beginner-oriented derivation;
 - double-click a block labeled `Push in` to drill down;
 - use breadcrumbs to return to an earlier level;
 - pan, zoom, and fit the diagram with the canvas controls.
@@ -51,6 +53,33 @@ Inference System
 The GPU view separates logical process blocks from physical hardware blocks.
 Dashed mapping lines say that a process demands a hardware resource; solid
 arrows represent physical or logical data paths.
+
+Path badges are intentionally compact:
+
+```text
+bytes · bandwidth · ideal transfer bound
+```
+
+Names such as `HBM channels` and `memory fabric` live in the clickable path
+inspector instead of competing with adjacent blocks on the schematic.
+
+## Calculation Drill-Down
+
+Every derived projection metric carries structured calculation provenance. Its
+detail view includes:
+
+1. what is being calculated and why it matters;
+2. the general formula;
+3. every symbol, value, meaning, and source;
+4. numbered substitution and arithmetic steps;
+5. explicit unit cancellation;
+6. a plain-language interpretation;
+7. assumptions and limitations.
+
+Current complete walkthroughs cover work/FLOPs, input/weight/output bytes, total
+HBM traffic, arithmetic intensity, ridge point, compute and memory time bounds,
+roofline lower bound, bottleneck classification, and individual path-transfer
+bounds.
 
 ## Dependency-Injection Design
 

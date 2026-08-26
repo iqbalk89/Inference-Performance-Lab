@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from .contracts import AcceleratorModel, Component, ComponentKind, ComputeModel, EvidenceKind, MemoryModel, Metric, PhaseModel, Position, SystemModel, VariantRegistry, WorkbenchScenario
-from .estimates import decimal_bytes, decimal_flops, problem_02_estimate
+from .contracts import AcceleratorModel, CalculationDetail, CalculationInput, CalculationStep, Component, ComponentKind, ComputeModel, EvidenceKind, MemoryModel, Metric, PhaseModel, Position, SystemModel, VariantRegistry, WorkbenchScenario
+from .estimates import decimal_bytes, decimal_flops, problem_02_estimate, projection_calculations, transfer_calculation
 from .hardware import ComposableGPU, FlatMemoryModel, HierarchicalMemoryModel, SMArrayComputeModel
 from .estimates import problem_02_estimate
 from .system import SingleAcceleratorSystem
@@ -49,21 +49,23 @@ def build_slice_zero_scenario(
     compute = compute_model or compute_variants.create("sm-array", sm_count=72, fp16_tflops=120)
     prefill_estimate = problem_02_estimate(512)
     decode_estimate = problem_02_estimate(1)
+    prefill_calculations = projection_calculations(prefill_estimate)
+    decode_calculations = projection_calculations(decode_estimate)
     phase_metrics = {
         "prefill": (
-            Metric("Lower bound", round(prefill_estimate.lower_bound_us, 4), "µs"),
-            Metric("Bottleneck", prefill_estimate.bottleneck),
-            Metric("Arithmetic intensity", prefill_estimate.arithmetic_intensity, "FLOPs/byte"),
-            Metric("Work", decimal_flops(prefill_estimate.flops)),
-            Metric("HBM traffic", decimal_bytes(prefill_estimate.total_hbm_bytes)),
+            Metric("Lower bound", round(prefill_estimate.lower_bound_us, 4), "µs", calculation=prefill_calculations["lower_bound"]),
+            Metric("Bottleneck", prefill_estimate.bottleneck, calculation=prefill_calculations["bottleneck"]),
+            Metric("Arithmetic intensity", prefill_estimate.arithmetic_intensity, "FLOPs/byte", calculation=prefill_calculations["arithmetic_intensity"]),
+            Metric("Work", decimal_flops(prefill_estimate.flops), calculation=prefill_calculations["work"]),
+            Metric("HBM traffic", decimal_bytes(prefill_estimate.total_hbm_bytes), calculation=prefill_calculations["total_bytes"]),
             Metric("Rows", 512, "rows", EvidenceKind.ASSUMED),
         ),
         "decode": (
-            Metric("Lower bound", round(decode_estimate.lower_bound_us, 4), "µs"),
-            Metric("Bottleneck", decode_estimate.bottleneck),
-            Metric("Arithmetic intensity", round(decode_estimate.arithmetic_intensity, 4), "FLOPs/byte"),
-            Metric("Work", decimal_flops(decode_estimate.flops)),
-            Metric("HBM traffic", decimal_bytes(decode_estimate.total_hbm_bytes)),
+            Metric("Lower bound", round(decode_estimate.lower_bound_us, 4), "µs", calculation=decode_calculations["lower_bound"]),
+            Metric("Bottleneck", decode_estimate.bottleneck, calculation=decode_calculations["bottleneck"]),
+            Metric("Arithmetic intensity", round(decode_estimate.arithmetic_intensity, 4), "FLOPs/byte", calculation=decode_calculations["arithmetic_intensity"]),
+            Metric("Work", decimal_flops(decode_estimate.flops), calculation=decode_calculations["work"]),
+            Metric("HBM traffic", decimal_bytes(decode_estimate.total_hbm_bytes), calculation=decode_calculations["total_bytes"]),
             Metric("Rows", 1, "row", EvidenceKind.ASSUMED),
         ),
     }
@@ -78,8 +80,28 @@ def build_slice_zero_scenario(
                 "Transfers token IDs and commands between host and GPU.", Position(780, 260),
                 (
                     Metric("Assumed peak rate", 32, "GB/s", EvidenceKind.ASSUMED),
-                    Metric("Prefill token-ID transfer", 2048, "bytes", EvidenceKind.THEORETICAL, derivation="512 IDs × 4 bytes/ID"),
-                    Metric("Ideal prefill transfer", 0.064, "µs", EvidenceKind.THEORETICAL, derivation="2,048 bytes / 32 GB/s"),
+                    Metric(
+                        "Prefill token-ID transfer", 2048, "bytes", EvidenceKind.THEORETICAL,
+                        derivation="512 IDs × 4 bytes/ID",
+                        calculation=CalculationDetail(
+                            "Prompt token-ID payload",
+                            "Before GPU prefill begins, the host provides the numerical token IDs representing the prompt. This educational scenario assumes one 32-bit integer for each of 512 prompt positions.",
+                            "payload bytes = prompt tokens × bytes per token ID",
+                            (
+                                CalculationInput("T", "512 token IDs", "Number of prompt-token positions", "Problem 02 prefill row count"),
+                                CalculationInput("s", "4 bytes/ID", "Storage for one assumed 32-bit token ID", "Educational host-transfer assumption"),
+                            ),
+                            (
+                                CalculationStep("Count IDs", "512 prompt positions = 512 token IDs", "Each prompt position is represented by one integer ID."),
+                                CalculationStep("Convert to bytes", "512 IDs × 4 bytes/ID = 2,048 bytes", "The ID units cancel."),
+                                CalculationStep("Readable scale", "2,048 bytes = 2.048 decimal KB", "This is far smaller than the projection's weight traffic."),
+                            ),
+                            "IDs × bytes/ID = bytes.",
+                            "The modeled prompt-ID payload is 2,048 bytes before protocol and runtime overhead.",
+                            ("Assumes 32-bit token IDs and excludes request metadata, embeddings, and control traffic.",),
+                        ),
+                    ),
+                    Metric("Ideal prefill transfer", 0.064, "µs", EvidenceKind.THEORETICAL, derivation="2,048 bytes / 32 GB/s", calculation=transfer_calculation(name="Host-to-GPU token ID", byte_count=2048, bandwidth_gbps=32, source="Prompt token-ID payload calculation")),
                 ),
             ),
     )

@@ -29,7 +29,8 @@ export default function App() {
       })
       .then((loaded) => {
         setScenario(loaded)
-        setGraphHistory([loaded.initial_graph_id])
+        const requestedGraph = new URLSearchParams(window.location.search).get('graph')
+        setGraphHistory([requestedGraph && loaded.diagrams[requestedGraph] ? requestedGraph : loaded.initial_graph_id])
       })
       .catch((reason: Error) => setError(reason.message))
   }, [])
@@ -48,7 +49,7 @@ export default function App() {
     id: connection.connection_id,
     source: connection.source_id,
     target: connection.target_id,
-    label: connection.category === 'mapping' ? '' : connection.label,
+    label: connection.category === 'mapping' ? '' : connection.badge,
     type: connection.category === 'mapping' ? 'straight' : 'smoothstep',
     animated: connection.category !== 'mapping',
     data: connection,

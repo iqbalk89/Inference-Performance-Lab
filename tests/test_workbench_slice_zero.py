@@ -10,7 +10,7 @@ from inference_workbench.contracts import (
 )
 from inference_workbench.scenario import build_slice_zero_scenario, memory_variants
 from inference_workbench.workloads import ProjectionPhaseModel
-from inference_workbench.estimates import problem_02_estimate
+from inference_workbench.estimates import problem_02_estimate, projection_calculations
 
 
 def component_ids(scenario: dict, graph_id: str) -> set[str]:
@@ -36,6 +36,21 @@ class SliceZeroTests(unittest.TestCase):
         self.assertEqual(prefill.arithmetic_intensity, 409.6)
         self.assertAlmostEqual(prefill.lower_bound_us, 143.1655765)
         self.assertEqual(prefill.bottleneck, "FP16 compute")
+
+        calculations = projection_calculations(prefill)
+        expected = {
+            "work", "weight_bytes", "input_bytes", "output_bytes", "total_bytes",
+            "arithmetic_intensity", "compute_time", "memory_time", "lower_bound",
+            "ridge_point", "bottleneck",
+        }
+        self.assertEqual(set(calculations), expected)
+        for calculation in calculations.values():
+            self.assertTrue(calculation.concept)
+            self.assertTrue(calculation.formula)
+            self.assertTrue(calculation.inputs)
+            self.assertTrue(calculation.steps)
+            self.assertTrue(calculation.unit_analysis)
+            self.assertTrue(calculation.interpretation)
 
     def test_default_scenario_exposes_complete_drilldown(self) -> None:
         scenario = build_slice_zero_scenario().to_dict()
