@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="980" viewBox="0 0 1500 980" role="img" aria-labelledby="title desc">
+  <title id="title">Causal masking in decoder-only attention</title>
+  <desc id="desc">A score matrix showing each query token may attend to itself and earlier tokens, but not future tokens.</desc>
+  <defs>
+    <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#0b1220"/><stop offset="1" stop-color="#111c31"/></linearGradient>
+    <style>.h{font:700 30px Inter,Arial,sans-serif;fill:#f4f8ff}.sub{font:500 17px Inter,Arial,sans-serif;fill:#a9b8d0}.label{font:700 20px Inter,Arial,sans-serif;fill:#e9f1ff}.small{font:500 15px Inter,Arial,sans-serif;fill:#b7c6dc}.tiny{font:500 13px Inter,Arial,sans-serif;fill:#8fa5c2}</style>
+  </defs>
+  <rect width="1500" height="980" fill="url(#bg)"/>
+  <text x="60" y="62" class="h">Causal masking: which score entries are legal?</text>
+  <text x="60" y="95" class="sub">The score matrix is computed as QKᵀ. Rows are query positions; columns are key positions.</text>
+  <g transform="translate(95 175)">
+    <text x="365" y="-45" text-anchor="middle" class="label">Key position j (information being inspected)</text>
+    <text x="20" y="35" class="small">j =</text><text x="150" y="35" text-anchor="middle" class="label">0</text><text x="280" y="35" text-anchor="middle" class="label">1</text><text x="410" y="35" text-anchor="middle" class="label">2</text><text x="540" y="35" text-anchor="middle" class="label">3</text><text x="670" y="35" text-anchor="middle" class="label">4</text>
+    <text x="-55" y="142" text-anchor="middle" class="label" transform="rotate(-90 -55 142)">Query position i</text>
+    <text x="-20" y="95" class="small">i =</text>
+    <g stroke="#253b55" stroke-width="2">
+      <rect x="85" y="55" width="650" height="650" fill="#182b40"/>
+      <path d="M215 55V705M345 55V705M475 55V705M605 55V705M85 185H735M85 315H735M85 445H735M85 575H735"/>
+    </g>
+    <g fill="#39a879" opacity=".9"><rect x="86" y="56" width="128" height="128"/><rect x="86" y="186" width="128" height="128"/><rect x="216" y="186" width="128" height="128"/><rect x="86" y="316" width="128" height="128"/><rect x="216" y="316" width="128" height="128"/><rect x="346" y="316" width="128" height="128"/><rect x="86" y="446" width="128" height="128"/><rect x="216" y="446" width="128" height="128"/><rect x="346" y="446" width="128" height="128"/><rect x="476" y="446" width="128" height="128"/><rect x="86" y="576" width="128" height="128"/><rect x="216" y="576" width="128" height="128"/><rect x="346" y="576" width="128" height="128"/><rect x="476" y="576" width="128" height="128"/><rect x="606" y="576" width="128" height="128"/></g>
+    <g fill="#152034" font-family="Inter,Arial,sans-serif" font-size="17" text-anchor="middle"><text x="150" y="130">score(0,0)</text><text x="150" y="260">score(1,0)</text><text x="280" y="260">score(1,1)</text><text x="150" y="390">score(2,0)</text><text x="280" y="390">score(2,1)</text><text x="410" y="390">score(2,2)</text><text x="150" y="520">score(3,0)</text><text x="280" y="520">score(3,1)</text><text x="410" y="520">score(3,2)</text><text x="540" y="520">score(3,3)</text><text x="150" y="650">score(4,0)</text><text x="280" y="650">score(4,1)</text><text x="410" y="650">score(4,2)</text><text x="540" y="650">score(4,3)</text><text x="670" y="650">score(4,4)</text></g>
+    <g fill="#d44b62" opacity=".65"><path d="M215 55H735V705H85V575H215Z"/><path d="M345 185H735V705H215V445H345Z"/><path d="M475 315H735V705H345V315Z"/><path d="M605 445H735V705H475V445Z"/></g>
+    <text x="1050" y="235" class="label">Green = allowed</text><text x="1050" y="268" class="small">A query may use its own</text><text x="1050" y="292" class="small">position and earlier keys.</text><text x="1050" y="355" class="label">Red = blocked</text><text x="1050" y="388" class="small">A query cannot use a</text><text x="1050" y="412" class="small">future key position.</text>
+  </g>
+  <g transform="translate(85 875)"><rect width="1330" height="65" rx="12" fill="#182b40" stroke="#49617f" stroke-width="2"/><text x="30" y="28" class="small">Example: row i=2 corresponds to token “mice”. It may score against Cats (j=0), chase (j=1), and mice (j=2).</text><text x="30" y="51" class="small">The forbidden j=3 and j=4 scores are replaced by −∞ before softmax, making their probabilities exactly zero.</text></g>
+</svg>

@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">How hidden states become Q, K, and V</title>
+  <desc id="desc">A labeled diagram showing token hidden-state rows multiplied by separate learned projection matrices to produce query, key, and value rows.</desc>
+  <defs>
+    <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#0b1220"/><stop offset="1" stop-color="#111c31"/></linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#8dd6ff"/></marker>
+    <style>
+      .h{font:700 30px Inter,Arial,sans-serif;fill:#f4f8ff}.sub{font:500 17px Inter,Arial,sans-serif;fill:#a9b8d0}.label{font:700 20px Inter,Arial,sans-serif;fill:#e9f1ff}.small{font:500 15px Inter,Arial,sans-serif;fill:#b7c6dc}.tiny{font:500 13px Inter,Arial,sans-serif;fill:#8fa5c2}.box{stroke:#49617f;stroke-width:2}.line{stroke:#8dd6ff;stroke-width:3;fill:none;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <text x="70" y="65" class="h">From hidden states to Q, K, and V</text>
+  <text x="70" y="98" class="sub">Each token row is projected three ways. The matrices are learned model weights; Q, K, and V are runtime activations.</text>
+
+  <rect x="55" y="155" width="275" height="570" rx="16" fill="#17283d" class="box"/>
+  <text x="82" y="198" class="label">Input hidden states X</text>
+  <text x="82" y="226" class="small">shape: [tokens, d_model]</text>
+  <text x="82" y="257" class="tiny">Example: 3 tokens × 8 features</text>
+  <g transform="translate(95 295)">
+    <rect width="190" height="285" rx="8" fill="#234260" stroke="#5e8db2" stroke-width="2"/>
+    <g stroke="#5e8db2" stroke-width="1"><path d="M0 57H190M0 114H190M0 171H190M0 228H190"/><path d="M47.5 0V285M95 0V285M142.5 0V285"/></g>
+    <text x="95" y="35" text-anchor="middle" class="label">Cats</text><text x="95" y="92" text-anchor="middle" class="label">chase</text><text x="95" y="149" text-anchor="middle" class="label">mice</text><text x="95" y="206" text-anchor="middle" class="label">...</text>
+    <text x="95" y="270" text-anchor="middle" class="tiny">one row per token</text>
+  </g>
+  <text x="192" y="625" text-anchor="middle" class="small">X[t] is the feature row for token t</text>
+
+  <g transform="translate(400 170)">
+    <rect width="300" height="165" rx="14" fill="#2c2549" stroke="#8f79d9" stroke-width="2"/>
+    <text x="150" y="42" text-anchor="middle" class="label">Q = X WQ</text><text x="150" y="75" text-anchor="middle" class="small">WQ: learned projection</text><text x="150" y="104" text-anchor="middle" class="small">[d_model × d_head]</text><text x="150" y="137" text-anchor="middle" class="tiny">“What should this token look for?”</text>
+    <rect y="210" width="300" height="165" rx="14" fill="#193a50" stroke="#5abce2" stroke-width="2"/>
+    <text x="150" y="252" text-anchor="middle" class="label">K = X WK</text><text x="150" y="285" text-anchor="middle" class="small">WK: learned projection</text><text x="150" y="314" text-anchor="middle" class="small">[d_model × d_head]</text><text x="150" y="347" text-anchor="middle" class="tiny">“What can this token be matched on?”</text>
+    <rect y="420" width="300" height="165" rx="14" fill="#173d38" stroke="#53c9ac" stroke-width="2"/>
+    <text x="150" y="462" text-anchor="middle" class="label">V = X WV</text><text x="150" y="495" text-anchor="middle" class="small">WV: learned projection</text><text x="150" y="524" text-anchor="middle" class="small">[d_model × d_head]</text><text x="150" y="557" text-anchor="middle" class="tiny">“What information should be passed on?”</text>
+  </g>
+  <path d="M330 430 H370 V252 H400" class="line"/><path d="M330 430 H370 V462 H400" class="line"/><path d="M330 430 H370 V672 H400" class="line"/>
+
+  <g transform="translate(780 155)">
+    <rect width="750" height="570" rx="16" fill="#101d2e" class="box"/>
+    <text x="30" y="43" class="label">Attention uses the three outputs differently</text>
+    <text x="30" y="75" class="small">For each head, one row per token is retained.</text>
+    <rect x="30" y="110" width="210" height="145" rx="10" fill="#2c2549" stroke="#8f79d9" stroke-width="2"/><text x="135" y="145" text-anchor="middle" class="label">Q rows</text><text x="135" y="178" text-anchor="middle" class="small">compared with K rows</text><text x="135" y="213" text-anchor="middle" class="tiny">QKᵀ → attention scores</text>
+    <rect x="270" y="110" width="210" height="145" rx="10" fill="#193a50" stroke="#5abce2" stroke-width="2"/><text x="375" y="145" text-anchor="middle" class="label">K rows</text><text x="375" y="178" text-anchor="middle" class="small">indexed by token</text><text x="375" y="213" text-anchor="middle" class="tiny">keys are matchable descriptors</text>
+    <rect x="510" y="110" width="210" height="145" rx="10" fill="#173d38" stroke="#53c9ac" stroke-width="2"/><text x="615" y="145" text-anchor="middle" class="label">V rows</text><text x="615" y="178" text-anchor="middle" class="small">weighted after softmax</text><text x="615" y="213" text-anchor="middle" class="tiny">PV → information mixture</text>
+    <path d="M240 182 H270" class="line"/><path d="M480 182 H510" class="line"/>
+    <rect x="120" y="330" width="510" height="170" rx="12" fill="#182b40" stroke="#617d9c" stroke-width="2"/>
+    <text x="375" y="367" text-anchor="middle" class="label">One head, one token row</text>
+    <text x="375" y="402" text-anchor="middle" class="small">q[t], k[t], v[t] each have d_head numbers</text>
+    <text x="375" y="434" text-anchor="middle" class="small">Number of heads × d_head = d_model</text>
+    <text x="375" y="470" text-anchor="middle" class="tiny">Example: 32 heads × 128 values/head = 4,096 features</text>
+  </g>
+  <text x="800" y="790" class="sub">Important: Q, K, and V are not three copies of the same row. Each uses a different learned weight matrix.</text>
+  <text x="800" y="820" class="sub">Their input X is shared, so their numerical features are related—but each projection learns a different representation.</text>
+</svg>

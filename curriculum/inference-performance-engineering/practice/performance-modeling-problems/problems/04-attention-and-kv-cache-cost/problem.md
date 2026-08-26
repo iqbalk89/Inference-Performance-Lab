@@ -35,6 +35,63 @@ straightforward implementation the score matrix still has a rectangular
 storage shape; masked entries are assigned a very negative value before
 softmax so their probability becomes effectively zero.
 
+## Visual guide: follow the data before doing arithmetic
+
+The diagrams below are part of the problem. Read them from left to right and
+say out loud what each arrow carries. The boxes are numerical tensors; the
+words are labels that help us remember what those numbers mean.
+
+### 1. How hidden states become Q, K, and V
+
+![Q, K, and V roles and shapes](assets/qkv-roles-and-shapes.svg)
+
+Each token starts with a hidden-state row. Three learned projections transform
+that row into a query row, a key row, and a value row. The output can be
+reshaped from `[d_model]` into `[H, D]`; here, `[4096] → [32 heads, 128
+values/head]`. Q, K, and V are not three copies of the input: each uses a
+different learned weight matrix and encodes a different role.
+
+### 2. How a causal mask blocks future information
+
+![Causal attention mask](assets/causal-mask-attention-matrix.svg)
+
+Rows represent query positions and columns represent key positions. A green
+cell is an allowed comparison; a red cell is a future position that must be
+blocked. For example, query position 2 may use keys at positions 0, 1, and 2,
+but not positions 3 or 4. The mask changes which scores participate in
+softmax; it does not automatically make a dense matrix-multiplication kernel
+skip those arithmetic locations.
+
+### 3. Prefill: all prompt rows are processed together
+
+![Prefill attention flow](assets/prefill-attention-flow.svg)
+
+Prefill creates Q, K, and V for every prompt token. For one head, `QKᵀ` turns
+`[T × D]` and `[D × T]` into a `[T × T]` score matrix. Softmax turns each row
+into weights, and multiplying by V produces one contextual `[D]` row per
+prompt token. The K and V rows are retained in the cache when this layer is
+finished.
+
+### 4. Decode: one new query reads the existing cache
+
+![Decode attention and KV cache](assets/decode-attention-kv-cache.svg)
+
+Decode creates only `q_t`, `k_t`, and `v_t` for the newest token. The new query
+is compared with all cached keys, producing `[1 × T]` scores for one head. The
+softmax weights then select a weighted combination of the cached values. The
+new key and value are appended after the attention step so the next generated
+token can use them.
+
+### 5. Why decode traffic grows with context length
+
+![KV cache growth during decode](assets/kv-cache-growth-decode.svg)
+
+At every decode step, the query remains one row, but the K/V cache gains one
+row. Consequently, the score vector and value lookup become longer as the
+conversation grows. This is why decode latency and cache-read traffic often
+increase with context length even though only one token is generated at a
+time.
+
 ## Background: what an attention head is
 
 The model hidden width is divided into logical heads. With 32 heads and 128

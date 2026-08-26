@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1120" viewBox="0 0 1800 1120" role="img" aria-labelledby="title desc">
+  <title id="title">How the KV cache grows during decode</title>
+  <desc id="desc">Three decode steps show a new query comparing against all cached key rows, then mixing the corresponding value rows. Each step appends the new key and value to persistent caches. The query is not cached.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#111827"/><stop offset="1" stop-color="#0b1120"/></linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#17243a"/><stop offset="1" stop-color="#101a2d"/></linearGradient>
+    <linearGradient id="qfill" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f59e0b"/><stop offset="1" stop-color="#d97706"/></linearGradient>
+    <linearGradient id="kfill" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#2563eb"/></linearGradient>
+    <linearGradient id="vfill" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#34d399"/><stop offset="1" stop-color="#059669"/></linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#94a3b8"/></marker>
+    <marker id="orangeArrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#fbbf24"/></marker>
+    <marker id="blueArrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#60a5fa"/></marker>
+    <marker id="greenArrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#34d399"/></marker>
+    <style>
+      .title{font:700  thirtypx system-ui,sans-serif;fill:#f8fafc}.subtitle{font:400 17px system-ui,sans-serif;fill:#cbd5e1}
+      .panelTitle{font:700 22px system-ui,sans-serif;fill:#f8fafc}.small{font:400 15px system-ui,sans-serif;fill:#cbd5e1}.tiny{font:400 13px system-ui,sans-serif;fill:#94a3b8}
+      .label{font:700 16px system-ui,sans-serif;fill:#e2e8f0}.matrix{font:700 15px ui-monospace,SFMono-Regular,monospace;fill:#fff}
+      .equation{font:600 17px ui-monospace,SFMono-Regular,monospace;fill:#e2e8f0}.callout{font:600 16px system-ui,sans-serif;fill:#f8fafc}
+    </style>
+  </defs>
+  <rect width="1800" height="1120" fill="url(#bg)"/>
+  <text x="70" y="62" class="title" style="font-size:30px">Decode: the KV cache grows, while each new query scans it</text>
+  <text x="70" y="94" class="subtitle">At every step, one new token creates q, k, and v.  k and v are appended to persistent caches; q is used once to read the cache.</text>
+
+  <!-- legend -->
+  <rect x="70" y="125" width="1660" height="68" rx="12" fill="#0f1b2e" stroke="#334155"/>
+  <rect x="95" y="147" width="27" height="27" rx="5" fill="url(#qfill)"/><text x="132" y="167" class="small">q = current query (not cached)</text>
+  <rect x="405" y="147" width="27" height="27" rx="5" fill="url(#kfill)"/><text x="442" y="167" class="small">K cache = every key seen so far</text>
+  <rect x="790" y="147" width="27" height="27" rx="5" fill="url(#vfill)"/><text x="827" y="167" class="small">V cache = value paired with each key</text>
+  <path d="M1250 160 H1345" stroke="#fbbf24" stroke-width="3" marker-end="url(#orangeArrow)"/><text x="1360" y="167" class="small">qKᵀ scores → softmax weights → weighted V</text>
+
+  <!-- panels -->
+  <rect x="70" y="225" width="520" height="650" rx="16" fill="url(#panel)" stroke="#334155" stroke-width="2"/>
+  <rect x="640" y="225" width="520" height="650" rx="16" fill="url(#panel)" stroke="#334155" stroke-width="2"/>
+  <rect x="1210" y="225" width="520" height="650" rx="16" fill="url(#panel)" stroke="#334155" stroke-width="2"/>
+
+  <!-- t0 -->
+  <text x="100" y="268" class="panelTitle">Step t = 0 · first generated token</text>
+  <text x="100" y="294" class="small">Context length L = 1</text>
+  <text x="100" y="338" class="label">new hidden row → projections</text>
+  <rect x="100" y="355" width="130" height="54" rx="8" fill="#334155" stroke="#64748b"/>
+  <text x="115" y="379" class="tiny">token h₀</text><text x="115" y="400" class="equation">[.2, -.1, .7]</text>
+  <path d="M230 382 H270" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="275" y="347" width="110" height="70" rx="8" fill="#263a55" stroke="#64748b"/>
+  <text x="291" y="374" class="label">QKV</text><text x="287" y="399" class="tiny">linear maps</text>
+  <path d="M385 382 H422" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="430" y="353" width="125" height="58" rx="8" fill="url(#qfill)"/>
+  <text x="448" y="378" class="matrix">q₀ [1×d]</text><text x="449" y="398" class="tiny" style="fill:#fff7ed">one query</text>
+  <text x="100" y="470" class="label">K cache (before → after)</text>
+  <rect x="100" y="488" width="190" height="52" rx="8" fill="#0c4a6e" stroke="#38bdf8"/>
+  <text x="120" y="520" class="matrix">empty [0×d]</text>
+  <path d="M290 514 H342" stroke="#60a5fa" stroke-width="3" marker-end="url(#blueArrow)"/>
+  <rect x="350" y="488" width="205" height="52" rx="8" fill="url(#kfill)"/><text x="380" y="520" class="matrix">K₀ [1×d]</text>
+  <text x="100" y="575" class="label">V cache (before → after)</text>
+  <rect x="100" y="593" width="190" height="52" rx="8" fill="#064e3b" stroke="#34d399"/><text x="120" y="625" class="matrix">empty [0×d]</text>
+  <path d="M290 619 H342" stroke="#34d399" stroke-width="3" marker-end="url(#greenArrow)"/>
+  <rect x="350" y="593" width="205" height="52" rx="8" fill="url(#vfill)"/><text x="380" y="625" class="matrix">V₀ [1×d]</text>
+  <rect x="100" y="692" width="455" height="112" rx="10" fill="#172554" stroke="#3b82f6"/>
+  <text x="120" y="720" class="label">Attention read</text><text x="120" y="748" class="equation">q₀ · K₀ᵀ → score₀</text><text x="120" y="775" class="equation">softmax([score₀]) = [1.0]</text><text x="120" y="797" class="equation">output = 1.0 × V₀</text>
+
+  <!-- t1 -->
+  <text x="670" y="268" class="panelTitle">Step t = 1 · second generated token</text>
+  <text x="670" y="294" class="small">Context length L = 2</text>
+  <text x="670" y="338" class="label">new hidden row → projections</text>
+  <rect x="670" y="355" width="130" height="54" rx="8" fill="#334155" stroke="#64748b"/><text x="685" y="379" class="tiny">token h₁</text><text x="685" y="400" class="equation">[.4, .3, -.2]</text>
+  <path d="M800 382 H840" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="845" y="347" width="110" height="70" rx="8" fill="#263a55" stroke="#64748b"/><text x="861" y="374" class="label">QKV</text><text x="857" y="399" class="tiny">linear maps</text>
+  <path d="M955 382 H992" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="1000" y="353" width="125" height="58" rx="8" fill="url(#qfill)"/><text x="1018" y="378" class="matrix">q₁ [1×d]</text><text x="1019" y="398" class="tiny" style="fill:#fff7ed">new query</text>
+  <text x="670" y="470" class="label">K cache grows: append K₁</text>
+  <rect x="670" y="488" width="105" height="52" rx="8" fill="#1d4ed8"/><text x="690" y="520" class="matrix">K₀</text>
+  <rect x="780" y="488" width="105" height="52" rx="8" fill="url(#kfill)"/><text x="800" y="520" class="matrix">K₁</text>
+  <text x="895" y="520" class="small">K-cache [2×d]</text>
+  <text x="670" y="575" class="label">V cache grows: append V₁</text>
+  <rect x="670" y="593" width="105" height="52" rx="8" fill="#047857"/><text x="690" y="625" class="matrix">V₀</text>
+  <rect x="780" y="593" width="105" height="52" rx="8" fill="url(#vfill)"/><text x="800" y="625" class="matrix">V₁</text>
+  <text x="895" y="625" class="small">V-cache [2×d]</text>
+  <rect x="670" y="692" width="455" height="112" rx="10" fill="#172554" stroke="#3b82f6"/>
+  <text x="690" y="720" class="label">Attention read: query is one row, cache has two</text><text x="690" y="748" class="equation">q₁ · [K₀ K₁]ᵀ → [s₁₀, s₁₁]</text><text x="690" y="775" class="equation">softmax → [α₁₀, α₁₁]</text><text x="690" y="797" class="equation">output = α₁₀V₀ + α₁₁V₁</text>
+
+  <!-- t2 -->
+  <text x="1240" y="268" class="panelTitle">Step t = 2 · third generated token</text>
+  <text x="1240" y="294" class="small">Context length L = 3</text>
+  <text x="1240" y="338" class="label">new hidden row → projections</text>
+  <rect x="1240" y="355" width="130" height="54" rx="8" fill="#334155" stroke="#64748b"/><text x="1255" y="379" class="tiny">token h₂</text><text x="1255" y="400" class="equation">[-.3, .6, .1]</text>
+  <path d="M1370 382 H1410" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="1415" y="347" width="110" height="70" rx="8" fill="#263a55" stroke="#64748b"/><text x="1431" y="374" class="label">QKV</text><text x="1427" y="399" class="tiny">linear maps</text>
+  <path d="M1525 382 H1562" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="1570" y="353" width="125" height="58" rx="8" fill="url(#qfill)"/><text x="1588" y="378" class="matrix">q₂ [1×d]</text><text x="1589" y="398" class="tiny" style="fill:#fff7ed">new query</text>
+  <text x="1240" y="470" class="label">K cache grows: append K₂</text>
+  <rect x="1240" y="488" width="90" height="52" rx="8" fill="#1d4ed8"/><text x="1261" y="520" class="matrix">K₀</text>
+  <rect x="1335" y="488" width="90" height="52" rx="8" fill="#2563eb"/><text x="1356" y="520" class="matrix">K₁</text>
+  <rect x="1430" y="488" width="90" height="52" rx="8" fill="url(#kfill)"/><text x="1451" y="520" class="matrix">K₂</text>
+  <text x="1535" y="520" class="small">K-cache [3×d]</text>
+  <text x="1240" y="575" class="label">V cache grows: append V₂</text>
+  <rect x="1240" y="593" width="90" height="52" rx="8" fill="#047857"/><text x="1261" y="625" class="matrix">V₀</text>
+  <rect x="1335" y="593" width="90" height="52" rx="8" fill="#059669"/><text x="1356" y="625" class="matrix">V₁</text>
+  <rect x="1430" y="593" width="90" height="52" rx="8" fill="url(#vfill)"/><text x="1451" y="625" class="matrix">V₂</text>
+  <text x="1535" y="625" class="small">V-cache [3×d]</text>
+  <rect x="1240" y="692" width="455" height="112" rx="10" fill="#172554" stroke="#3b82f6"/>
+  <text x="1260" y="720" class="label">Attention read: scan all three prior rows</text><text x="1260" y="748" class="equation">q₂ · [K₀ K₁ K₂]ᵀ → 3 scores</text><text x="1260" y="775" class="equation">softmax → [α₂₀, α₂₁, α₂₂]</text><text x="1260" y="797" class="equation">output = Σᵢ α₂ᵢVᵢ</text>
+
+  <!-- bottom takeaways -->
+  <rect x="70" y="910" width="1660" height="150" rx="14" fill="#0f1b2e" stroke="#475569"/>
+  <text x="100" y="950" class="panelTitle" style="font-size:20px">What changes as decoding continues?</text>
+  <text x="100" y="982" class="callout">1. The query is always one new row: qₜ has shape [1×d].</text>
+  <text x="100" y="1010" class="callout">2. K and V are written once, then reused: after t, each cache has L=t+1 rows.</text>
+  <text x="100" y="1038" class="callout">3. Every new qₜ reads all L cached rows → attention work and cache bytes grow with context length.</text>
+  <text x="1010" y="982" class="equation">K-cache bytes ∝ L × d</text>
+  <text x="1010" y="1010" class="equation">V-cache bytes ∝ L × d</text>
+  <text x="1010" y="1038" class="equation">qKᵀ + weighted-V work ∝ L × d</text>
+</svg>
