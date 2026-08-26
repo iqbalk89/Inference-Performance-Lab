@@ -131,6 +131,31 @@ class SliceZeroTests(unittest.TestCase):
         self.assertEqual(graph["title"], "Custom Prefill: Problem 02 projection")
         self.assertIn("X [128 × 4096]", {item["label"] for item in graph["components"]})
 
+    def test_projection_uses_reusable_blocks_and_explicit_output_writeback(self) -> None:
+        scenario = build_slice_zero_scenario().to_dict()
+        graph = scenario["diagrams"]["prefill-detail"]
+        components = {item["component_id"]: item for item in graph["components"]}
+        connections = {item["connection_id"]: item for item in graph["connections"]}
+
+        self.assertEqual(components["prefill-input"]["kind"], "tensor")
+        self.assertEqual(components["prefill-weight"]["kind"], "tensor")
+        self.assertEqual(components["prefill-matmul"]["kind"], "operation")
+        self.assertEqual(components["prefill-hbm"]["lane"], "hardware")
+
+        output_write = connections["prefill-output-write"]
+        self.assertEqual(output_write["source_id"], "prefill-output")
+        self.assertEqual(output_write["target_id"], "prefill-hbm")
+        self.assertEqual(output_write["category"], "transfer")
+        self.assertIn("GB/s", output_write["badge"])
+        self.assertTrue(
+            all(metric["calculation"] for metric in output_write["metrics"] if metric["name"] != "Peak HBM rate")
+        )
+
+        self.assertLessEqual(
+            {"logical", "transfer", "physical", "mapping"},
+            {edge["category"] for edge in connections.values()},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

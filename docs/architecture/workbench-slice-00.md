@@ -54,6 +54,33 @@ The GPU view separates logical process blocks from physical hardware blocks.
 Dashed mapping lines say that a process demands a hardware resource; solid
 arrows represent physical or logical data paths.
 
+The prefill and decode projection views use two explicit lanes:
+
+```text
+LOGICAL TENSOR FLOW
+X tensor ──┐
+           ├──▶ matrix multiplication ──▶ Y tensor
+W tensor ──┘
+
+PHYSICAL GPU HARDWARE
+HBM ◀──▶ shared L2 ◀──▶ SMs + Tensor Cores
+```
+
+The lanes answer different questions. The upper lane explains the mathematics:
+which tensors participate in the operation and which tensor it produces. The
+lower lane explains where bytes reside and where computation executes. Cyan
+transfer arrows connect the two views and count traffic at the HBM boundary:
+HBM reads `X`, HBM reads `W`, and the resulting `Y` is explicitly written back
+to HBM. The final `Y → HBM` arrow is important because output bytes contribute
+to total traffic and therefore to arithmetic intensity and the memory-time
+bound.
+
+This is intentionally a boundary-level model. It does not claim that data
+physically jumps directly from HBM into a mathematical tensor node. Actual
+transactions travel through memory controllers and caches; those details are
+shown in the hardware lane and will be quantified when cache behavior is
+modeled or measured.
+
 Path badges are intentionally compact:
 
 ```text
@@ -113,6 +140,19 @@ This design follows four rules:
 3. Variant selection occurs at the composition root or registry.
 4. The UI consumes a stable scenario contract and does not import a specific
    GPU, memory, or workload implementation.
+
+Projection diagrams are also assembled from reusable objects in
+[`blocks.py`](../../src/inference_workbench/blocks.py):
+
+- `TensorBlock` represents a logical tensor such as `X`, `W`, or `Y`;
+- `OperationBlock` represents mathematical work such as matrix multiplication;
+- `ResourceBlock` represents physical hardware such as HBM, L2, or an SM;
+- `Path` constructs consistently styled logical, transfer, physical, and
+  operation-to-hardware mapping connections.
+
+The prefill and decode views instantiate the same block classes. Future
+operators, GPU variants, and memory models can therefore replace their data and
+composition without duplicating frontend markup or diagram-specific classes.
 
 ## Swapping a Memory Model
 
@@ -218,6 +258,8 @@ npm --prefix workbench-ui audit --audit-level=high
 The Slice 0 tests verify:
 
 - the full drill-down graph exists;
+- projection diagrams use reusable semantic block types;
+- projection output has an explicit, calculated `Y → HBM` write path;
 - hierarchical and flat memory models can be exchanged;
 - new registry variants can be added;
 - an entirely different accelerator can be injected;

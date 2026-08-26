@@ -35,6 +35,9 @@ button { font: inherit; }
 .react-flow__edge-textbg { fill: #0b1729; fill-opacity: .92; }
 .edge-mapping .react-flow__edge-path { stroke: #e2a83b; stroke-dasharray: 7 7; opacity: .55; }
 .edge-result .react-flow__edge-path { stroke: #52d3a4; }
+.edge-logical .react-flow__edge-path { stroke: #65b8ff; stroke-width: 2.5; }
+.edge-transfer .react-flow__edge-path { stroke: #58d8d0; stroke-width: 3; }
+.edge-physical .react-flow__edge-path { stroke: #7794b7; stroke-width: 2.5; }
 .react-flow__arrowhead polyline { stroke: currentColor; }
 
 .component-node { width: 165px; min-height: 112px; padding: 13px 14px 12px; background: linear-gradient(145deg, #142a48, #102038); border: 1px solid #40638a; border-radius: 13px; box-shadow: 0 12px 32px #02071366; transition: transform .15s, border-color .15s, box-shadow .15s; }
@@ -51,9 +54,11 @@ button { font: inherit; }
 .kind-memory { border-color: #56a9ef; }
 .kind-phase { border-color: #bd8bf4; background: linear-gradient(145deg, #312348, #1e1935); }
 .kind-operation { border-color: #e4ae48; background: linear-gradient(145deg, #3a2d19, #241f19); }
+.kind-tensor { border-color: #65b8ff; background: linear-gradient(145deg, #173353, #11263f); }
 .kind-interconnect { border-style: dashed; }
 
 .lane-labels { position: absolute; z-index: 3; pointer-events: none; inset: 24px auto auto 25px; display: grid; gap: 240px; color: #7089ab; font-size: 10px; letter-spacing: .16em; font-weight: 800; }
+.phase-lanes { gap: 365px; }
 .interaction-hint { position: absolute; z-index: 3; left: 20px; bottom: 16px; border: 1px solid #2d4564; border-radius: 8px; padding: 7px 10px; background: #081427d9; color: #8ea5c2; font-size: 11px; }
 
 .inspector { padding: 26px 24px; background: #091426e6; overflow: auto; }

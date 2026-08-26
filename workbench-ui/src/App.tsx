@@ -99,6 +99,7 @@ export default function App() {
       <section className="workspace">
         <div className="canvas-panel">
           {graphId === 'gpu-0-detail' && <div className="lane-labels"><span>INFERENCE PROCESS</span><span>GPU HARDWARE</span></div>}
+          {(graphId === 'prefill-detail' || graphId === 'decode-detail') && <div className="lane-labels phase-lanes"><span>LOGICAL TENSOR FLOW</span><span>PHYSICAL GPU HARDWARE</span></div>}
           <ReactFlow<ComponentFlowNode, Edge>
             nodes={nodes}
             edges={edges}

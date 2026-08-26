@@ -1348,17 +1348,17 @@
     "prefill-detail": {
       "graph_id": "prefill-detail",
       "title": "Prefill: Problem 02 projection",
-      "subtitle": "Processes 512 prompt rows together against a shared projection matrix.",
+      "subtitle": "Processes 512 prompt rows together against a shared projection matrix. Solid blue arrows show logical tensor flow; cyan transfer arrows cross the HBM boundary; dashed amber arrows map work to hardware.",
       "parent_graph_id": "gpu-0-detail",
       "components": [
         {
           "component_id": "prefill-input",
           "label": "X [512 \u00d7 4096]",
-          "kind": "operation",
-          "summary": "FP16 input activation rows.",
+          "kind": "tensor",
+          "summary": "Logical FP16 input tensor. Its rows represent token positions processed together.",
           "position": {
-            "x": 90,
-            "y": 210
+            "x": 300,
+            "y": 75
           },
           "metrics": [
             {
@@ -1371,12 +1371,21 @@
               "calculation": null
             },
             {
+              "name": "Values",
+              "value": 2097152,
+              "unit": "values",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
               "name": "HBM read",
               "value": "4.19 MB",
               "unit": "",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "512 \u00d7 4096 \u00d7 2 bytes",
+              "derivation": "",
               "calculation": {
                 "title": "Input read",
                 "concept": "A tensor's byte size equals its number of scalar values multiplied by the storage occupied by each value. The simplified traffic model counts this tensor crossing the HBM boundary once.",
@@ -1441,61 +1450,6 @@
                   "Counts one transfer and excludes cache effects, rereads, alignment, metadata, and workspace."
                 ]
               }
-            },
-            {
-              "name": "Transfer bound",
-              "value": 6.9905,
-              "unit": "\u00b5s",
-              "evidence": "theoretical",
-              "description": "",
-              "derivation": "4,194,304 bytes / 600 GB/s",
-              "calculation": {
-                "title": "Input read transfer-time bound",
-                "concept": "A transfer-time bound divides the amount of data crossing one physical boundary by that boundary's maximum delivery rate. It is the fastest ideal transfer, not a measured latency.",
-                "formula": "transfer time = transferred bytes \u00f7 bandwidth",
-                "inputs": [
-                  {
-                    "symbol": "Q",
-                    "value": "4,194,304 bytes",
-                    "meaning": "Data crossing this path",
-                    "source": "Input-byte calculation"
-                  },
-                  {
-                    "symbol": "BW",
-                    "value": "600 GB/s",
-                    "meaning": "Peak or assumed path bandwidth",
-                    "source": "Selected hardware model"
-                  }
-                ],
-                "steps": [
-                  {
-                    "title": "Convert bandwidth",
-                    "expression": "600 GB/s \u00d7 10\u2079 = 600,000,000,000 bytes/s",
-                    "explanation": "Giga is the decimal prefix for one billion."
-                  },
-                  {
-                    "title": "Divide bytes by rate",
-                    "expression": "4,194,304 bytes \u00f7 600,000,000,000 bytes/s = 0.000006990507 s",
-                    "explanation": "The byte units cancel, leaving seconds."
-                  },
-                  {
-                    "title": "Convert seconds",
-                    "expression": "0.000006990507 s \u00d7 10\u2076 \u00b5s/s = 6.990507 \u00b5s",
-                    "explanation": "The workbench presents short hardware times in microseconds."
-                  },
-                  {
-                    "title": "Display rounding",
-                    "expression": "6.990507 \u2192 6.9905 \u00b5s",
-                    "explanation": "The internal result retains more precision."
-                  }
-                ],
-                "unit_analysis": "bytes \u00f7 (bytes/s) = seconds; seconds \u00d7 \u00b5s/second = \u00b5s.",
-                "interpretation": "At an ideal 600 GB/s, moving 4.19 MB cannot take less than approximately 6.9905 \u00b5s.",
-                "assumptions": [
-                  "Assumes the path sustains its full stated rate.",
-                  "Excludes protocol, queueing, setup, and synchronization overhead."
-                ]
-              }
             }
           ],
           "drilldown_graph_id": null,
@@ -1504,20 +1458,38 @@
         {
           "component_id": "prefill-weight",
           "label": "W [4096 \u00d7 4096]",
-          "kind": "memory",
-          "summary": "Shared FP16 projection weights.",
+          "kind": "tensor",
+          "summary": "Logical FP16 learned-weight tensor shared by every input row in this call.",
           "position": {
-            "x": 90,
-            "y": 455
+            "x": 300,
+            "y": 275
           },
           "metrics": [
+            {
+              "name": "Shape",
+              "value": "[4096 \u00d7 4096]",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Values",
+              "value": 16777216,
+              "unit": "values",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
             {
               "name": "HBM read",
               "value": "33.55 MB",
               "unit": "",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "4096 \u00d7 4096 \u00d7 2 bytes",
+              "derivation": "",
               "calculation": {
                 "title": "Weight read",
                 "concept": "A tensor's byte size equals its number of scalar values multiplied by the storage occupied by each value. The simplified traffic model counts this tensor crossing the HBM boundary once.",
@@ -1582,83 +1554,19 @@
                   "Counts one transfer and excludes cache effects, rereads, alignment, metadata, and workspace."
                 ]
               }
-            },
-            {
-              "name": "Element size",
-              "value": 2,
-              "unit": "bytes",
-              "evidence": "assumed",
-              "description": "",
-              "derivation": "",
-              "calculation": null
-            },
-            {
-              "name": "Transfer bound",
-              "value": 55.9241,
-              "unit": "\u00b5s",
-              "evidence": "theoretical",
-              "description": "",
-              "derivation": "33,554,432 bytes / 600 GB/s",
-              "calculation": {
-                "title": "Weight read transfer-time bound",
-                "concept": "A transfer-time bound divides the amount of data crossing one physical boundary by that boundary's maximum delivery rate. It is the fastest ideal transfer, not a measured latency.",
-                "formula": "transfer time = transferred bytes \u00f7 bandwidth",
-                "inputs": [
-                  {
-                    "symbol": "Q",
-                    "value": "33,554,432 bytes",
-                    "meaning": "Data crossing this path",
-                    "source": "Weight-byte calculation"
-                  },
-                  {
-                    "symbol": "BW",
-                    "value": "600 GB/s",
-                    "meaning": "Peak or assumed path bandwidth",
-                    "source": "Selected hardware model"
-                  }
-                ],
-                "steps": [
-                  {
-                    "title": "Convert bandwidth",
-                    "expression": "600 GB/s \u00d7 10\u2079 = 600,000,000,000 bytes/s",
-                    "explanation": "Giga is the decimal prefix for one billion."
-                  },
-                  {
-                    "title": "Divide bytes by rate",
-                    "expression": "33,554,432 bytes \u00f7 600,000,000,000 bytes/s = 0.000055924053 s",
-                    "explanation": "The byte units cancel, leaving seconds."
-                  },
-                  {
-                    "title": "Convert seconds",
-                    "expression": "0.000055924053 s \u00d7 10\u2076 \u00b5s/s = 55.924053 \u00b5s",
-                    "explanation": "The workbench presents short hardware times in microseconds."
-                  },
-                  {
-                    "title": "Display rounding",
-                    "expression": "55.924053 \u2192 55.9241 \u00b5s",
-                    "explanation": "The internal result retains more precision."
-                  }
-                ],
-                "unit_analysis": "bytes \u00f7 (bytes/s) = seconds; seconds \u00d7 \u00b5s/second = \u00b5s.",
-                "interpretation": "At an ideal 600 GB/s, moving 33.55 MB cannot take less than approximately 55.9241 \u00b5s.",
-                "assumptions": [
-                  "Assumes the path sustains its full stated rate.",
-                  "Excludes protocol, queueing, setup, and synchronization overhead."
-                ]
-              }
             }
           ],
           "drilldown_graph_id": null,
-          "lane": "hardware"
+          "lane": "process"
         },
         {
           "component_id": "prefill-matmul",
           "label": "Matrix multiplication",
           "kind": "operation",
-          "summary": "XW using GPU compute and memory resources.",
+          "summary": "Logical XW projection. The work maps to the GPU SM and Tensor Core system.",
           "position": {
-            "x": 520,
-            "y": 300
+            "x": 650,
+            "y": 175
           },
           "metrics": [
             {
@@ -1667,7 +1575,7 @@
               "unit": "",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "2 \u00d7 512 \u00d7 4096 \u00d7 4096",
+              "derivation": "",
               "calculation": {
                 "title": "Matrix-multiplication work",
                 "concept": "The projection creates an M-by-N output matrix. Every output value is a dot product containing K multiplications. Under the standard performance-modeling convention, each contribution counts as one multiply plus one add, or approximately two floating-point operations.",
@@ -1733,7 +1641,7 @@
               "unit": "",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "weight read + input read + output write",
+              "derivation": "",
               "calculation": {
                 "title": "Total modeled HBM traffic",
                 "concept": "The operation requires weights and input activations before it can compute and writes output activations afterward. The simplified model adds these three non-overlapping byte categories.",
@@ -1811,7 +1719,7 @@
               "unit": "FLOPs/byte",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "17,179,869,184 FLOPs / 41,943,040 bytes",
+              "derivation": "",
               "calculation": {
                 "title": "Arithmetic intensity",
                 "concept": "Arithmetic intensity measures how much useful arithmetic is obtained from every byte that crosses a named memory boundary. Here the boundary is HBM-to-chip. It is a workload ratio, not a speed or elapsed time.",
@@ -1920,7 +1828,7 @@
               "unit": "\u00b5s",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "17,179,869,184 FLOPs / 120 TFLOP/s",
+              "derivation": "",
               "calculation": {
                 "title": "Ideal compute-time bound",
                 "concept": "This asks how long the arithmetic would take if the GPU sustained its full stated FP16 compute rate. It ignores memory stalls and all overhead, so it is an optimistic lower bound.",
@@ -1987,7 +1895,7 @@
               "unit": "\u00b5s",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "41,943,040 bytes / 600 GB/s",
+              "derivation": "",
               "calculation": {
                 "title": "Ideal HBM-time bound",
                 "concept": "This asks how long the modeled bytes would take to cross the HBM boundary if the GPU sustained full peak HBM bandwidth. It is an optimistic lower bound, not measured latency.",
@@ -2066,7 +1974,7 @@
               "unit": "\u00b5s",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "max(compute bound, memory bound)",
+              "derivation": "",
               "calculation": {
                 "title": "Roofline lower-bound time",
                 "concept": "The operation needs both its arithmetic and its data movement. In the ideal roofline model they overlap perfectly, so the slower resource determines the earliest possible completion time. Taking the maximum avoids double-counting perfectly overlapped work.",
@@ -2178,11 +2086,11 @@
         {
           "component_id": "prefill-output",
           "label": "Y [512 \u00d7 4096]",
-          "kind": "operation",
-          "summary": "FP16 output activation rows.",
+          "kind": "tensor",
+          "summary": "Logical FP16 output tensor. Under this model it is written back across the HBM boundary.",
           "position": {
-            "x": 970,
-            "y": 300
+            "x": 1000,
+            "y": 175
           },
           "metrics": [
             {
@@ -2195,12 +2103,21 @@
               "calculation": null
             },
             {
+              "name": "Values",
+              "value": 2097152,
+              "unit": "values",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
               "name": "HBM write",
               "value": "4.19 MB",
               "unit": "",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "512 \u00d7 4096 \u00d7 2 bytes",
+              "derivation": "",
               "calculation": {
                 "title": "Output write",
                 "concept": "A tensor's byte size equals its number of scalar values multiplied by the storage occupied by each value. The simplified traffic model counts this tensor crossing the HBM boundary once.",
@@ -2265,78 +2182,412 @@
                   "Counts one transfer and excludes cache effects, rereads, alignment, metadata, and workspace."
                 ]
               }
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-hbm",
+          "label": "HBM",
+          "kind": "memory",
+          "summary": "Physical off-chip GPU memory containing X, W, and the stored Y result.",
+          "position": {
+            "x": 30,
+            "y": 505
+          },
+          "metrics": [
+            {
+              "name": "Peak bandwidth",
+              "value": 600,
+              "unit": "GB/s",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
             },
             {
-              "name": "Transfer bound",
-              "value": 6.9905,
+              "name": "Total projection traffic",
+              "value": "41.94 MB",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": {
+                "title": "Total modeled HBM traffic",
+                "concept": "The operation requires weights and input activations before it can compute and writes output activations afterward. The simplified model adds these three non-overlapping byte categories.",
+                "formula": "total HBM bytes = weight read + input read + output write",
+                "inputs": [
+                  {
+                    "symbol": "M",
+                    "value": "512",
+                    "meaning": "Number of token rows processed together",
+                    "source": "First dimension of X"
+                  },
+                  {
+                    "symbol": "K",
+                    "value": "4096",
+                    "meaning": "Number of input features consumed by each output dot product",
+                    "source": "Second dimension of X and first dimension of W"
+                  },
+                  {
+                    "symbol": "N",
+                    "value": "4096",
+                    "meaning": "Number of output features produced for each row",
+                    "source": "Second dimension of W and Y"
+                  },
+                  {
+                    "symbol": "s_w",
+                    "value": "2 bytes/value",
+                    "meaning": "Storage occupied by one FP16 weight",
+                    "source": "Problem datatype assumption"
+                  },
+                  {
+                    "symbol": "s_a",
+                    "value": "2 bytes/value",
+                    "meaning": "Storage occupied by one FP16 activation",
+                    "source": "Problem datatype assumption"
+                  }
+                ],
+                "steps": [
+                  {
+                    "title": "Weight read",
+                    "expression": "33,554,432 bytes",
+                    "explanation": "The shared K-by-N FP16 weight matrix is read once per modeled call."
+                  },
+                  {
+                    "title": "Input read",
+                    "expression": "4,194,304 bytes",
+                    "explanation": "The M-by-K FP16 input matrix is read once."
+                  },
+                  {
+                    "title": "Output write",
+                    "expression": "4,194,304 bytes",
+                    "explanation": "The M-by-N FP16 result is written once."
+                  },
+                  {
+                    "title": "Add traffic",
+                    "expression": "33,554,432 + 4,194,304 + 4,194,304 = 41,943,040 bytes",
+                    "explanation": "Traffic categories add because all three cross the named HBM boundary."
+                  },
+                  {
+                    "title": "Readable scale",
+                    "expression": "41,943,040 bytes = 41.94 MB",
+                    "explanation": "This is a traffic quantity, not GPU memory capacity."
+                  }
+                ],
+                "unit_analysis": "bytes + bytes + bytes = bytes.",
+                "interpretation": "The projection is modeled as moving 41.94 MB across the HBM boundary.",
+                "assumptions": [
+                  "W is counted once per model call.",
+                  "No cache hits, extra rereads, workspace, fusion, or allocator traffic are included."
+                ]
+              }
+            },
+            {
+              "name": "Ideal memory bound",
+              "value": 69.9051,
               "unit": "\u00b5s",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "4,194,304 bytes / 600 GB/s",
+              "derivation": "",
               "calculation": {
-                "title": "Output write transfer-time bound",
-                "concept": "A transfer-time bound divides the amount of data crossing one physical boundary by that boundary's maximum delivery rate. It is the fastest ideal transfer, not a measured latency.",
-                "formula": "transfer time = transferred bytes \u00f7 bandwidth",
+                "title": "Ideal HBM-time bound",
+                "concept": "This asks how long the modeled bytes would take to cross the HBM boundary if the GPU sustained full peak HBM bandwidth. It is an optimistic lower bound, not measured latency.",
+                "formula": "memory time = HBM bytes \u00f7 peak HBM bandwidth",
                 "inputs": [
                   {
-                    "symbol": "Q",
-                    "value": "4,194,304 bytes",
-                    "meaning": "Data crossing this path",
-                    "source": "Output-byte calculation"
+                    "symbol": "M",
+                    "value": "512",
+                    "meaning": "Number of token rows processed together",
+                    "source": "First dimension of X"
+                  },
+                  {
+                    "symbol": "K",
+                    "value": "4096",
+                    "meaning": "Number of input features consumed by each output dot product",
+                    "source": "Second dimension of X and first dimension of W"
+                  },
+                  {
+                    "symbol": "N",
+                    "value": "4096",
+                    "meaning": "Number of output features produced for each row",
+                    "source": "Second dimension of W and Y"
+                  },
+                  {
+                    "symbol": "s_w",
+                    "value": "2 bytes/value",
+                    "meaning": "Storage occupied by one FP16 weight",
+                    "source": "Problem datatype assumption"
+                  },
+                  {
+                    "symbol": "s_a",
+                    "value": "2 bytes/value",
+                    "meaning": "Storage occupied by one FP16 activation",
+                    "source": "Problem datatype assumption"
                   },
                   {
                     "symbol": "BW",
                     "value": "600 GB/s",
-                    "meaning": "Peak or assumed path bandwidth",
-                    "source": "Selected hardware model"
+                    "meaning": "Hypothetical peak HBM bandwidth",
+                    "source": "Problem 02 hardware assumption"
                   }
                 ],
                 "steps": [
                   {
                     "title": "Convert bandwidth",
                     "expression": "600 GB/s \u00d7 10\u2079 = 600,000,000,000 bytes/s",
-                    "explanation": "Giga is the decimal prefix for one billion."
+                    "explanation": "Performance specifications use decimal GB."
                   },
                   {
-                    "title": "Divide bytes by rate",
-                    "expression": "4,194,304 bytes \u00f7 600,000,000,000 bytes/s = 0.000006990507 s",
-                    "explanation": "The byte units cancel, leaving seconds."
+                    "title": "Divide traffic by rate",
+                    "expression": "41,943,040 bytes \u00f7 600,000,000,000 bytes/s = 0.000069905067 s",
+                    "explanation": "Bytes cancel and leave seconds."
                   },
                   {
                     "title": "Convert seconds",
-                    "expression": "0.000006990507 s \u00d7 10\u2076 \u00b5s/s = 6.990507 \u00b5s",
-                    "explanation": "The workbench presents short hardware times in microseconds."
+                    "expression": "0.000069905067 s \u00d7 10\u2076 \u00b5s/s = 69.905067 \u00b5s",
+                    "explanation": "Convert the result to the latency unit used in the workbench."
                   },
                   {
                     "title": "Display rounding",
-                    "expression": "6.990507 \u2192 6.9905 \u00b5s",
-                    "explanation": "The internal result retains more precision."
+                    "expression": "69.905067 \u2192 69.9051 \u00b5s",
+                    "explanation": "The model retains the unrounded value internally."
                   }
                 ],
                 "unit_analysis": "bytes \u00f7 (bytes/s) = seconds; seconds \u00d7 \u00b5s/second = \u00b5s.",
-                "interpretation": "At an ideal 600 GB/s, moving 4.19 MB cannot take less than approximately 6.9905 \u00b5s.",
+                "interpretation": "Even perfect bandwidth utilization could not move the modeled traffic in less than approximately 69.9051 \u00b5s.",
                 "assumptions": [
-                  "Assumes the path sustains its full stated rate.",
-                  "Excludes protocol, queueing, setup, and synchronization overhead."
+                  "Assumes peak bandwidth is attainable.",
+                  "Excludes cache effects and traffic omitted by the simplified model."
                 ]
               }
             }
           ],
           "drilldown_graph_id": null,
-          "lane": "process"
+          "lane": "hardware"
+        },
+        {
+          "component_id": "prefill-l2",
+          "label": "Shared L2 Cache",
+          "kind": "memory",
+          "summary": "Physical GPU-wide cache between HBM and the SM array. Slice 0 does not invent an L2 hit rate.",
+          "position": {
+            "x": 450,
+            "y": 505
+          },
+          "metrics": [
+            {
+              "name": "Traffic status",
+              "value": "Requires profiler/calibrated cache model",
+              "unit": "",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "prefill-sm-compute",
+          "label": "SM + Tensor Cores",
+          "kind": "compute",
+          "summary": "Physical execution resources that perform the tiled matrix multiplication.",
+          "position": {
+            "x": 800,
+            "y": 505
+          },
+          "metrics": [
+            {
+              "name": "Peak FP16 compute",
+              "value": 120,
+              "unit": "TFLOP/s",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Projection work",
+              "value": "17.18 GFLOPs",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": {
+                "title": "Matrix-multiplication work",
+                "concept": "The projection creates an M-by-N output matrix. Every output value is a dot product containing K multiplications. Under the standard performance-modeling convention, each contribution counts as one multiply plus one add, or approximately two floating-point operations.",
+                "formula": "FLOPs = 2 \u00d7 M \u00d7 K \u00d7 N",
+                "inputs": [
+                  {
+                    "symbol": "M",
+                    "value": "512",
+                    "meaning": "Number of token rows processed together",
+                    "source": "First dimension of X"
+                  },
+                  {
+                    "symbol": "K",
+                    "value": "4096",
+                    "meaning": "Number of input features consumed by each output dot product",
+                    "source": "Second dimension of X and first dimension of W"
+                  },
+                  {
+                    "symbol": "N",
+                    "value": "4096",
+                    "meaning": "Number of output features produced for each row",
+                    "source": "Second dimension of W and Y"
+                  },
+                  {
+                    "symbol": "2",
+                    "value": "2 FLOPs/contribution",
+                    "meaning": "One multiplication plus one addition",
+                    "source": "FLOP-counting convention"
+                  }
+                ],
+                "steps": [
+                  {
+                    "title": "Count output values",
+                    "expression": "M \u00d7 N = 512 \u00d7 4096 = 2,097,152",
+                    "explanation": "There is one output value for every row and output feature."
+                  },
+                  {
+                    "title": "Count contributions",
+                    "expression": "2,097,152 outputs \u00d7 4096 contributions/output = 8,589,934,592 contributions",
+                    "explanation": "Each output is a length-K dot product."
+                  },
+                  {
+                    "title": "Convert contributions to FLOPs",
+                    "expression": "2 \u00d7 512 \u00d7 4096 \u00d7 4096 = 17,179,869,184 FLOPs",
+                    "explanation": "Each contribution is modeled as one multiplication and one addition."
+                  },
+                  {
+                    "title": "Readable scale",
+                    "expression": "17,179,869,184 FLOPs = 17.18 GFLOPs",
+                    "explanation": "Decimal prefixes are used for performance quantities."
+                  }
+                ],
+                "unit_analysis": "The row, feature, and contribution counts are dimensionless. Multiplying them by FLOPs/contribution leaves FLOPs.",
+                "interpretation": "This single projection performs 17.18 GFLOPs of arithmetic for 512 token rows.",
+                "assumptions": [
+                  "Uses the conventional approximate 2MKN count rather than exactly K multiplies and K\u22121 adds per dot product."
+                ]
+              }
+            },
+            {
+              "name": "Ideal compute bound",
+              "value": 143.1656,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": {
+                "title": "Ideal compute-time bound",
+                "concept": "This asks how long the arithmetic would take if the GPU sustained its full stated FP16 compute rate. It ignores memory stalls and all overhead, so it is an optimistic lower bound.",
+                "formula": "compute time = FLOPs \u00f7 peak compute rate",
+                "inputs": [
+                  {
+                    "symbol": "M",
+                    "value": "512",
+                    "meaning": "Number of token rows processed together",
+                    "source": "First dimension of X"
+                  },
+                  {
+                    "symbol": "K",
+                    "value": "4096",
+                    "meaning": "Number of input features consumed by each output dot product",
+                    "source": "Second dimension of X and first dimension of W"
+                  },
+                  {
+                    "symbol": "N",
+                    "value": "4096",
+                    "meaning": "Number of output features produced for each row",
+                    "source": "Second dimension of W and Y"
+                  },
+                  {
+                    "symbol": "P",
+                    "value": "120 TFLOP/s",
+                    "meaning": "Hypothetical peak FP16 compute rate",
+                    "source": "Problem 02 hardware assumption"
+                  }
+                ],
+                "steps": [
+                  {
+                    "title": "Convert peak rate",
+                    "expression": "120 TFLOP/s \u00d7 10\u00b9\u00b2 = 120,000,000,000,000 FLOPs/s",
+                    "explanation": "Tera is the decimal prefix for 10\u00b9\u00b2."
+                  },
+                  {
+                    "title": "Divide work by rate",
+                    "expression": "17,179,869,184 FLOPs \u00f7 120,000,000,000,000 FLOPs/s = 0.000143165577 s",
+                    "explanation": "FLOPs cancel and leave seconds."
+                  },
+                  {
+                    "title": "Convert seconds",
+                    "expression": "0.000143165577 s \u00d7 10\u2076 \u00b5s/s = 143.165577 \u00b5s",
+                    "explanation": "One second contains one million microseconds."
+                  },
+                  {
+                    "title": "Display rounding",
+                    "expression": "143.165577 \u2192 143.1656 \u00b5s",
+                    "explanation": "The UI shows four digits after the decimal point."
+                  }
+                ],
+                "unit_analysis": "FLOPs \u00f7 (FLOPs/s) = seconds; seconds \u00d7 \u00b5s/second = \u00b5s.",
+                "interpretation": "Even perfect compute utilization could not finish the arithmetic in less than approximately 143.1656 \u00b5s.",
+                "assumptions": [
+                  "Assumes the matrix shape can use the stated FP16 peak.",
+                  "Excludes launch, synchronization, memory, and non-matmul work."
+                ]
+              }
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
         }
       ],
       "connections": [
         {
-          "connection_id": "prefill-x-flow",
+          "connection_id": "prefill-x-logical",
           "source_id": "prefill-input",
           "target_id": "prefill-matmul",
-          "label": "4.19 MB @ 600 GB/s \u2192 6.9905 \u00b5s",
+          "label": "X participates in XW",
           "direction": "forward",
-          "category": "data",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-w-logical",
+          "source_id": "prefill-weight",
+          "target_id": "prefill-matmul",
+          "label": "W participates in XW",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-y-logical",
+          "source_id": "prefill-matmul",
+          "target_id": "prefill-output",
+          "label": "XW produces Y",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-input-read",
+          "source_id": "prefill-hbm",
+          "target_id": "prefill-input",
+          "label": "Read input X from HBM",
+          "direction": "forward",
+          "category": "transfer",
           "metrics": [
             {
-              "name": "Bytes",
+              "name": "Bytes read",
               "value": 4194304,
               "unit": "bytes",
               "evidence": "theoretical",
@@ -2408,10 +2659,10 @@
               }
             },
             {
-              "name": "Peak path rate",
+              "name": "Peak HBM rate",
               "value": 600,
               "unit": "GB/s",
-              "evidence": "theoretical",
+              "evidence": "assumed",
               "description": "",
               "derivation": "",
               "calculation": null
@@ -2475,15 +2726,15 @@
           "badge": "4.19 MB \u00b7 600 GB/s \u00b7 6.9905 \u00b5s"
         },
         {
-          "connection_id": "prefill-w-flow",
-          "source_id": "prefill-weight",
-          "target_id": "prefill-matmul",
-          "label": "33.55 MB @ 600 GB/s \u2192 55.9241 \u00b5s",
+          "connection_id": "prefill-weight-read",
+          "source_id": "prefill-hbm",
+          "target_id": "prefill-weight",
+          "label": "Read weight W from HBM",
           "direction": "forward",
-          "category": "data",
+          "category": "transfer",
           "metrics": [
             {
-              "name": "Bytes",
+              "name": "Bytes read",
               "value": 33554432,
               "unit": "bytes",
               "evidence": "theoretical",
@@ -2555,10 +2806,10 @@
               }
             },
             {
-              "name": "Peak path rate",
+              "name": "Peak HBM rate",
               "value": 600,
               "unit": "GB/s",
-              "evidence": "theoretical",
+              "evidence": "assumed",
               "description": "",
               "derivation": "",
               "calculation": null
@@ -2622,15 +2873,15 @@
           "badge": "33.55 MB \u00b7 600 GB/s \u00b7 55.9241 \u00b5s"
         },
         {
-          "connection_id": "prefill-y-flow",
-          "source_id": "prefill-matmul",
-          "target_id": "prefill-output",
-          "label": "4.19 MB @ 600 GB/s \u2192 6.9905 \u00b5s",
+          "connection_id": "prefill-output-write",
+          "source_id": "prefill-output",
+          "target_id": "prefill-hbm",
+          "label": "Write output Y back to HBM",
           "direction": "forward",
-          "category": "data",
+          "category": "transfer",
           "metrics": [
             {
-              "name": "Bytes",
+              "name": "Bytes written",
               "value": 4194304,
               "unit": "bytes",
               "evidence": "theoretical",
@@ -2702,10 +2953,10 @@
               }
             },
             {
-              "name": "Peak path rate",
+              "name": "Peak HBM rate",
               "value": 600,
               "unit": "GB/s",
-              "evidence": "theoretical",
+              "evidence": "assumed",
               "description": "",
               "derivation": "",
               "calculation": null
@@ -2767,27 +3018,68 @@
             }
           ],
           "badge": "4.19 MB \u00b7 600 GB/s \u00b7 6.9905 \u00b5s"
+        },
+        {
+          "connection_id": "prefill-hbm-l2",
+          "source_id": "prefill-hbm",
+          "target_id": "prefill-l2",
+          "label": "HBM-to-L2 physical path",
+          "direction": "both",
+          "category": "physical",
+          "metrics": [
+            {
+              "name": "Peak HBM boundary rate",
+              "value": 600,
+              "unit": "GB/s",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "badge": "600 GB/s HBM boundary"
+        },
+        {
+          "connection_id": "prefill-l2-sm",
+          "source_id": "prefill-l2",
+          "target_id": "prefill-sm-compute",
+          "label": "L2-to-SM on-chip path",
+          "direction": "both",
+          "category": "physical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-matmul-mapping",
+          "source_id": "prefill-matmul",
+          "target_id": "prefill-sm-compute",
+          "label": "Matrix multiplication executes across SMs and Tensor Cores",
+          "direction": "forward",
+          "category": "mapping",
+          "metrics": [],
+          "badge": ""
         }
       ],
       "assumptions": [
         "FP16 weights and activations use two bytes per value.",
-        "The simplified scenario reads W and X once and writes Y once."
+        "The simplified scenario reads W and X once and writes Y once.",
+        "L2 traffic and hit rates remain unknown until a cache model or profiler evidence is supplied."
       ]
     },
     "decode-detail": {
       "graph_id": "decode-detail",
       "title": "Decode: Problem 02 projection",
-      "subtitle": "Processes one newly generated token row against the same projection matrix.",
+      "subtitle": "Processes one newly generated token row against the same projection matrix. Solid blue arrows show logical tensor flow; cyan transfer arrows cross the HBM boundary; dashed amber arrows map work to hardware.",
       "parent_graph_id": "gpu-0-detail",
       "components": [
         {
           "component_id": "decode-input",
           "label": "X [1 \u00d7 4096]",
-          "kind": "operation",
-          "summary": "FP16 input activation rows.",
+          "kind": "tensor",
+          "summary": "Logical FP16 input tensor. Its rows represent token positions processed together.",
           "position": {
-            "x": 90,
-            "y": 210
+            "x": 300,
+            "y": 75
           },
           "metrics": [
             {
@@ -2800,12 +3092,21 @@
               "calculation": null
             },
             {
+              "name": "Values",
+              "value": 4096,
+              "unit": "values",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
               "name": "HBM read",
               "value": "8.19 KB",
               "unit": "",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "1 \u00d7 4096 \u00d7 2 bytes",
+              "derivation": "",
               "calculation": {
                 "title": "Input read",
                 "concept": "A tensor's byte size equals its number of scalar values multiplied by the storage occupied by each value. The simplified traffic model counts this tensor crossing the HBM boundary once.",
@@ -2870,61 +3171,6 @@
                   "Counts one transfer and excludes cache effects, rereads, alignment, metadata, and workspace."
                 ]
               }
-            },
-            {
-              "name": "Transfer bound",
-              "value": 0.0137,
-              "unit": "\u00b5s",
-              "evidence": "theoretical",
-              "description": "",
-              "derivation": "8,192 bytes / 600 GB/s",
-              "calculation": {
-                "title": "Input read transfer-time bound",
-                "concept": "A transfer-time bound divides the amount of data crossing one physical boundary by that boundary's maximum delivery rate. It is the fastest ideal transfer, not a measured latency.",
-                "formula": "transfer time = transferred bytes \u00f7 bandwidth",
-                "inputs": [
-                  {
-                    "symbol": "Q",
-                    "value": "8,192 bytes",
-                    "meaning": "Data crossing this path",
-                    "source": "Input-byte calculation"
-                  },
-                  {
-                    "symbol": "BW",
-                    "value": "600 GB/s",
-                    "meaning": "Peak or assumed path bandwidth",
-                    "source": "Selected hardware model"
-                  }
-                ],
-                "steps": [
-                  {
-                    "title": "Convert bandwidth",
-                    "expression": "600 GB/s \u00d7 10\u2079 = 600,000,000,000 bytes/s",
-                    "explanation": "Giga is the decimal prefix for one billion."
-                  },
-                  {
-                    "title": "Divide bytes by rate",
-                    "expression": "8,192 bytes \u00f7 600,000,000,000 bytes/s = 0.000000013653 s",
-                    "explanation": "The byte units cancel, leaving seconds."
-                  },
-                  {
-                    "title": "Convert seconds",
-                    "expression": "0.000000013653 s \u00d7 10\u2076 \u00b5s/s = 0.013653 \u00b5s",
-                    "explanation": "The workbench presents short hardware times in microseconds."
-                  },
-                  {
-                    "title": "Display rounding",
-                    "expression": "0.013653 \u2192 0.0137 \u00b5s",
-                    "explanation": "The internal result retains more precision."
-                  }
-                ],
-                "unit_analysis": "bytes \u00f7 (bytes/s) = seconds; seconds \u00d7 \u00b5s/second = \u00b5s.",
-                "interpretation": "At an ideal 600 GB/s, moving 8.19 KB cannot take less than approximately 0.0137 \u00b5s.",
-                "assumptions": [
-                  "Assumes the path sustains its full stated rate.",
-                  "Excludes protocol, queueing, setup, and synchronization overhead."
-                ]
-              }
             }
           ],
           "drilldown_graph_id": null,
@@ -2933,20 +3179,38 @@
         {
           "component_id": "decode-weight",
           "label": "W [4096 \u00d7 4096]",
-          "kind": "memory",
-          "summary": "Shared FP16 projection weights.",
+          "kind": "tensor",
+          "summary": "Logical FP16 learned-weight tensor shared by every input row in this call.",
           "position": {
-            "x": 90,
-            "y": 455
+            "x": 300,
+            "y": 275
           },
           "metrics": [
+            {
+              "name": "Shape",
+              "value": "[4096 \u00d7 4096]",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Values",
+              "value": 16777216,
+              "unit": "values",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
             {
               "name": "HBM read",
               "value": "33.55 MB",
               "unit": "",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "4096 \u00d7 4096 \u00d7 2 bytes",
+              "derivation": "",
               "calculation": {
                 "title": "Weight read",
                 "concept": "A tensor's byte size equals its number of scalar values multiplied by the storage occupied by each value. The simplified traffic model counts this tensor crossing the HBM boundary once.",
@@ -3011,83 +3275,19 @@
                   "Counts one transfer and excludes cache effects, rereads, alignment, metadata, and workspace."
                 ]
               }
-            },
-            {
-              "name": "Element size",
-              "value": 2,
-              "unit": "bytes",
-              "evidence": "assumed",
-              "description": "",
-              "derivation": "",
-              "calculation": null
-            },
-            {
-              "name": "Transfer bound",
-              "value": 55.9241,
-              "unit": "\u00b5s",
-              "evidence": "theoretical",
-              "description": "",
-              "derivation": "33,554,432 bytes / 600 GB/s",
-              "calculation": {
-                "title": "Weight read transfer-time bound",
-                "concept": "A transfer-time bound divides the amount of data crossing one physical boundary by that boundary's maximum delivery rate. It is the fastest ideal transfer, not a measured latency.",
-                "formula": "transfer time = transferred bytes \u00f7 bandwidth",
-                "inputs": [
-                  {
-                    "symbol": "Q",
-                    "value": "33,554,432 bytes",
-                    "meaning": "Data crossing this path",
-                    "source": "Weight-byte calculation"
-                  },
-                  {
-                    "symbol": "BW",
-                    "value": "600 GB/s",
-                    "meaning": "Peak or assumed path bandwidth",
-                    "source": "Selected hardware model"
-                  }
-                ],
-                "steps": [
-                  {
-                    "title": "Convert bandwidth",
-                    "expression": "600 GB/s \u00d7 10\u2079 = 600,000,000,000 bytes/s",
-                    "explanation": "Giga is the decimal prefix for one billion."
-                  },
-                  {
-                    "title": "Divide bytes by rate",
-                    "expression": "33,554,432 bytes \u00f7 600,000,000,000 bytes/s = 0.000055924053 s",
-                    "explanation": "The byte units cancel, leaving seconds."
-                  },
-                  {
-                    "title": "Convert seconds",
-                    "expression": "0.000055924053 s \u00d7 10\u2076 \u00b5s/s = 55.924053 \u00b5s",
-                    "explanation": "The workbench presents short hardware times in microseconds."
-                  },
-                  {
-                    "title": "Display rounding",
-                    "expression": "55.924053 \u2192 55.9241 \u00b5s",
-                    "explanation": "The internal result retains more precision."
-                  }
-                ],
-                "unit_analysis": "bytes \u00f7 (bytes/s) = seconds; seconds \u00d7 \u00b5s/second = \u00b5s.",
-                "interpretation": "At an ideal 600 GB/s, moving 33.55 MB cannot take less than approximately 55.9241 \u00b5s.",
-                "assumptions": [
-                  "Assumes the path sustains its full stated rate.",
-                  "Excludes protocol, queueing, setup, and synchronization overhead."
-                ]
-              }
             }
           ],
           "drilldown_graph_id": null,
-          "lane": "hardware"
+          "lane": "process"
         },
         {
           "component_id": "decode-matmul",
           "label": "Matrix multiplication",
           "kind": "operation",
-          "summary": "XW using GPU compute and memory resources.",
+          "summary": "Logical XW projection. The work maps to the GPU SM and Tensor Core system.",
           "position": {
-            "x": 520,
-            "y": 300
+            "x": 650,
+            "y": 175
           },
           "metrics": [
             {
@@ -3096,7 +3296,7 @@
               "unit": "",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "2 \u00d7 1 \u00d7 4096 \u00d7 4096",
+              "derivation": "",
               "calculation": {
                 "title": "Matrix-multiplication work",
                 "concept": "The projection creates an M-by-N output matrix. Every output value is a dot product containing K multiplications. Under the standard performance-modeling convention, each contribution counts as one multiply plus one add, or approximately two floating-point operations.",
@@ -3162,7 +3362,7 @@
               "unit": "",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "weight read + input read + output write",
+              "derivation": "",
               "calculation": {
                 "title": "Total modeled HBM traffic",
                 "concept": "The operation requires weights and input activations before it can compute and writes output activations afterward. The simplified model adds these three non-overlapping byte categories.",
@@ -3240,7 +3440,7 @@
               "unit": "FLOPs/byte",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "33,554,432 FLOPs / 33,570,816 bytes",
+              "derivation": "",
               "calculation": {
                 "title": "Arithmetic intensity",
                 "concept": "Arithmetic intensity measures how much useful arithmetic is obtained from every byte that crosses a named memory boundary. Here the boundary is HBM-to-chip. It is a workload ratio, not a speed or elapsed time.",
@@ -3349,7 +3549,7 @@
               "unit": "\u00b5s",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "33,554,432 FLOPs / 120 TFLOP/s",
+              "derivation": "",
               "calculation": {
                 "title": "Ideal compute-time bound",
                 "concept": "This asks how long the arithmetic would take if the GPU sustained its full stated FP16 compute rate. It ignores memory stalls and all overhead, so it is an optimistic lower bound.",
@@ -3416,7 +3616,7 @@
               "unit": "\u00b5s",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "33,570,816 bytes / 600 GB/s",
+              "derivation": "",
               "calculation": {
                 "title": "Ideal HBM-time bound",
                 "concept": "This asks how long the modeled bytes would take to cross the HBM boundary if the GPU sustained full peak HBM bandwidth. It is an optimistic lower bound, not measured latency.",
@@ -3495,7 +3695,7 @@
               "unit": "\u00b5s",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "max(compute bound, memory bound)",
+              "derivation": "",
               "calculation": {
                 "title": "Roofline lower-bound time",
                 "concept": "The operation needs both its arithmetic and its data movement. In the ideal roofline model they overlap perfectly, so the slower resource determines the earliest possible completion time. Taking the maximum avoids double-counting perfectly overlapped work.",
@@ -3607,11 +3807,11 @@
         {
           "component_id": "decode-output",
           "label": "Y [1 \u00d7 4096]",
-          "kind": "operation",
-          "summary": "FP16 output activation rows.",
+          "kind": "tensor",
+          "summary": "Logical FP16 output tensor. Under this model it is written back across the HBM boundary.",
           "position": {
-            "x": 970,
-            "y": 300
+            "x": 1000,
+            "y": 175
           },
           "metrics": [
             {
@@ -3624,12 +3824,21 @@
               "calculation": null
             },
             {
+              "name": "Values",
+              "value": 4096,
+              "unit": "values",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
               "name": "HBM write",
               "value": "8.19 KB",
               "unit": "",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "1 \u00d7 4096 \u00d7 2 bytes",
+              "derivation": "",
               "calculation": {
                 "title": "Output write",
                 "concept": "A tensor's byte size equals its number of scalar values multiplied by the storage occupied by each value. The simplified traffic model counts this tensor crossing the HBM boundary once.",
@@ -3694,78 +3903,412 @@
                   "Counts one transfer and excludes cache effects, rereads, alignment, metadata, and workspace."
                 ]
               }
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "decode-hbm",
+          "label": "HBM",
+          "kind": "memory",
+          "summary": "Physical off-chip GPU memory containing X, W, and the stored Y result.",
+          "position": {
+            "x": 30,
+            "y": 505
+          },
+          "metrics": [
+            {
+              "name": "Peak bandwidth",
+              "value": 600,
+              "unit": "GB/s",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
             },
             {
-              "name": "Transfer bound",
-              "value": 0.0137,
+              "name": "Total projection traffic",
+              "value": "33.57 MB",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": {
+                "title": "Total modeled HBM traffic",
+                "concept": "The operation requires weights and input activations before it can compute and writes output activations afterward. The simplified model adds these three non-overlapping byte categories.",
+                "formula": "total HBM bytes = weight read + input read + output write",
+                "inputs": [
+                  {
+                    "symbol": "M",
+                    "value": "1",
+                    "meaning": "Number of token rows processed together",
+                    "source": "First dimension of X"
+                  },
+                  {
+                    "symbol": "K",
+                    "value": "4096",
+                    "meaning": "Number of input features consumed by each output dot product",
+                    "source": "Second dimension of X and first dimension of W"
+                  },
+                  {
+                    "symbol": "N",
+                    "value": "4096",
+                    "meaning": "Number of output features produced for each row",
+                    "source": "Second dimension of W and Y"
+                  },
+                  {
+                    "symbol": "s_w",
+                    "value": "2 bytes/value",
+                    "meaning": "Storage occupied by one FP16 weight",
+                    "source": "Problem datatype assumption"
+                  },
+                  {
+                    "symbol": "s_a",
+                    "value": "2 bytes/value",
+                    "meaning": "Storage occupied by one FP16 activation",
+                    "source": "Problem datatype assumption"
+                  }
+                ],
+                "steps": [
+                  {
+                    "title": "Weight read",
+                    "expression": "33,554,432 bytes",
+                    "explanation": "The shared K-by-N FP16 weight matrix is read once per modeled call."
+                  },
+                  {
+                    "title": "Input read",
+                    "expression": "8,192 bytes",
+                    "explanation": "The M-by-K FP16 input matrix is read once."
+                  },
+                  {
+                    "title": "Output write",
+                    "expression": "8,192 bytes",
+                    "explanation": "The M-by-N FP16 result is written once."
+                  },
+                  {
+                    "title": "Add traffic",
+                    "expression": "33,554,432 + 8,192 + 8,192 = 33,570,816 bytes",
+                    "explanation": "Traffic categories add because all three cross the named HBM boundary."
+                  },
+                  {
+                    "title": "Readable scale",
+                    "expression": "33,570,816 bytes = 33.57 MB",
+                    "explanation": "This is a traffic quantity, not GPU memory capacity."
+                  }
+                ],
+                "unit_analysis": "bytes + bytes + bytes = bytes.",
+                "interpretation": "The projection is modeled as moving 33.57 MB across the HBM boundary.",
+                "assumptions": [
+                  "W is counted once per model call.",
+                  "No cache hits, extra rereads, workspace, fusion, or allocator traffic are included."
+                ]
+              }
+            },
+            {
+              "name": "Ideal memory bound",
+              "value": 55.9514,
               "unit": "\u00b5s",
               "evidence": "theoretical",
               "description": "",
-              "derivation": "8,192 bytes / 600 GB/s",
+              "derivation": "",
               "calculation": {
-                "title": "Output write transfer-time bound",
-                "concept": "A transfer-time bound divides the amount of data crossing one physical boundary by that boundary's maximum delivery rate. It is the fastest ideal transfer, not a measured latency.",
-                "formula": "transfer time = transferred bytes \u00f7 bandwidth",
+                "title": "Ideal HBM-time bound",
+                "concept": "This asks how long the modeled bytes would take to cross the HBM boundary if the GPU sustained full peak HBM bandwidth. It is an optimistic lower bound, not measured latency.",
+                "formula": "memory time = HBM bytes \u00f7 peak HBM bandwidth",
                 "inputs": [
                   {
-                    "symbol": "Q",
-                    "value": "8,192 bytes",
-                    "meaning": "Data crossing this path",
-                    "source": "Output-byte calculation"
+                    "symbol": "M",
+                    "value": "1",
+                    "meaning": "Number of token rows processed together",
+                    "source": "First dimension of X"
+                  },
+                  {
+                    "symbol": "K",
+                    "value": "4096",
+                    "meaning": "Number of input features consumed by each output dot product",
+                    "source": "Second dimension of X and first dimension of W"
+                  },
+                  {
+                    "symbol": "N",
+                    "value": "4096",
+                    "meaning": "Number of output features produced for each row",
+                    "source": "Second dimension of W and Y"
+                  },
+                  {
+                    "symbol": "s_w",
+                    "value": "2 bytes/value",
+                    "meaning": "Storage occupied by one FP16 weight",
+                    "source": "Problem datatype assumption"
+                  },
+                  {
+                    "symbol": "s_a",
+                    "value": "2 bytes/value",
+                    "meaning": "Storage occupied by one FP16 activation",
+                    "source": "Problem datatype assumption"
                   },
                   {
                     "symbol": "BW",
                     "value": "600 GB/s",
-                    "meaning": "Peak or assumed path bandwidth",
-                    "source": "Selected hardware model"
+                    "meaning": "Hypothetical peak HBM bandwidth",
+                    "source": "Problem 02 hardware assumption"
                   }
                 ],
                 "steps": [
                   {
                     "title": "Convert bandwidth",
                     "expression": "600 GB/s \u00d7 10\u2079 = 600,000,000,000 bytes/s",
-                    "explanation": "Giga is the decimal prefix for one billion."
+                    "explanation": "Performance specifications use decimal GB."
                   },
                   {
-                    "title": "Divide bytes by rate",
-                    "expression": "8,192 bytes \u00f7 600,000,000,000 bytes/s = 0.000000013653 s",
-                    "explanation": "The byte units cancel, leaving seconds."
+                    "title": "Divide traffic by rate",
+                    "expression": "33,570,816 bytes \u00f7 600,000,000,000 bytes/s = 0.000055951360 s",
+                    "explanation": "Bytes cancel and leave seconds."
                   },
                   {
                     "title": "Convert seconds",
-                    "expression": "0.000000013653 s \u00d7 10\u2076 \u00b5s/s = 0.013653 \u00b5s",
-                    "explanation": "The workbench presents short hardware times in microseconds."
+                    "expression": "0.000055951360 s \u00d7 10\u2076 \u00b5s/s = 55.951360 \u00b5s",
+                    "explanation": "Convert the result to the latency unit used in the workbench."
                   },
                   {
                     "title": "Display rounding",
-                    "expression": "0.013653 \u2192 0.0137 \u00b5s",
-                    "explanation": "The internal result retains more precision."
+                    "expression": "55.951360 \u2192 55.9514 \u00b5s",
+                    "explanation": "The model retains the unrounded value internally."
                   }
                 ],
                 "unit_analysis": "bytes \u00f7 (bytes/s) = seconds; seconds \u00d7 \u00b5s/second = \u00b5s.",
-                "interpretation": "At an ideal 600 GB/s, moving 8.19 KB cannot take less than approximately 0.0137 \u00b5s.",
+                "interpretation": "Even perfect bandwidth utilization could not move the modeled traffic in less than approximately 55.9514 \u00b5s.",
                 "assumptions": [
-                  "Assumes the path sustains its full stated rate.",
-                  "Excludes protocol, queueing, setup, and synchronization overhead."
+                  "Assumes peak bandwidth is attainable.",
+                  "Excludes cache effects and traffic omitted by the simplified model."
                 ]
               }
             }
           ],
           "drilldown_graph_id": null,
-          "lane": "process"
+          "lane": "hardware"
+        },
+        {
+          "component_id": "decode-l2",
+          "label": "Shared L2 Cache",
+          "kind": "memory",
+          "summary": "Physical GPU-wide cache between HBM and the SM array. Slice 0 does not invent an L2 hit rate.",
+          "position": {
+            "x": 450,
+            "y": 505
+          },
+          "metrics": [
+            {
+              "name": "Traffic status",
+              "value": "Requires profiler/calibrated cache model",
+              "unit": "",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "decode-sm-compute",
+          "label": "SM + Tensor Cores",
+          "kind": "compute",
+          "summary": "Physical execution resources that perform the tiled matrix multiplication.",
+          "position": {
+            "x": 800,
+            "y": 505
+          },
+          "metrics": [
+            {
+              "name": "Peak FP16 compute",
+              "value": 120,
+              "unit": "TFLOP/s",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Projection work",
+              "value": "33.55 MFLOPs",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": {
+                "title": "Matrix-multiplication work",
+                "concept": "The projection creates an M-by-N output matrix. Every output value is a dot product containing K multiplications. Under the standard performance-modeling convention, each contribution counts as one multiply plus one add, or approximately two floating-point operations.",
+                "formula": "FLOPs = 2 \u00d7 M \u00d7 K \u00d7 N",
+                "inputs": [
+                  {
+                    "symbol": "M",
+                    "value": "1",
+                    "meaning": "Number of token rows processed together",
+                    "source": "First dimension of X"
+                  },
+                  {
+                    "symbol": "K",
+                    "value": "4096",
+                    "meaning": "Number of input features consumed by each output dot product",
+                    "source": "Second dimension of X and first dimension of W"
+                  },
+                  {
+                    "symbol": "N",
+                    "value": "4096",
+                    "meaning": "Number of output features produced for each row",
+                    "source": "Second dimension of W and Y"
+                  },
+                  {
+                    "symbol": "2",
+                    "value": "2 FLOPs/contribution",
+                    "meaning": "One multiplication plus one addition",
+                    "source": "FLOP-counting convention"
+                  }
+                ],
+                "steps": [
+                  {
+                    "title": "Count output values",
+                    "expression": "M \u00d7 N = 1 \u00d7 4096 = 4,096",
+                    "explanation": "There is one output value for every row and output feature."
+                  },
+                  {
+                    "title": "Count contributions",
+                    "expression": "4,096 outputs \u00d7 4096 contributions/output = 16,777,216 contributions",
+                    "explanation": "Each output is a length-K dot product."
+                  },
+                  {
+                    "title": "Convert contributions to FLOPs",
+                    "expression": "2 \u00d7 1 \u00d7 4096 \u00d7 4096 = 33,554,432 FLOPs",
+                    "explanation": "Each contribution is modeled as one multiplication and one addition."
+                  },
+                  {
+                    "title": "Readable scale",
+                    "expression": "33,554,432 FLOPs = 33.55 MFLOPs",
+                    "explanation": "Decimal prefixes are used for performance quantities."
+                  }
+                ],
+                "unit_analysis": "The row, feature, and contribution counts are dimensionless. Multiplying them by FLOPs/contribution leaves FLOPs.",
+                "interpretation": "This single projection performs 33.55 MFLOPs of arithmetic for 1 token row.",
+                "assumptions": [
+                  "Uses the conventional approximate 2MKN count rather than exactly K multiplies and K\u22121 adds per dot product."
+                ]
+              }
+            },
+            {
+              "name": "Ideal compute bound",
+              "value": 0.2796,
+              "unit": "\u00b5s",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": {
+                "title": "Ideal compute-time bound",
+                "concept": "This asks how long the arithmetic would take if the GPU sustained its full stated FP16 compute rate. It ignores memory stalls and all overhead, so it is an optimistic lower bound.",
+                "formula": "compute time = FLOPs \u00f7 peak compute rate",
+                "inputs": [
+                  {
+                    "symbol": "M",
+                    "value": "1",
+                    "meaning": "Number of token rows processed together",
+                    "source": "First dimension of X"
+                  },
+                  {
+                    "symbol": "K",
+                    "value": "4096",
+                    "meaning": "Number of input features consumed by each output dot product",
+                    "source": "Second dimension of X and first dimension of W"
+                  },
+                  {
+                    "symbol": "N",
+                    "value": "4096",
+                    "meaning": "Number of output features produced for each row",
+                    "source": "Second dimension of W and Y"
+                  },
+                  {
+                    "symbol": "P",
+                    "value": "120 TFLOP/s",
+                    "meaning": "Hypothetical peak FP16 compute rate",
+                    "source": "Problem 02 hardware assumption"
+                  }
+                ],
+                "steps": [
+                  {
+                    "title": "Convert peak rate",
+                    "expression": "120 TFLOP/s \u00d7 10\u00b9\u00b2 = 120,000,000,000,000 FLOPs/s",
+                    "explanation": "Tera is the decimal prefix for 10\u00b9\u00b2."
+                  },
+                  {
+                    "title": "Divide work by rate",
+                    "expression": "33,554,432 FLOPs \u00f7 120,000,000,000,000 FLOPs/s = 0.000000279620 s",
+                    "explanation": "FLOPs cancel and leave seconds."
+                  },
+                  {
+                    "title": "Convert seconds",
+                    "expression": "0.000000279620 s \u00d7 10\u2076 \u00b5s/s = 0.279620 \u00b5s",
+                    "explanation": "One second contains one million microseconds."
+                  },
+                  {
+                    "title": "Display rounding",
+                    "expression": "0.279620 \u2192 0.2796 \u00b5s",
+                    "explanation": "The UI shows four digits after the decimal point."
+                  }
+                ],
+                "unit_analysis": "FLOPs \u00f7 (FLOPs/s) = seconds; seconds \u00d7 \u00b5s/second = \u00b5s.",
+                "interpretation": "Even perfect compute utilization could not finish the arithmetic in less than approximately 0.2796 \u00b5s.",
+                "assumptions": [
+                  "Assumes the matrix shape can use the stated FP16 peak.",
+                  "Excludes launch, synchronization, memory, and non-matmul work."
+                ]
+              }
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
         }
       ],
       "connections": [
         {
-          "connection_id": "decode-x-flow",
+          "connection_id": "decode-x-logical",
           "source_id": "decode-input",
           "target_id": "decode-matmul",
-          "label": "8.19 KB @ 600 GB/s \u2192 0.0137 \u00b5s",
+          "label": "X participates in XW",
           "direction": "forward",
-          "category": "data",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-w-logical",
+          "source_id": "decode-weight",
+          "target_id": "decode-matmul",
+          "label": "W participates in XW",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-y-logical",
+          "source_id": "decode-matmul",
+          "target_id": "decode-output",
+          "label": "XW produces Y",
+          "direction": "forward",
+          "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-input-read",
+          "source_id": "decode-hbm",
+          "target_id": "decode-input",
+          "label": "Read input X from HBM",
+          "direction": "forward",
+          "category": "transfer",
           "metrics": [
             {
-              "name": "Bytes",
+              "name": "Bytes read",
               "value": 8192,
               "unit": "bytes",
               "evidence": "theoretical",
@@ -3837,10 +4380,10 @@
               }
             },
             {
-              "name": "Peak path rate",
+              "name": "Peak HBM rate",
               "value": 600,
               "unit": "GB/s",
-              "evidence": "theoretical",
+              "evidence": "assumed",
               "description": "",
               "derivation": "",
               "calculation": null
@@ -3904,15 +4447,15 @@
           "badge": "8.19 KB \u00b7 600 GB/s \u00b7 0.0137 \u00b5s"
         },
         {
-          "connection_id": "decode-w-flow",
-          "source_id": "decode-weight",
-          "target_id": "decode-matmul",
-          "label": "33.55 MB @ 600 GB/s \u2192 55.9241 \u00b5s",
+          "connection_id": "decode-weight-read",
+          "source_id": "decode-hbm",
+          "target_id": "decode-weight",
+          "label": "Read weight W from HBM",
           "direction": "forward",
-          "category": "data",
+          "category": "transfer",
           "metrics": [
             {
-              "name": "Bytes",
+              "name": "Bytes read",
               "value": 33554432,
               "unit": "bytes",
               "evidence": "theoretical",
@@ -3984,10 +4527,10 @@
               }
             },
             {
-              "name": "Peak path rate",
+              "name": "Peak HBM rate",
               "value": 600,
               "unit": "GB/s",
-              "evidence": "theoretical",
+              "evidence": "assumed",
               "description": "",
               "derivation": "",
               "calculation": null
@@ -4051,15 +4594,15 @@
           "badge": "33.55 MB \u00b7 600 GB/s \u00b7 55.9241 \u00b5s"
         },
         {
-          "connection_id": "decode-y-flow",
-          "source_id": "decode-matmul",
-          "target_id": "decode-output",
-          "label": "8.19 KB @ 600 GB/s \u2192 0.0137 \u00b5s",
+          "connection_id": "decode-output-write",
+          "source_id": "decode-output",
+          "target_id": "decode-hbm",
+          "label": "Write output Y back to HBM",
           "direction": "forward",
-          "category": "data",
+          "category": "transfer",
           "metrics": [
             {
-              "name": "Bytes",
+              "name": "Bytes written",
               "value": 8192,
               "unit": "bytes",
               "evidence": "theoretical",
@@ -4131,10 +4674,10 @@
               }
             },
             {
-              "name": "Peak path rate",
+              "name": "Peak HBM rate",
               "value": 600,
               "unit": "GB/s",
-              "evidence": "theoretical",
+              "evidence": "assumed",
               "description": "",
               "derivation": "",
               "calculation": null
@@ -4196,11 +4739,52 @@
             }
           ],
           "badge": "8.19 KB \u00b7 600 GB/s \u00b7 0.0137 \u00b5s"
+        },
+        {
+          "connection_id": "decode-hbm-l2",
+          "source_id": "decode-hbm",
+          "target_id": "decode-l2",
+          "label": "HBM-to-L2 physical path",
+          "direction": "both",
+          "category": "physical",
+          "metrics": [
+            {
+              "name": "Peak HBM boundary rate",
+              "value": 600,
+              "unit": "GB/s",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "badge": "600 GB/s HBM boundary"
+        },
+        {
+          "connection_id": "decode-l2-sm",
+          "source_id": "decode-l2",
+          "target_id": "decode-sm-compute",
+          "label": "L2-to-SM on-chip path",
+          "direction": "both",
+          "category": "physical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-matmul-mapping",
+          "source_id": "decode-matmul",
+          "target_id": "decode-sm-compute",
+          "label": "Matrix multiplication executes across SMs and Tensor Cores",
+          "direction": "forward",
+          "category": "mapping",
+          "metrics": [],
+          "badge": ""
         }
       ],
       "assumptions": [
         "FP16 weights and activations use two bytes per value.",
-        "The simplified scenario reads W and X once and writes Y once."
+        "The simplified scenario reads W and X once and writes Y once.",
+        "L2 traffic and hit rates remain unknown until a cache model or profiler evidence is supplied."
       ]
     }
   },
