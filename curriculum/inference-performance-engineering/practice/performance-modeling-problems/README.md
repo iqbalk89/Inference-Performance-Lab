@@ -13,6 +13,10 @@ These problems complement:
 - the [Inference-Adjacent LeetCode Practice](../leetcode-inference-adjacent/README.md),
   which develops general coding and data-structure fluency.
 
+Keep the [Inference Performance Formula Reference](formula-reference/README.md)
+open while checking units or reconstructing a model. Use it after attempting a
+formula from memory, not as a substitute for deriving the equation.
+
 ## Required Problem-Solving Method
 
 For every problem, use this sequence:

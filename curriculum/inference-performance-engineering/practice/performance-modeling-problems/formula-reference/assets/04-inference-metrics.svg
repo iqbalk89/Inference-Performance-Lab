@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="650" viewBox="0 0 1400 650" role="img" aria-labelledby="title desc">
+  <title id="title">Inference latency and throughput metrics</title><desc id="desc">A request timeline labels time to first token and repeated token arrival intervals, then gives formulas for end-to-end latency, TPOT, and throughput.</desc>
+  <defs><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0L0 6L9 3z" fill="#90b0cf"/></marker><style>.bg{fill:#09121f}.p{fill:#111f33;stroke:#3d5b7b;stroke-width:2}.service{fill:#315178}.prefill{fill:#17634f}.decode{fill:#235f83}.token{fill:#e2a14d}.h{fill:#f3f7fc;font:700 28px system-ui,sans-serif}.t{fill:#f3f7fc;font:700 19px system-ui,sans-serif}.s{fill:#afc2d6;font:15px system-ui,sans-serif}.m{fill:#f3f7fc;font:italic 22px Georgia,serif}.green{fill:#78dfb5}.blue{fill:#76bee9}.yellow{fill:#ffd166}.arrow{stroke:#90b0cf;stroke-width:3;fill:none;marker-end:url(#a)}.tick{stroke:#7996b3;stroke-width:2}</style></defs>
+  <rect class="bg" width="1400" height="650" rx="20"/><text class="h" x="40" y="48">INFERENCE METRICS — define the observer and timing boundary</text>
+  <line class="arrow" x1="75" y1="270" x2="1320" y2="270"/><text class="s" x="1260" y="300">time →</text>
+  <rect class="service" x="75" y="140" width="235" height="85" rx="10"/><text class="t" x="102" y="177">queue + tokenize</text><text class="s" x="102" y="205">service overhead</text>
+  <rect class="prefill" x="310" y="140" width="310" height="85" rx="10"/><text class="t" x="337" y="177">prefill forward</text><text class="s" x="337" y="205">process prompt rows</text>
+  <rect class="decode" x="620" y="140" width="210" height="85" rx="10"/><text class="t" x="647" y="177">decode interval 1</text><text class="s" x="647" y="205">next token</text>
+  <rect class="decode" x="830" y="140" width="210" height="85" rx="10"/><text class="t" x="857" y="177">decode interval 2</text><text class="s" x="857" y="205">next token</text>
+  <rect class="decode" x="1040" y="140" width="210" height="85" rx="10"/><text class="t" x="1067" y="177">decode interval 3</text><text class="s" x="1067" y="205">next token</text>
+  <line class="tick" x1="75" y1="115" x2="75" y2="285"/><line class="tick" x1="620" y1="115" x2="620" y2="285"/><line class="tick" x1="830" y1="225" x2="830" y2="285"/><line class="tick" x1="1040" y1="225" x2="1040" y2="285"/><line class="tick" x1="1250" y1="225" x2="1250" y2="285"/>
+  <circle class="token" cx="620" cy="270" r="8"/><circle class="token" cx="830" cy="270" r="8"/><circle class="token" cx="1040" cy="270" r="8"/><circle class="token" cx="1250" cy="270" r="8"/>
+  <path class="arrow" d="M85 100 H610"/><text class="t yellow" x="260" y="88">TTFT: request start → token 1 arrives</text>
+  <text class="s" x="585" y="320">token 1</text><text class="s" x="795" y="320">token 2</text><text class="s" x="1005" y="320">token 3</text><text class="s" x="1215" y="320">token 4</text>
+  <rect class="p" x="55" y="365" width="610" height="105" rx="13"/><text class="t green" x="80" y="403">End-to-end latency</text><text class="m" x="80" y="445">T_E2E = response end − request start</text>
+  <rect class="p" x="735" y="365" width="610" height="105" rx="13"/><text class="t blue" x="760" y="403">Explicit TPOT convention</text><text class="m" x="760" y="445">TPOT = (t_last − t_first) / (O − 1)</text>
+  <rect class="p" x="55" y="500" width="610" height="105" rx="13"/><text class="t green" x="80" y="538">Output-token throughput</text><text class="m" x="80" y="580">tokens/s = total output tokens / seconds</text>
+  <rect class="p" x="735" y="500" width="610" height="105" rx="13"/><text class="t blue" x="760" y="538">Request throughput</text><text class="m" x="760" y="580">requests/s = completed requests / seconds</text>
+  <text class="s yellow" x="55" y="635">Latency and throughput can move in different directions. State client, server, or model-worker boundaries.</text>
+</svg>

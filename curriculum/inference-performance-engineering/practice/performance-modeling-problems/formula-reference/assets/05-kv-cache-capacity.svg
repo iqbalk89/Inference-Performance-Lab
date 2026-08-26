@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="620" viewBox="0 0 1400 620" role="img" aria-labelledby="title desc">
+  <title id="title">KV-cache capacity formula</title><desc id="desc">A product formula for key and value cache bytes is expanded into batch size, layer count, KV heads, cached tokens, head dimension, and bytes per element.</desc>
+  <defs><style>.bg{fill:#09121f}.p{fill:#111f33;stroke:#3d5b7b;stroke-width:2}.factor{fill:#173a56;stroke:#58a6d8;stroke-width:2}.key{fill:#322342;stroke:#b58bdd;stroke-width:3}.value{fill:#123c32;stroke:#56d3a3;stroke-width:3}.h{fill:#f3f7fc;font:700 28px system-ui,sans-serif}.t{fill:#f3f7fc;font:700 19px system-ui,sans-serif}.s{fill:#afc2d6;font:15px system-ui,sans-serif}.m{fill:#f3f7fc;font:italic 26px Georgia,serif}.blue{fill:#76bee9}.purple{fill:#c9a0ed}.green{fill:#78dfb5}.yellow{fill:#ffd166}.mul{fill:#ffd166;font:700 24px Georgia,serif}</style></defs>
+  <rect class="bg" width="1400" height="620" rx="20"/><text class="h" x="40" y="48">KV-CACHE CAPACITY — one K tensor and one V tensor at every layer</text>
+  <rect class="key" x="85" y="95" width="550" height="105" rx="14"/><text class="t purple" x="110" y="133">KEY CACHE</text><text class="m" x="110" y="177">[B, L, H_kv, T, D_head]</text>
+  <text class="mul" x="680" y="160">+</text>
+  <rect class="value" x="765" y="95" width="550" height="105" rx="14"/><text class="t green" x="790" y="133">VALUE CACHE</text><text class="m" x="790" y="177">[B, L, H_kv, T, D_head]</text>
+  <rect class="p" x="110" y="245" width="1180" height="95" rx="15"/><text class="m yellow" x="180" y="302">KV bytes = 2 × B × L × H_kv × T × D_head × bytes/element</text>
+  <g transform="translate(25 385)">
+    <rect class="factor" x="0" width="180" height="105" rx="11"/><text class="t blue" x="20" y="37">2</text><text class="s" x="20" y="67">K and V</text><text class="s" x="20" y="90">tensors</text>
+    <rect class="factor" x="195" width="180" height="105" rx="11"/><text class="t blue" x="215" y="37">B</text><text class="s" x="215" y="67">batch</text><text class="s" x="215" y="90">sequences</text>
+    <rect class="factor" x="390" width="180" height="105" rx="11"/><text class="t blue" x="410" y="37">L</text><text class="s" x="410" y="67">Transformer</text><text class="s" x="410" y="90">layers</text>
+    <rect class="factor" x="585" width="180" height="105" rx="11"/><text class="t blue" x="605" y="37">H_kv</text><text class="s" x="605" y="67">KV heads</text><text class="s" x="605" y="90">per layer</text>
+    <rect class="factor" x="780" width="180" height="105" rx="11"/><text class="t blue" x="800" y="37">T</text><text class="s" x="800" y="67">cached token</text><text class="s" x="800" y="90">positions</text>
+    <rect class="factor" x="975" width="180" height="105" rx="11"/><text class="t blue" x="995" y="37">D_head</text><text class="s" x="995" y="67">values per</text><text class="s" x="995" y="90">head row</text>
+    <rect class="factor" x="1170" width="180" height="105" rx="11"/><text class="t blue" x="1190" y="37">bytes</text><text class="s" x="1190" y="67">element</text><text class="s" x="1190" y="90">format</text>
+  </g>
+  <text class="s" x="65" y="535">Linear in B, L, H_kv, T, D_head, and element width. Doubling any one factor doubles logical cache capacity.</text>
+  <rect class="p" x="65" y="558" width="1270" height="40" rx="9"/><text class="s yellow" x="90" y="584">Logical capacity ≠ exact physical allocation: paging, blocks, metadata, fragmentation, packing, and quantization may change it.</text>
+</svg>

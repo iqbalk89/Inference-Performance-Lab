@@ -88,6 +88,10 @@ to practice translating individual Transformer operations into shapes,
 parameters, bytes, FLOPs, and eventually predicted execution time. Attempt each
 worksheet before opening its separate answer key.
 
+The accompanying [Formula Reference](practice/performance-modeling-problems/formula-reference/README.md)
+collects the current equations as rendered visual cards with notation, units,
+boundaries, and common mistakes.
+
 Use the [Inference-Adjacent LeetCode Practice](practice/leetcode-inference-adjacent/README.md)
 as a supplement. Its minimum sequence connects matrix indexing, sparse
 representations, sampling, and caching to the relevant performance questions.
