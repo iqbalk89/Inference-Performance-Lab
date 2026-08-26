@@ -10,6 +10,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { ComponentNode, type ComponentFlowNode } from './ComponentNode'
 import { Inspector } from './Inspector'
+import { RooflineChart } from './RooflineChart'
 import type { ComponentData, ConnectionData, ScenarioData } from './types'
 
 const nodeTypes = { component: ComponentNode }
@@ -124,6 +125,8 @@ export default function App() {
 
         <Inspector component={selectedComponent} connection={selectedConnection} />
       </section>
+
+      {diagram.charts?.map((chart) => <RooflineChart key={chart.chart_id} chart={chart} />)}
 
       <footer className="bottom-panel">
         <div><span>Scenario</span><strong>{scenario.title}</strong></div>

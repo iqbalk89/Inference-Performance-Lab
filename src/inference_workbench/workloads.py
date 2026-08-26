@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .blocks import AnalysisBlock, OperationBlock, Path, ResourceBlock, TensorBlock
-from .contracts import ComponentKind, Diagram, EvidenceKind, Metric, PhaseModel, Position
-from .estimates import ProjectionEstimate, decimal_bytes, decimal_flops, projection_calculations, transfer_calculation
+from .contracts import ChartData, ComponentKind, Diagram, EvidenceKind, Metric, PhaseModel, Position
+from .estimates import ProjectionEstimate, decimal_bytes, decimal_flops, projection_calculations, projection_roofline_points, transfer_calculation
 
 
 @dataclass(frozen=True)
@@ -128,6 +128,17 @@ class ProjectionPhaseModel(PhaseModel):
             "The simplified model reads X once, reads W once, and writes Y once.",
             "The 600 GB/s HBM rate is an assumed educational hardware parameter.",
             "Cache effects, rereads, write allocation, alignment, and workspace are excluded.",
+        ), (
+            ChartData(
+                chart_id=f"{prefix}-roofline-study",
+                kind="roofline-sensitivity",
+                title="Projection sensitivity: token rows vs. ideal latency",
+                description="Change M, HBM bandwidth, or peak compute to see how the ideal memory and compute bounds move. This is a model, not measured kernel latency.",
+                x_label="Token rows processed together (M)",
+                y_label="Ideal lower-bound time (µs)",
+                points=projection_roofline_points((1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048)),
+                parameters={"input_width": 4096, "output_width": 4096, "bytes_per_value": 2, "compute_tflops": 120, "hbm_bandwidth_gbps": 600, "selected_rows": self.rows},
+            ),
         ))
 
     def execution_diagram(self) -> Diagram:

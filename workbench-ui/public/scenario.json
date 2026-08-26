@@ -440,7 +440,8 @@
       ],
       "assumptions": [
         "This Slice 0 topology is educational and intentionally single-GPU."
-      ]
+      ],
+      "charts": []
     },
     "gpu-0-detail": {
       "graph_id": "gpu-0-detail",
@@ -1343,7 +1344,8 @@
       "assumptions": [
         "Problem 02 values are executable idealized estimates, not measured performance.",
         "Dashed mapping edges mean a process uses a resource; they are not physical buses."
-      ]
+      ],
+      "charts": []
     },
     "prefill-detail": {
       "graph_id": "prefill-detail",
@@ -1787,7 +1789,8 @@
       ],
       "assumptions": [
         "FP16 weights and activations use two bytes per value."
-      ]
+      ],
+      "charts": []
     },
     "prefill-hbm-boundary": {
       "graph_id": "prefill-hbm-boundary",
@@ -3252,6 +3255,134 @@
         "The simplified model reads X once, reads W once, and writes Y once.",
         "The 600 GB/s HBM rate is an assumed educational hardware parameter.",
         "Cache effects, rereads, write allocation, alignment, and workspace are excluded."
+      ],
+      "charts": [
+        {
+          "chart_id": "prefill-roofline-study",
+          "kind": "roofline-sensitivity",
+          "title": "Projection sensitivity: token rows vs. ideal latency",
+          "description": "Change M, HBM bandwidth, or peak compute to see how the ideal memory and compute bounds move. This is a model, not measured kernel latency.",
+          "x_label": "Token rows processed together (M)",
+          "y_label": "Ideal lower-bound time (\u00b5s)",
+          "points": [
+            {
+              "x": 1,
+              "label": "1",
+              "arithmetic_intensity": 0.9995119570522206,
+              "compute_time_us": 0.2796202666666667,
+              "memory_time_us": 55.95136,
+              "lower_bound_us": 55.95136,
+              "bottleneck": "HBM bandwidth"
+            },
+            {
+              "x": 2,
+              "label": "2",
+              "arithmetic_intensity": 1.9980487804878049,
+              "compute_time_us": 0.5592405333333333,
+              "memory_time_us": 55.97866666666667,
+              "lower_bound_us": 55.97866666666667,
+              "bottleneck": "HBM bandwidth"
+            },
+            {
+              "x": 4,
+              "label": "4",
+              "arithmetic_intensity": 3.992202729044834,
+              "compute_time_us": 1.1184810666666667,
+              "memory_time_us": 56.033280000000005,
+              "lower_bound_us": 56.033280000000005,
+              "bottleneck": "HBM bandwidth"
+            },
+            {
+              "x": 8,
+              "label": "8",
+              "arithmetic_intensity": 7.968871595330739,
+              "compute_time_us": 2.2369621333333334,
+              "memory_time_us": 56.14250666666667,
+              "lower_bound_us": 56.14250666666667,
+              "bottleneck": "HBM bandwidth"
+            },
+            {
+              "x": 16,
+              "label": "16",
+              "arithmetic_intensity": 15.875968992248062,
+              "compute_time_us": 4.473924266666667,
+              "memory_time_us": 56.36096,
+              "lower_bound_us": 56.36096,
+              "bottleneck": "HBM bandwidth"
+            },
+            {
+              "x": 32,
+              "label": "32",
+              "arithmetic_intensity": 31.50769230769231,
+              "compute_time_us": 8.947848533333334,
+              "memory_time_us": 56.797866666666664,
+              "lower_bound_us": 56.797866666666664,
+              "bottleneck": "HBM bandwidth"
+            },
+            {
+              "x": 64,
+              "label": "64",
+              "arithmetic_intensity": 62.06060606060606,
+              "compute_time_us": 17.895697066666667,
+              "memory_time_us": 57.671679999999995,
+              "lower_bound_us": 57.671679999999995,
+              "bottleneck": "HBM bandwidth"
+            },
+            {
+              "x": 128,
+              "label": "128",
+              "arithmetic_intensity": 120.47058823529412,
+              "compute_time_us": 35.791394133333334,
+              "memory_time_us": 59.419306666666664,
+              "lower_bound_us": 59.419306666666664,
+              "bottleneck": "HBM bandwidth"
+            },
+            {
+              "x": 256,
+              "label": "256",
+              "arithmetic_intensity": 227.55555555555554,
+              "compute_time_us": 71.58278826666667,
+              "memory_time_us": 62.91456,
+              "lower_bound_us": 71.58278826666667,
+              "bottleneck": "FP16 compute"
+            },
+            {
+              "x": 512,
+              "label": "512",
+              "arithmetic_intensity": 409.6,
+              "compute_time_us": 143.16557653333334,
+              "memory_time_us": 69.90506666666667,
+              "lower_bound_us": 143.16557653333334,
+              "bottleneck": "FP16 compute"
+            },
+            {
+              "x": 1024,
+              "label": "1024",
+              "arithmetic_intensity": 682.6666666666666,
+              "compute_time_us": 286.3311530666667,
+              "memory_time_us": 83.88607999999999,
+              "lower_bound_us": 286.3311530666667,
+              "bottleneck": "FP16 compute"
+            },
+            {
+              "x": 2048,
+              "label": "2048",
+              "arithmetic_intensity": 1024.0,
+              "compute_time_us": 572.6623061333333,
+              "memory_time_us": 111.84810666666667,
+              "lower_bound_us": 572.6623061333333,
+              "bottleneck": "FP16 compute"
+            }
+          ],
+          "parameters": {
+            "input_width": 4096,
+            "output_width": 4096,
+            "bytes_per_value": 2,
+            "compute_tflops": 120,
+            "hbm_bandwidth_gbps": 600,
+            "selected_rows": 512
+          }
+        }
       ]
     },
     "prefill-execution-path": {
@@ -3658,7 +3789,8 @@
       "assumptions": [
         "Arrows show possible bidirectional physical movement, not a measured transaction trace.",
         "L2, shared-memory, register, and achieved-compute quantities require profiling or a calibrated model."
-      ]
+      ],
+      "charts": []
     },
     "decode-detail": {
       "graph_id": "decode-detail",
@@ -4102,7 +4234,8 @@
       ],
       "assumptions": [
         "FP16 weights and activations use two bytes per value."
-      ]
+      ],
+      "charts": []
     },
     "decode-hbm-boundary": {
       "graph_id": "decode-hbm-boundary",
@@ -5567,6 +5700,134 @@
         "The simplified model reads X once, reads W once, and writes Y once.",
         "The 600 GB/s HBM rate is an assumed educational hardware parameter.",
         "Cache effects, rereads, write allocation, alignment, and workspace are excluded."
+      ],
+      "charts": [
+        {
+          "chart_id": "decode-roofline-study",
+          "kind": "roofline-sensitivity",
+          "title": "Projection sensitivity: token rows vs. ideal latency",
+          "description": "Change M, HBM bandwidth, or peak compute to see how the ideal memory and compute bounds move. This is a model, not measured kernel latency.",
+          "x_label": "Token rows processed together (M)",
+          "y_label": "Ideal lower-bound time (\u00b5s)",
+          "points": [
+            {
+              "x": 1,
+              "label": "1",
+              "arithmetic_intensity": 0.9995119570522206,
+              "compute_time_us": 0.2796202666666667,
+              "memory_time_us": 55.95136,
+              "lower_bound_us": 55.95136,
+              "bottleneck": "HBM bandwidth"
+            },
+            {
+              "x": 2,
+              "label": "2",
+              "arithmetic_intensity": 1.9980487804878049,
+              "compute_time_us": 0.5592405333333333,
+              "memory_time_us": 55.97866666666667,
+              "lower_bound_us": 55.97866666666667,
+              "bottleneck": "HBM bandwidth"
+            },
+            {
+              "x": 4,
+              "label": "4",
+              "arithmetic_intensity": 3.992202729044834,
+              "compute_time_us": 1.1184810666666667,
+              "memory_time_us": 56.033280000000005,
+              "lower_bound_us": 56.033280000000005,
+              "bottleneck": "HBM bandwidth"
+            },
+            {
+              "x": 8,
+              "label": "8",
+              "arithmetic_intensity": 7.968871595330739,
+              "compute_time_us": 2.2369621333333334,
+              "memory_time_us": 56.14250666666667,
+              "lower_bound_us": 56.14250666666667,
+              "bottleneck": "HBM bandwidth"
+            },
+            {
+              "x": 16,
+              "label": "16",
+              "arithmetic_intensity": 15.875968992248062,
+              "compute_time_us": 4.473924266666667,
+              "memory_time_us": 56.36096,
+              "lower_bound_us": 56.36096,
+              "bottleneck": "HBM bandwidth"
+            },
+            {
+              "x": 32,
+              "label": "32",
+              "arithmetic_intensity": 31.50769230769231,
+              "compute_time_us": 8.947848533333334,
+              "memory_time_us": 56.797866666666664,
+              "lower_bound_us": 56.797866666666664,
+              "bottleneck": "HBM bandwidth"
+            },
+            {
+              "x": 64,
+              "label": "64",
+              "arithmetic_intensity": 62.06060606060606,
+              "compute_time_us": 17.895697066666667,
+              "memory_time_us": 57.671679999999995,
+              "lower_bound_us": 57.671679999999995,
+              "bottleneck": "HBM bandwidth"
+            },
+            {
+              "x": 128,
+              "label": "128",
+              "arithmetic_intensity": 120.47058823529412,
+              "compute_time_us": 35.791394133333334,
+              "memory_time_us": 59.419306666666664,
+              "lower_bound_us": 59.419306666666664,
+              "bottleneck": "HBM bandwidth"
+            },
+            {
+              "x": 256,
+              "label": "256",
+              "arithmetic_intensity": 227.55555555555554,
+              "compute_time_us": 71.58278826666667,
+              "memory_time_us": 62.91456,
+              "lower_bound_us": 71.58278826666667,
+              "bottleneck": "FP16 compute"
+            },
+            {
+              "x": 512,
+              "label": "512",
+              "arithmetic_intensity": 409.6,
+              "compute_time_us": 143.16557653333334,
+              "memory_time_us": 69.90506666666667,
+              "lower_bound_us": 143.16557653333334,
+              "bottleneck": "FP16 compute"
+            },
+            {
+              "x": 1024,
+              "label": "1024",
+              "arithmetic_intensity": 682.6666666666666,
+              "compute_time_us": 286.3311530666667,
+              "memory_time_us": 83.88607999999999,
+              "lower_bound_us": 286.3311530666667,
+              "bottleneck": "FP16 compute"
+            },
+            {
+              "x": 2048,
+              "label": "2048",
+              "arithmetic_intensity": 1024.0,
+              "compute_time_us": 572.6623061333333,
+              "memory_time_us": 111.84810666666667,
+              "lower_bound_us": 572.6623061333333,
+              "bottleneck": "FP16 compute"
+            }
+          ],
+          "parameters": {
+            "input_width": 4096,
+            "output_width": 4096,
+            "bytes_per_value": 2,
+            "compute_tflops": 120,
+            "hbm_bandwidth_gbps": 600,
+            "selected_rows": 1
+          }
+        }
       ]
     },
     "decode-execution-path": {
@@ -5973,7 +6234,8 @@
       "assumptions": [
         "Arrows show possible bidirectional physical movement, not a measured transaction trace.",
         "L2, shared-memory, register, and achieved-compute quantities require profiling or a calibrated model."
-      ]
+      ],
+      "charts": []
     }
   },
   "metadata": {

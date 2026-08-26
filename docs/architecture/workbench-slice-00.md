@@ -108,6 +108,14 @@ bytes · bandwidth · ideal transfer bound
 Names such as `HBM channels` and `memory fabric` live in the clickable path
 inspector instead of competing with adjacent blocks on the schematic.
 
+The HBM-boundary view also includes an interactive roofline sensitivity chart.
+It sweeps token-row count `M` and recomputes arithmetic intensity, ideal
+compute time, ideal memory time, and the roofline lower bound. The controls let
+you change `M`, assumed HBM bandwidth, and assumed peak FP16 compute. This makes
+the model useful for sensitivity analysis instead of only displaying one
+hard-coded prefill or decode point. The chart remains an ideal model and does
+not claim measured kernel latency.
+
 ## Calculation Drill-Down
 
 Every derived projection metric carries structured calculation provenance. Its

@@ -111,6 +111,29 @@ class Connection:
 
 
 @dataclass(frozen=True)
+class ChartPoint:
+    x: float
+    label: str
+    arithmetic_intensity: float
+    compute_time_us: float
+    memory_time_us: float
+    lower_bound_us: float
+    bottleneck: str
+
+
+@dataclass(frozen=True)
+class ChartData:
+    chart_id: str
+    kind: str
+    title: str
+    description: str
+    x_label: str
+    y_label: str
+    points: tuple[ChartPoint, ...]
+    parameters: dict[str, float | int]
+
+
+@dataclass(frozen=True)
 class Diagram:
     graph_id: str
     title: str
@@ -119,6 +142,7 @@ class Diagram:
     components: tuple[Component, ...]
     connections: tuple[Connection, ...]
     assumptions: tuple[str, ...] = ()
+    charts: tuple[ChartData, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -129,6 +153,7 @@ class Diagram:
             "components": [component.to_dict() for component in self.components],
             "connections": [connection.to_dict() for connection in self.connections],
             "assumptions": list(self.assumptions),
+            "charts": [asdict(chart) for chart in self.charts],
         }
 
 

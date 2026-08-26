@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .contracts import CalculationDetail, CalculationInput, CalculationStep
+from .contracts import CalculationDetail, CalculationInput, CalculationStep, ChartPoint
 
 
 @dataclass(frozen=True)
@@ -97,6 +97,35 @@ def problem_02_estimate(rows: int) -> ProjectionEstimate:
             bytes_per_activation=2,
         ),
         HardwareRates(compute_tflops=120, hbm_bandwidth_gbps=600),
+    )
+
+
+def projection_roofline_points(
+    rows: tuple[int, ...],
+    *,
+    compute_tflops: float = 120,
+    hbm_bandwidth_gbps: float = 600,
+) -> tuple[ChartPoint, ...]:
+    """Return reusable sensitivity points for the Problem 02 projection."""
+    hardware = HardwareRates(compute_tflops, hbm_bandwidth_gbps)
+    return tuple(
+        ChartPoint(
+            x=estimate.inputs.rows,
+            label=str(estimate.inputs.rows),
+            arithmetic_intensity=estimate.arithmetic_intensity,
+            compute_time_us=estimate.compute_time_us,
+            memory_time_us=estimate.memory_time_us,
+            lower_bound_us=estimate.lower_bound_us,
+            bottleneck=estimate.bottleneck,
+        )
+        for estimate in (
+            ProjectionEstimate(
+                ProjectionInputs(rows=m, input_width=4096, output_width=4096,
+                                 bytes_per_weight=2, bytes_per_activation=2),
+                hardware,
+            )
+            for m in rows
+        )
     )
 
 

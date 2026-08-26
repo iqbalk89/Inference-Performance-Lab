@@ -164,6 +164,13 @@ class SliceZeroTests(unittest.TestCase):
         self.assertIn("prefill-physical-l2", execution_components)
         self.assertIn("Unknown—measure or calibrate", {metric["value"] for metric in execution_components["prefill-physical-l2"]["metrics"]})
 
+        charts = boundary["charts"]
+        self.assertEqual(len(charts), 1)
+        self.assertEqual(charts[0]["kind"], "roofline-sensitivity")
+        self.assertEqual(charts[0]["parameters"]["hbm_bandwidth_gbps"], 600)
+        self.assertEqual(charts[0]["parameters"]["compute_tflops"], 120)
+        self.assertEqual([point["x"] for point in charts[0]["points"]], [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048])
+
 
 if __name__ == "__main__":
     unittest.main()

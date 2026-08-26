@@ -43,7 +43,7 @@ export interface ComponentData {
   position: { x: number; y: number }
   metrics: Metric[]
   drilldown_graph_id: string | null
-  lane: 'process' | 'hardware'
+  lane: 'process' | 'hardware' | 'analysis'
 }
 
 export interface ConnectionData {
@@ -66,6 +66,28 @@ export interface DiagramData {
   components: ComponentData[]
   connections: ConnectionData[]
   assumptions: string[]
+  charts: ChartData[]
+}
+
+export interface ChartPoint {
+  x: number
+  label: string
+  arithmetic_intensity: number
+  compute_time_us: number
+  memory_time_us: number
+  lower_bound_us: number
+  bottleneck: string
+}
+
+export interface ChartData {
+  chart_id: string
+  kind: string
+  title: string
+  description: string
+  x_label: string
+  y_label: string
+  points: ChartPoint[]
+  parameters: Record<string, number>
 }
 
 export interface ScenarioData {
