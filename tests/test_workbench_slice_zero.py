@@ -58,7 +58,6 @@ class SliceZeroTests(unittest.TestCase):
         self.assertEqual(scenario["initial_graph_id"], "system")
         self.assertEqual(set(scenario["diagrams"]), {
             "system", "gpu-0-detail",
-            "inference-overview",
             "prefill-detail", "decode-detail",
             "prefill-projection-detail", "prefill-projection-hbm-boundary", "prefill-projection-execution-path",
             "decode-projection-detail", "decode-projection-hbm-boundary", "decode-projection-execution-path",
@@ -89,18 +88,6 @@ class SliceZeroTests(unittest.TestCase):
         decode_edges = scenario["diagrams"]["decode-detail"]["connections"]
         self.assertFalse(any(edge["target_id"] == "prefill-tokens" for edge in prefill_edges))
         self.assertTrue(any(edge["source_id"] == "decode-next-token" and edge["target_id"] == "decode-tokens" for edge in decode_edges))
-
-    def test_combined_inference_overview_has_prefill_decode_lanes_and_cache_state(self) -> None:
-        scenario = build_slice_zero_scenario().to_dict()
-        overview = scenario["diagrams"]["inference-overview"]
-        labels = {item["label"] for item in overview["components"]}
-        self.assertIn("PREFILL · ① Q/K/V projection", labels)
-        self.assertIn("DECODE · ① Q/K/V projection", labels)
-        self.assertIn("PREFILL · ② Q × Kᵀ", labels)
-        self.assertIn("DECODE · ② Q × Kᵀ", labels)
-        self.assertIn("KV cache", labels)
-        state_edges = [edge for edge in overview["connections"] if edge["category"] == "state"]
-        self.assertGreaterEqual(len(state_edges), 3)
 
     def test_memory_implementation_is_swappable_without_changing_consumers(self) -> None:
         hierarchical = build_slice_zero_scenario(memory_variant="hierarchical").to_dict()

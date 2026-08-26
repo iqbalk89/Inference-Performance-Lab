@@ -104,7 +104,6 @@ export default function App() {
           {(graphId === 'prefill-detail' || graphId === 'decode-detail') && <div className="view-label">LEVEL 1 · OPERATOR MATH</div>}
           {graphId?.endsWith('-hbm-boundary') && <div className="view-label">LEVEL 2 · HBM BOUNDARY LEDGER</div>}
           {graphId?.endsWith('-execution-path') && <div className="view-label">LEVEL 3 · PHYSICAL GPU PATH</div>}
-          {graphId === 'inference-overview' && <div className="view-label">PREFILL / DECODE · TRANSFORMER OPERATOR LANES</div>}
           <ReactFlow<ComponentFlowNode, Edge>
             nodes={nodes}
             edges={edges}

@@ -148,11 +148,6 @@ class ComposableGPU(AcceleratorModel):
         compute_components = self.compute.components()
         phase_components = (
             Component(
-                "inference-overview", "Full inference pipeline", ComponentKind.OPERATION,
-                "Combined Prefill/Decode swim-lane view of QKV, attention, KV-cache, output projection, and feed-forward stages.",
-                Position(525, 170), drilldown_graph_id="inference-overview", lane="process",
-            ),
-            Component(
                 "prefill", "Prefill", ComponentKind.PHASE,
                 "Processes all prompt-token rows and creates their KV-cache entries.",
                 Position(300, 80),
