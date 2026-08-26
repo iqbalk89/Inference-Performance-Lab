@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="950" viewBox="0 0 1400 950" role="img" aria-labelledby="title desc">
+  <title id="title">Worked roofline example</title>
+  <desc id="desc">A logarithmic roofline graph with a 600 gigabyte per second bandwidth line, 120 teraflop compute ceiling, ridge at 200 FLOPs per byte, decode at one, and prefill at 409.6 FLOPs per byte.</desc>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#091426"/><stop offset="1" stop-color="#111d35"/></linearGradient><style>.t{font-family:Inter,Arial,sans-serif;fill:#edf5ff}.m{fill:#a9bdd8}.b{fill:#65b8ff}.g{fill:#62d6a5}.y{fill:#ffc857}.grid{stroke:#2a4262;stroke-width:1}.axis{stroke:#a9bdd8;stroke-width:3}.body{font-size:23px}.small{font-size:19px}.head{font-size:30px;font-weight:700}.big{font-size:42px;font-weight:800}.dash{stroke-dasharray:10 9}</style></defs>
+  <rect width="1400" height="950" fill="url(#bg)"/>
+  <text x="70" y="68" class="t big">Roofline: place workload intensity against hardware ceilings</text>
+  <text x="70" y="108" class="t m body">Hypothetical FP16 GPU: 600 GB/s HBM bandwidth · 120 TFLOP/s peak compute</text>
+
+  <!-- plot: x log 0.1..1000, y log 0.06..120 -->
+  <line x1="150" y1="760" x2="1220" y2="760" class="axis"/><line x1="150" y1="760" x2="150" y2="155" class="axis"/>
+  <g class="grid"><line x1="150" y1="155" x2="1220" y2="155"/><line x1="150" y1="247" x2="1220" y2="247"/><line x1="150" y1="430" x2="1220" y2="430"/><line x1="150" y1="613" x2="1220" y2="613"/><line x1="150" y1="760" x2="1220" y2="760"/><line x1="150" y1="155" x2="150" y2="760"/><line x1="418" y1="155" x2="418" y2="760"/><line x1="685" y1="155" x2="685" y2="760"/><line x1="953" y1="155" x2="953" y2="760"/><line x1="1220" y1="155" x2="1220" y2="760"/></g>
+  <g class="t small" text-anchor="end"><text x="135" y="766">0.06</text><text x="135" y="619">0.6</text><text x="135" y="436">6</text><text x="135" y="253">60</text><text x="135" y="162">120</text></g>
+  <g class="t small" text-anchor="middle"><text x="150" y="795">0.1</text><text x="418" y="795">1</text><text x="685" y="795">10</text><text x="953" y="795">100</text><text x="1220" y="795">1000</text></g>
+  <text x="685" y="840" text-anchor="middle" class="t body">Arithmetic intensity (FLOPs / byte) — logarithmic</text>
+  <text x="48" y="480" transform="rotate(-90 48 480)" text-anchor="middle" class="t small">Performance ceiling (TFLOP/s) — logarithmic</text>
+
+  <!-- bandwidth slope reaches ridge x≈200 at 1034,155 -->
+  <path d="M150 760 L1034 155" fill="none" stroke="#65b8ff" stroke-width="7"/>
+  <path d="M1034 155 H1220" fill="none" stroke="#62d6a5" stroke-width="7"/>
+  <text x="610" y="410" transform="rotate(-34 610 410)" class="t b head">bandwidth ceiling: 600 GB/s × AI</text>
+  <text x="1115" y="137" text-anchor="middle" class="t g small">compute ceiling: 120 TFLOP/s</text>
+
+  <!-- ridge -->
+  <line x1="1034" y1="155" x2="1034" y2="760" stroke="#ffc857" stroke-width="3" class="dash"/>
+  <circle cx="1034" cy="155" r="11" fill="#ffc857"/>
+  <text x="1015" y="205" text-anchor="end" class="t y body">ridge = 200 FLOPs/byte</text>
+  <text x="1015" y="237" text-anchor="end" class="t m small">bandwidth and compute ceilings meet</text>
+
+  <!-- decode x1 y0.6 -->
+  <line x1="418" y1="613" x2="418" y2="760" stroke="#ffc857" stroke-width="2" class="dash"/>
+  <circle cx="418" cy="613" r="13" fill="#ffc857" stroke="#fff2c2" stroke-width="3"/>
+  <rect x="220" y="485" width="360" height="95" rx="14" fill="#332b19" stroke="#ffc857" stroke-width="2"/>
+  <text x="400" y="524" text-anchor="middle" class="t head">Decode ceiling</text>
+  <text x="400" y="556" text-anchor="middle" class="t body">AI ≈ 1 → 0.6 TFLOP/s</text>
+
+  <!-- prefill x409.6 log position 1116, y120 -->
+  <line x1="1116" y1="155" x2="1116" y2="760" stroke="#ffc857" stroke-width="2" class="dash"/>
+  <circle cx="1116" cy="155" r="13" fill="#ffc857" stroke="#fff2c2" stroke-width="3"/>
+  <rect x="980" y="270" width="330" height="100" rx="14" fill="#173b39" stroke="#62d6a5" stroke-width="2"/>
+  <text x="1145" y="310" text-anchor="middle" class="t head">Prefill ceiling</text>
+  <text x="1145" y="344" text-anchor="middle" class="t small">AI = 409.6 → 120 TFLOP/s</text>
+
+  <text x="410" y="710" text-anchor="middle" class="t b head">memory-bound side</text>
+  <text x="1120" y="710" text-anchor="middle" class="t g head">compute-bound side</text>
+
+  <rect x="150" y="875" width="1070" height="52" rx="13" fill="#142744" stroke="#36577e" stroke-width="2"/>
+  <text x="685" y="909" text-anchor="middle" class="t m small">Dots show ideal roofline ceilings at each AI—not measured kernel performance.</text>
+</svg>

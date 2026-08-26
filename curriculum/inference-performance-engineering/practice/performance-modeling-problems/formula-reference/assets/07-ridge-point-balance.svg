@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" role="img" aria-labelledby="title desc">
+  <title id="title">Ridge point as hardware balance</title>
+  <desc id="desc">A rate balance showing that 120 teraflops per second divided by 600 gigabytes per second requires 200 floating-point operations per byte.</desc>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#091426"/><stop offset="1" stop-color="#111d35"/></linearGradient><marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0 0L10 3 0 6Z" fill="#8ca5c9"/></marker><style>.t{font-family:Inter,Arial,sans-serif;fill:#edf5ff}.m{fill:#a9bdd8}.b{fill:#65b8ff}.g{fill:#62d6a5}.y{fill:#ffc857}.box{fill:#142744;stroke:#36577e;stroke-width:2}.body{font-size:25px}.small{font-size:21px}.head{font-size:31px;font-weight:700}.big{font-size:43px;font-weight:800}.mono{font-family:Menlo,Consolas,monospace}</style></defs>
+  <rect width="1400" height="900" fill="url(#bg)"/>
+  <text x="70" y="72" class="t big">Ridge point = the work each delivered byte must enable</text>
+  <text x="70" y="112" class="t m body">It is a balance between two hardware rates—not a measured kernel speed.</text>
+
+  <rect x="70" y="165" width="360" height="240" rx="24" class="box"/>
+  <text x="250" y="220" text-anchor="middle" class="t head">HBM supply</text>
+  <text x="250" y="295" text-anchor="middle" class="t b big">600 GB/s</text>
+  <text x="250" y="342" text-anchor="middle" class="t m body">600 × 10⁹ bytes</text>
+  <text x="250" y="376" text-anchor="middle" class="t m body">arrive each second</text>
+  <path d="M445 285H590" stroke="#8ca5c9" stroke-width="6" marker-end="url(#a)"/>
+
+  <rect x="610" y="165" width="360" height="240" rx="24" fill="#173b39" stroke="#62d6a5" stroke-width="3"/>
+  <text x="790" y="220" text-anchor="middle" class="t body">Compute demand</text>
+  <text x="790" y="295" text-anchor="middle" class="t g head">120 TFLOP/s</text>
+  <text x="790" y="342" text-anchor="middle" class="t m small">120 × 10¹² FLOPs</text>
+  <text x="790" y="376" text-anchor="middle" class="t m small">can execute each second</text>
+
+  <rect x="1010" y="165" width="320" height="240" rx="24" fill="#332b19" stroke="#ffc857" stroke-width="3"/>
+  <text x="1170" y="220" text-anchor="middle" class="t body">Required balance</text>
+  <text x="1170" y="285" text-anchor="middle" class="t y big">200</text>
+  <text x="1170" y="330" text-anchor="middle" class="t y head">FLOPs / byte</text>
+  <text x="1170" y="375" text-anchor="middle" class="t m small">120×10¹² ÷ 600×10⁹</text>
+
+  <text x="700" y="475" text-anchor="middle" class="t body mono">AI_ridge = peak compute ÷ peak bandwidth</text>
+
+  <rect x="70" y="520" width="390" height="270" rx="22" class="box"/>
+  <text x="265" y="570" text-anchor="middle" class="t body">Below ridge: AI = 1</text>
+  <text x="265" y="620" text-anchor="middle" class="t b body">Memory supplies</text>
+  <text x="265" y="660" text-anchor="middle" class="t b body">only 0.6 TFLOP/s</text>
+  <text x="265" y="710" text-anchor="middle" class="t m small">Compute capacity waits</text>
+  <text x="265" y="748" text-anchor="middle" class="t y body">memory-bound region</text>
+
+  <rect x="505" y="520" width="390" height="270" rx="22" fill="#332b19" stroke="#ffc857" stroke-width="3"/>
+  <text x="700" y="570" text-anchor="middle" class="t body">At ridge: AI = 200</text>
+  <text x="700" y="620" text-anchor="middle" class="t y body">600 GB/s × 200</text>
+  <text x="700" y="660" text-anchor="middle" class="t y body">= 120 TFLOP/s</text>
+  <text x="700" y="710" text-anchor="middle" class="t m body">Ideal ceilings meet</text>
+  <text x="700" y="748" text-anchor="middle" class="t y body">the balance point</text>
+
+  <rect x="940" y="520" width="390" height="270" rx="22" class="box"/>
+  <text x="1135" y="570" text-anchor="middle" class="t body">Above ridge: AI = 400</text>
+  <text x="1135" y="620" text-anchor="middle" class="t g small">Memory could support</text>
+  <text x="1135" y="660" text-anchor="middle" class="t g body">240 TFLOP/s</text>
+  <text x="1135" y="710" text-anchor="middle" class="t m small">Compute caps at 120</text>
+  <text x="1135" y="748" text-anchor="middle" class="t y body">compute-bound region</text>
+
+  <text x="700" y="852" text-anchor="middle" class="t m small">Change the datatype or compute ceiling → change the ridge point.</text>
+</svg>

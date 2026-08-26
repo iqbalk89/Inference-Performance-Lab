@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" role="img" aria-labelledby="title desc">
+  <title id="title">Arithmetic intensity intuition</title>
+  <desc id="desc">A visual comparison of decode and prefill showing how much floating-point work is obtained from bytes moved from HBM.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#091426"/><stop offset="1" stop-color="#111d35"/></linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#8ca5c9"/></marker>
+    <style>
+      .t{font-family:Inter,Arial,sans-serif;fill:#edf5ff}.muted{fill:#a9bdd8}.blue{fill:#65b8ff}.gold{fill:#ffc857}.green{fill:#62d6a5}.box{fill:#142744;stroke:#36577e;stroke-width:2}.small{font-size:22px}.body{font-size:25px}.head{font-size:31px;font-weight:700}.big{font-size:43px;font-weight:800}.mono{font-family:Menlo,Consolas,monospace}
+    </style>
+  </defs>
+  <rect width="1400" height="900" fill="url(#bg)"/>
+  <text x="70" y="72" class="t big">Arithmetic intensity = useful arithmetic work ÷ data traffic</text>
+  <text x="70" y="112" class="t muted body">Ask: “After a byte crosses the HBM boundary, how much work does it enable?”</text>
+
+  <rect x="70" y="155" width="590" height="550" rx="24" class="box"/>
+  <text x="105" y="205" class="t head">Decode projection — low reuse</text>
+  <rect x="105" y="250" width="150" height="285" rx="16" fill="#243c60" stroke="#65b8ff" stroke-width="3"/>
+  <text x="180" y="300" text-anchor="middle" class="t head">HBM</text>
+  <text x="180" y="347" text-anchor="middle" class="t small">W weights</text>
+  <text x="180" y="384" text-anchor="middle" class="t small">X input</text>
+  <text x="180" y="421" text-anchor="middle" class="t small">Y output</text>
+  <text x="180" y="490" text-anchor="middle" class="t gold head">33.57 MB</text>
+  <path d="M270 390 H370" stroke="#8ca5c9" stroke-width="5" marker-end="url(#arrow)"/>
+  <rect x="390" y="275" width="220" height="230" rx="18" fill="#173b39" stroke="#62d6a5" stroke-width="3"/>
+  <text x="500" y="325" text-anchor="middle" class="t head">GPU work</text>
+  <text x="500" y="390" text-anchor="middle" class="t green big">33.55</text>
+  <text x="500" y="430" text-anchor="middle" class="t green head">MFLOPs</text>
+  <text x="105" y="590" class="t body">33.55 MFLOPs ÷ 33.57 MB</text>
+  <text x="105" y="650" class="t gold big">≈ 1 FLOP per byte</text>
+  <text x="105" y="685" class="t muted small">One new-token row uses the weights.</text>
+
+  <rect x="740" y="155" width="590" height="550" rx="24" class="box"/>
+  <text x="775" y="205" class="t head">Prefill projection — high reuse</text>
+  <rect x="775" y="250" width="150" height="285" rx="16" fill="#243c60" stroke="#65b8ff" stroke-width="3"/>
+  <text x="850" y="300" text-anchor="middle" class="t head">HBM</text>
+  <text x="850" y="347" text-anchor="middle" class="t small">W weights</text>
+  <text x="850" y="384" text-anchor="middle" class="t small">X inputs</text>
+  <text x="850" y="421" text-anchor="middle" class="t small">Y outputs</text>
+  <text x="850" y="490" text-anchor="middle" class="t gold head">41.94 MB</text>
+  <path d="M940 390 H1040" stroke="#8ca5c9" stroke-width="5" marker-end="url(#arrow)"/>
+  <rect x="1060" y="275" width="220" height="230" rx="18" fill="#173b39" stroke="#62d6a5" stroke-width="3"/>
+  <text x="1170" y="325" text-anchor="middle" class="t head">GPU work</text>
+  <text x="1170" y="390" text-anchor="middle" class="t green big">17.18</text>
+  <text x="1170" y="430" text-anchor="middle" class="t green head">GFLOPs</text>
+  <text x="775" y="590" class="t body">17.18 GFLOPs ÷ 41.94 MB</text>
+  <text x="775" y="650" class="t gold big">= 409.6 FLOPs per byte</text>
+  <text x="775" y="685" class="t muted small">512 prompt rows reuse the shared weights.</text>
+
+  <rect x="70" y="750" width="1260" height="105" rx="18" fill="#101f37" stroke="#ffc857" stroke-width="2"/>
+  <text x="105" y="795" class="t head">The denominator is traffic across a named boundary.</text>
+  <text x="105" y="832" class="t muted body">These are modeled HBM bytes. Cache behavior and the kernel implementation can change measured traffic.</text>
+</svg>
