@@ -2,6 +2,19 @@
 
 ## Shapes and parameters
 
+### What the head numbers mean
+
+The `32` heads and `128` values per head are two views of the same output
+width:
+
+```text
+32 × 128 = 4096
+```
+
+They do not add extra parameters to this calculation. They describe how each
+4,096-value Q, K, or V row can be organized for the later attention operation:
+`[4096]` can be reshaped to `[32 heads, 128 values/head]`.
+
 One projection uses:
 
 ```text

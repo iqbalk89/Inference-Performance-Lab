@@ -29,6 +29,34 @@ head dimension = 128
 FP16 = 2 bytes/value
 ```
 
+### Short primer: what is an attention head?
+
+An attention head is a **logical slice of the model's feature vector**. It is
+not a physical GPU component and it is not a separate processor. The model
+starts with one hidden vector containing `d_model` values and divides that
+width into several smaller vectors so several attention calculations can be
+performed in parallel.
+
+Here, the relationship is:
+
+```text
+number of heads × values per head = total feature width
+32 heads × 128 values/head = 4096 values = d_model
+```
+
+So one row of `Q`, `K`, or `V` has 4,096 values, which can be viewed as 32
+smaller rows of 128 values each:
+
+```text
+one Q row: [4096 values]
+           └─ head 0: [128] ─┬─ head 1: [128] ─┬─ ... ─┬─ head 31: [128]
+```
+
+For this problem, you only need the dimensional fact above. You do **not** yet
+need to understand how a head computes attention scores. That comes in the
+attention lesson. The heads simply explain why `4096` can also be written as
+`32 × 128` and why a Q/K/V row may later be reshaped to `[32, 128]`.
+
 Check the head relationship:
 
 ```text
