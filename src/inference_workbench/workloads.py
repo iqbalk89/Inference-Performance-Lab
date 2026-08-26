@@ -303,8 +303,8 @@ class InferencePipelinePhaseModel(PhaseModel):
             TensorBlock(ids["logits"], "Vocabulary logits", "One score per possible next token. The highest-scoring entries are candidates, not yet a selected token.", Position(2140, 190), (
                 Metric("Output", "vocabulary scores"),
             )).component(),
-            OperationBlock(ids["sampling"], "Sampling / selection", "Applies the configured decoding policy—greedy, temperature, top-k, or top-p—to choose the next token ID.", Position(2340, 190)).component(),
-            TensorBlock(ids["next-token"], "Next token ID", "The selected ID is emitted or fed back into the decode loop.", Position(2540, 190)).component(),
+            OperationBlock(ids["sampling"], "First-token selection" if self.phase_id == "prefill" else "Sampling / selection", "Selects the first generated token from the final prompt logits; that token becomes Decode input." if self.phase_id == "prefill" else "Applies the configured decoding policy—greedy, temperature, top-k, or top-p—to choose the next token ID.", Position(2340, 190)).component(),
+            TensorBlock(ids["next-token"], "First generated token → Decode" if self.phase_id == "prefill" else "Next token ID", "The selected token marks the boundary between Prefill and Decode." if self.phase_id == "prefill" else "The selected ID is fed back into the next decode iteration.", Position(2540, 190)).component(),
         )
         input_connections = (
             Path.logical(f"{prefix}-tokens-embedding", ids["tokens"], ids["embedding"], "Device IDs select embedding rows"),
@@ -325,9 +325,7 @@ class InferencePipelinePhaseModel(PhaseModel):
         )
         loop_connections = (
             Path.state(f"{prefix}-next-token-loop", ids["next-token"], ids["tokens"], "Decode loop feeds the next token"),
-        ) if self.phase_id == "decode" else (
-            Path.logical(f"{prefix}-next-token-output", ids["next-token"], ids["tokens"], "First generated token begins the next step"),
-        )
+        ) if self.phase_id == "decode" else ()
         return Diagram(
             f"{prefix}-detail", f"{self.phase_name}: end-to-end inference pipeline",
             "The full phase is a sequence of operators. QKV is one operation inside the Transformer layer; it is not a separate inference phase.",
@@ -336,5 +334,6 @@ class InferencePipelinePhaseModel(PhaseModel):
                 f"{self.phase_name} processes {self.rows} token row{'s' if self.rows != 1 else ''} in this simplified view.",
                 "The layer stack is shown once but executes repeatedly for every Transformer layer.",
                 "The QKV block links to its detailed fused-projection branch view.",
+                "Prefill ends at the first generated token; only Decode feeds a selected token back into another iteration.",
             ),
         )

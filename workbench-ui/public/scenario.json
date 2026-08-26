@@ -1664,9 +1664,9 @@
         },
         {
           "component_id": "prefill-sampling",
-          "label": "Sampling / selection",
+          "label": "First-token selection",
           "kind": "operation",
-          "summary": "Applies the configured decoding policy\u2014greedy, temperature, top-k, or top-p\u2014to choose the next token ID.",
+          "summary": "Selects the first generated token from the final prompt logits; that token becomes Decode input.",
           "position": {
             "x": 2340,
             "y": 190
@@ -1677,9 +1677,9 @@
         },
         {
           "component_id": "prefill-next-token",
-          "label": "Next token ID",
+          "label": "First generated token \u2192 Decode",
           "kind": "tensor",
-          "summary": "The selected ID is emitted or fed back into the decode loop.",
+          "summary": "The selected token marks the boundary between Prefill and Decode.",
           "position": {
             "x": 2540,
             "y": 190
@@ -1819,22 +1819,13 @@
           "category": "logical",
           "metrics": [],
           "badge": ""
-        },
-        {
-          "connection_id": "prefill-next-token-output",
-          "source_id": "prefill-next-token",
-          "target_id": "prefill-tokens",
-          "label": "First generated token begins the next step",
-          "direction": "forward",
-          "category": "logical",
-          "metrics": [],
-          "badge": ""
         }
       ],
       "assumptions": [
         "Prefill processes 512 token rows in this simplified view.",
         "The layer stack is shown once but executes repeatedly for every Transformer layer.",
-        "The QKV block links to its detailed fused-projection branch view."
+        "The QKV block links to its detailed fused-projection branch view.",
+        "Prefill ends at the first generated token; only Decode feeds a selected token back into another iteration."
       ],
       "charts": []
     },
@@ -2170,7 +2161,7 @@
           "component_id": "decode-next-token",
           "label": "Next token ID",
           "kind": "tensor",
-          "summary": "The selected ID is emitted or fed back into the decode loop.",
+          "summary": "The selected ID is fed back into the next decode iteration.",
           "position": {
             "x": 2540,
             "y": 190
@@ -2325,7 +2316,8 @@
       "assumptions": [
         "Decode processes 1 token row in this simplified view.",
         "The layer stack is shown once but executes repeatedly for every Transformer layer.",
-        "The QKV block links to its detailed fused-projection branch view."
+        "The QKV block links to its detailed fused-projection branch view.",
+        "Prefill ends at the first generated token; only Decode feeds a selected token back into another iteration."
       ],
       "charts": []
     },

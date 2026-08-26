@@ -84,6 +84,10 @@ class SliceZeroTests(unittest.TestCase):
         self.assertIn("Embedding table in HBM", prefill_labels)
         self.assertNotIn("CPU tokenizer", decode_labels)
         self.assertIn("Device token IDs", decode_labels)
+        prefill_edges = scenario["diagrams"]["prefill-detail"]["connections"]
+        decode_edges = scenario["diagrams"]["decode-detail"]["connections"]
+        self.assertFalse(any(edge["target_id"] == "prefill-tokens" for edge in prefill_edges))
+        self.assertTrue(any(edge["source_id"] == "decode-next-token" and edge["target_id"] == "decode-tokens" for edge in decode_edges))
 
     def test_memory_implementation_is_swappable_without_changing_consumers(self) -> None:
         hierarchical = build_slice_zero_scenario(memory_variant="hierarchical").to_dict()
