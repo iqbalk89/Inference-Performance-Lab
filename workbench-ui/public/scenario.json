@@ -1354,25 +1354,12 @@
       "parent_graph_id": "gpu-0-detail",
       "components": [
         {
-          "component_id": "prefill-tokenizer",
-          "label": "CPU tokenizer",
-          "kind": "operation",
-          "summary": "Runs on the host CPU in the normal serving path. Converts text into integer vocabulary IDs; it does not run on the GPU.",
+          "component_id": "prefill-tokens",
+          "label": "Device token IDs",
+          "kind": "tensor",
+          "summary": "The GPU phase begins after tokenization and host-to-device transfer. These IDs are now available in device memory for embedding lookup.",
           "position": {
             "x": 30,
-            "y": 220
-          },
-          "metrics": [],
-          "drilldown_graph_id": null,
-          "lane": "process"
-        },
-        {
-          "component_id": "prefill-tokens",
-          "label": "Host token IDs",
-          "kind": "tensor",
-          "summary": "CPU-produced integer IDs held in host memory before the prompt is sent to the accelerator.",
-          "position": {
-            "x": 230,
             "y": 220
           },
           "metrics": [
@@ -1387,7 +1374,16 @@
             },
             {
               "name": "Storage",
-              "value": "host memory",
+              "value": "device memory",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Ingress",
+              "value": "System-level host link",
               "unit": "",
               "evidence": "theoretical",
               "description": "",
@@ -1397,29 +1393,6 @@
           ],
           "drilldown_graph_id": null,
           "lane": "process"
-        },
-        {
-          "component_id": "prefill-host-link",
-          "label": "Host \u2192 GPU transfer",
-          "kind": "interconnect",
-          "summary": "PCIe, NVLink, or another host link transports token IDs and runtime commands to device memory.",
-          "position": {
-            "x": 430,
-            "y": 220
-          },
-          "metrics": [
-            {
-              "name": "Path rate",
-              "value": "Hardware-specific",
-              "unit": "",
-              "evidence": "assumed",
-              "description": "",
-              "derivation": "",
-              "calculation": null
-            }
-          ],
-          "drilldown_graph_id": null,
-          "lane": "hardware"
         },
         {
           "component_id": "prefill-embedding-table",
@@ -1718,34 +1691,14 @@
       ],
       "connections": [
         {
-          "connection_id": "prefill-tokenizer-tokens",
-          "source_id": "prefill-tokenizer",
-          "target_id": "prefill-tokens",
-          "label": "Text becomes integer IDs",
+          "connection_id": "prefill-tokens-embedding",
+          "source_id": "prefill-tokens",
+          "target_id": "prefill-embedding",
+          "label": "Device IDs select embedding rows",
           "direction": "forward",
           "category": "logical",
           "metrics": [],
           "badge": ""
-        },
-        {
-          "connection_id": "prefill-tokens-host-link",
-          "source_id": "prefill-tokens",
-          "target_id": "prefill-host-link",
-          "label": "Copy prompt IDs to host link",
-          "direction": "forward",
-          "category": "transfer",
-          "metrics": [],
-          "badge": "host transfer"
-        },
-        {
-          "connection_id": "prefill-host-link-embedding",
-          "source_id": "prefill-host-link",
-          "target_id": "prefill-embedding",
-          "label": "Transfer IDs to GPU",
-          "direction": "forward",
-          "category": "transfer",
-          "metrics": [],
-          "badge": "device input"
         },
         {
           "connection_id": "prefill-embedding-table-lookup",
@@ -1893,9 +1846,9 @@
       "components": [
         {
           "component_id": "decode-tokens",
-          "label": "Device token ID",
+          "label": "Device token IDs",
           "kind": "tensor",
-          "summary": "The newly selected decode token is already a numerical ID; the ideal device-resident loop does not re-tokenize it on the CPU.",
+          "summary": "The GPU phase begins after tokenization and host-to-device transfer. These IDs are now available in device memory for embedding lookup.",
           "position": {
             "x": 30,
             "y": 220
@@ -1904,7 +1857,7 @@
             {
               "name": "Rows",
               "value": 1,
-              "unit": "row",
+              "unit": "rows",
               "evidence": "assumed",
               "description": "",
               "derivation": "",
@@ -1913,6 +1866,15 @@
             {
               "name": "Storage",
               "value": "device memory",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Ingress",
+              "value": "System-level host link",
               "unit": "",
               "evidence": "theoretical",
               "description": "",
@@ -2220,12 +2182,12 @@
       ],
       "connections": [
         {
-          "connection_id": "decode-token-loop-embedding",
-          "source_id": "decode-next-token",
+          "connection_id": "decode-tokens-embedding",
+          "source_id": "decode-tokens",
           "target_id": "decode-embedding",
-          "label": "Device-resident decode token",
-          "direction": "both",
-          "category": "state",
+          "label": "Device IDs select embedding rows",
+          "direction": "forward",
+          "category": "logical",
           "metrics": [],
           "badge": ""
         },

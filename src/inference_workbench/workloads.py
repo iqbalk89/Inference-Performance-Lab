@@ -261,7 +261,7 @@ class InferencePipelinePhaseModel(PhaseModel):
         ids = {
             name: f"{prefix}-{name}"
             for name in (
-                "tokenizer", "tokens", "host-link", "embedding-table", "embedding", "layers", "qkv", "attention", "cache",
+                "tokens", "embedding-table", "embedding", "layers", "qkv", "attention", "cache",
                 "output-projection", "mlp", "final-norm", "lm-head", "logits",
                 "sampling", "next-token",
             )
@@ -273,18 +273,10 @@ class InferencePipelinePhaseModel(PhaseModel):
             "Receives the prompt K/V rows so later decode steps can reuse them."
         )
         input_components = (
-            OperationBlock(ids["tokenizer"], "CPU tokenizer", "Runs on the host CPU in the normal serving path. Converts text into integer vocabulary IDs; it does not run on the GPU.", Position(30, 220)).component(),
-            TensorBlock(ids["tokens"], "Host token IDs", "CPU-produced integer IDs held in host memory before the prompt is sent to the accelerator.", Position(230, 220), (
+            TensorBlock(ids["tokens"], "Device token IDs", "The GPU phase begins after tokenization and host-to-device transfer. These IDs are now available in device memory for embedding lookup.", Position(30, 220), (
                 Metric("Rows", self.rows, "rows", EvidenceKind.ASSUMED),
-                Metric("Storage", "host memory"),
-            )).component(),
-            ResourceBlock(ids["host-link"], "Host → GPU transfer", ComponentKind.INTERCONNECT, "PCIe, NVLink, or another host link transports token IDs and runtime commands to device memory.", Position(430, 220), (
-                Metric("Path rate", "Hardware-specific", evidence=EvidenceKind.ASSUMED),
-            )).component(),
-        ) if self.phase_id == "prefill" else (
-            TensorBlock(ids["tokens"], "Device token ID", "The newly selected decode token is already a numerical ID; the ideal device-resident loop does not re-tokenize it on the CPU.", Position(30, 220), (
-                Metric("Rows", 1, "row", EvidenceKind.ASSUMED),
                 Metric("Storage", "device memory"),
+                Metric("Ingress", "System-level host link"),
             )).component(),
         )
         components = input_components + (
@@ -315,13 +307,7 @@ class InferencePipelinePhaseModel(PhaseModel):
             TensorBlock(ids["next-token"], "Next token ID", "The selected ID is emitted or fed back into the decode loop.", Position(2540, 190)).component(),
         )
         input_connections = (
-            (
-                Path.logical(f"{prefix}-tokenizer-tokens", ids["tokenizer"], ids["tokens"], "Text becomes integer IDs"),
-                Path.transfer(f"{prefix}-tokens-host-link", ids["tokens"], ids["host-link"], "Copy prompt IDs to host link", badge="host transfer", metrics=()),
-                Path.transfer(f"{prefix}-host-link-embedding", ids["host-link"], ids["embedding"], "Transfer IDs to GPU", badge="device input", metrics=()),
-            ) if self.phase_id == "prefill" else (
-                Path.state(f"{prefix}-token-loop-embedding", ids["next-token"], ids["embedding"], "Device-resident decode token"),
-            )
+            Path.logical(f"{prefix}-tokens-embedding", ids["tokens"], ids["embedding"], "Device IDs select embedding rows"),
         )
         connections = input_connections + (
             Path.mapping(f"{prefix}-embedding-table-lookup", ids["embedding-table"], ids["embedding"], "GPU gather reads embedding rows"),
