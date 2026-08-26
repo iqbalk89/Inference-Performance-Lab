@@ -27,6 +27,11 @@ reliability, and end-to-end systems. The bridge to inference performance is:
 The curriculum should move you up this ladder repeatedly. It should not require
 memorizing every GPU component before you have a workload to reason about.
 
+The capability ladder is implemented through the
+[Inference System Performance Workbench](../../../docs/architecture/inference-system-performance-workbench.md).
+Its plan maps the visual hardware model, inference phases, profiling evidence,
+serving dynamics, correctness, and distributed extensions to the target roles.
+
 ## Role Boundaries
 
 - **Performance modeling:** predicts latency, memory, throughput, capacity, and
@@ -37,4 +42,3 @@ memorizing every GPU component before you have a workload to reason about.
   scheduling, or system design to improve an explicit metric.
 - **Kernel engineering:** implements and tunes low-level CUDA or Triton kernels.
   It becomes valuable after the first three capabilities are established.
-

@@ -7,6 +7,12 @@ operated.
 The repository is intended to grow into a portfolio of reproducible experiments
 and working systems rather than a collection of disconnected tutorials.
 
+The central portfolio project is the
+[Inference System Performance Workbench](docs/architecture/inference-system-performance-workbench.md),
+a hierarchical visual model that connects prefill and decode operations to
+hardware resources, validates predictions against measurements, and supports
+performance and architecture decisions.
+
 ## Long-Term Goals
 
 - Build a strong foundation in machine learning and transformer inference.

@@ -69,6 +69,11 @@ Each completed lesson will contain:
 
 ## Portfolio Outcomes
 
+The modules progressively build the
+[Inference System Performance Workbench](../../docs/architecture/inference-system-performance-workbench.md),
+which is the track's central implementation project and authoritative design
+plan.
+
 The track culminates in four interview-ready projects:
 
 1. A calibrated single-GPU inference performance model
