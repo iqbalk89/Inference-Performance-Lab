@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .contracts import AcceleratorModel, CalculationDetail, CalculationInput, CalculationStep, Component, ComponentKind, ComputeModel, EvidenceKind, MemoryModel, Metric, PhaseModel, Position, SystemModel, VariantRegistry, WorkbenchScenario
-from .estimates import decimal_bytes, decimal_flops, problem_02_estimate, projection_calculations, transfer_calculation
+from .estimates import decimal_bytes, decimal_flops, problem_02_estimate, projection_calculations, qkv_estimate, transfer_calculation
 from .hardware import ComposableGPU, FlatMemoryModel, HierarchicalMemoryModel, SMArrayComputeModel
 from .estimates import problem_02_estimate
 from .system import SingleAcceleratorSystem
@@ -49,6 +49,7 @@ def build_slice_zero_scenario(
     compute = compute_model or compute_variants.create("sm-array", sm_count=72, fp16_tflops=120)
     prefill_estimate = problem_02_estimate(512)
     decode_estimate = problem_02_estimate(1)
+    qkv = qkv_estimate(512)
     prefill_calculations = projection_calculations(prefill_estimate)
     decode_calculations = projection_calculations(decode_estimate)
     phase_metrics = {
@@ -67,6 +68,10 @@ def build_slice_zero_scenario(
             Metric("Work", decimal_flops(decode_estimate.flops), calculation=decode_calculations["work"]),
             Metric("HBM traffic", decimal_bytes(decode_estimate.total_hbm_bytes), calculation=decode_calculations["total_bytes"]),
             Metric("Rows", 1, "row", EvidenceKind.ASSUMED),
+        ),
+        "qkv": (
+            Metric("Fused weight", decimal_bytes(qkv.weight_bytes), calculation=projection_calculations(qkv)["weight_bytes"]),
+            Metric("Prefill QKV work", decimal_flops(qkv.flops), calculation=projection_calculations(qkv)["work"]),
         ),
     }
     gpu = accelerator_model or ComposableGPU("gpu-0", "Educational GPU", memory, compute, phase_metrics)
@@ -116,12 +121,22 @@ def build_slice_zero_scenario(
         "Processes one newly generated token row against the same projection matrix.",
         decode_estimate,
     )
+    qkv_model = ProjectionPhaseModel(
+        "qkv", "QKV projection", 512,
+        "Creates Q, K, and V with one fused [Q K V] projection before attention.",
+        qkv,
+        input_width=4096,
+        output_width=12288,
+        weight_label="W_QKV",
+        output_label="[Q K V]",
+        equation="[Q K V] = XW_QKV",
+    )
 
     return WorkbenchScenario(
         "slice-0-problem-02",
         "Problem 02: System-to-GPU Explorer",
         "system",
-        (system.diagram(gpu), gpu.diagram(), *prefill.diagrams(), *decode.diagrams()),
+        (system.diagram(gpu), gpu.diagram(), *prefill.diagrams(), *decode.diagrams(), *qkv_model.diagrams()),
         {
             "slice": 0,
             "memory_variant": memory_variant,

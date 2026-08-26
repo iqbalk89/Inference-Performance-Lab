@@ -60,6 +60,7 @@ class SliceZeroTests(unittest.TestCase):
             "system", "gpu-0-detail",
             "prefill-detail", "prefill-hbm-boundary", "prefill-execution-path",
             "decode-detail", "decode-hbm-boundary", "decode-execution-path",
+            "qkv-detail", "qkv-hbm-boundary", "qkv-execution-path",
         })
         self.assertLessEqual(
             {"client", "server", "cpu", "host-memory", "host-link", "gpu-0"},
@@ -131,6 +132,15 @@ class SliceZeroTests(unittest.TestCase):
         graph = scenario["diagrams"]["prefill-detail"]
         self.assertEqual(graph["title"], "Custom Prefill: Problem 02 projection")
         self.assertIn("X [128 × 4096]", {item["label"] for item in graph["components"]})
+
+    def test_qkv_simulation_is_available(self) -> None:
+        scenario = build_slice_zero_scenario().to_dict()
+        graph = scenario["diagrams"]["qkv-detail"]
+        labels = {item["label"] for item in graph["components"]}
+        self.assertIn("W_QKV [4096 × 12288]", labels)
+        self.assertIn("[Q K V] [512 × 12288]", labels)
+        operation = next(item for item in graph["components"] if item["component_id"] == "qkv-matmul")
+        self.assertEqual(operation["drilldown_graph_id"], "qkv-hbm-boundary")
 
     def test_projection_uses_progressive_reusable_views_and_output_writeback(self) -> None:
         scenario = build_slice_zero_scenario().to_dict()

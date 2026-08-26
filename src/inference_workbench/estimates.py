@@ -100,6 +100,20 @@ def problem_02_estimate(rows: int) -> ProjectionEstimate:
     )
 
 
+def qkv_estimate(rows: int) -> ProjectionEstimate:
+    """Problem 03: one fused QKV projection with three 4096-wide outputs."""
+    return ProjectionEstimate(
+        ProjectionInputs(
+            rows=rows,
+            input_width=4096,
+            output_width=12288,
+            bytes_per_weight=2,
+            bytes_per_activation=2,
+        ),
+        HardwareRates(compute_tflops=120, hbm_bandwidth_gbps=600),
+    )
+
+
 def projection_roofline_points(
     rows: tuple[int, ...],
     *,

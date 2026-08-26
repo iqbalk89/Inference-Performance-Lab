@@ -161,6 +161,13 @@ class ComposableGPU(AcceleratorModel):
                 self.phase_metrics.get("decode", (Metric("Problem 02 rows", 1, "row", EvidenceKind.ASSUMED),)),
                 drilldown_graph_id="decode-detail", lane="process",
             ),
+            Component(
+                "qkv", "QKV projection", ComponentKind.OPERATION,
+                "Creates Q, K, and V with one fused projection before attention.",
+                Position(525, 80),
+                self.phase_metrics.get("qkv", (Metric("Problem 03", "Combined QKV", evidence=EvidenceKind.ASSUMED),)),
+                drilldown_graph_id="qkv-detail", lane="process",
+            ),
         )
         memory_target = "hbm" if any(item.component_id == "hbm" for item in memory_components) else memory_components[0].component_id
         compute_target = compute_components[0].component_id

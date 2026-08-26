@@ -18,6 +18,11 @@ class ProjectionPhaseModel(PhaseModel):
     rows: int
     explanation: str
     estimate: ProjectionEstimate | None = None
+    input_width: int = 4096
+    output_width: int = 4096
+    weight_label: str = "W"
+    output_label: str = "Y"
+    equation: str = "Y = XW"
 
     @property
     def boundary_graph_id(self) -> str:
@@ -41,23 +46,23 @@ class ProjectionPhaseModel(PhaseModel):
         matmul_id, output_id = f"{prefix}-matmul", f"{prefix}-output"
 
         components = (
-            TensorBlock(input_id, f"X [{self.rows} × 4096]", "Input activation tensor. Each row is one token position presented to this projection.", Position(100, 135), (
-                Metric("Shape", f"[{self.rows} × 4096]"),
-                Metric("Values", self.rows * 4096, "values"),
+            TensorBlock(input_id, f"X [{self.rows} × {self.input_width}]", "Input activation tensor. Each row is one token position presented to this projection.", Position(100, 135), (
+                Metric("Shape", f"[{self.rows} × {self.input_width}]"),
+                Metric("Values", self.rows * self.input_width, "values"),
                 Metric("FP16 size", decimal_bytes(estimate.input_bytes), calculation=calculations["input_bytes"]),
             )).component(),
-            TensorBlock(weight_id, "W [4096 × 4096]", "Learned projection weights. The same matrix is applied to every row of X.", Position(100, 395), (
-                Metric("Shape", "[4096 × 4096]"),
-                Metric("Values", 4096 * 4096, "values"),
+            TensorBlock(weight_id, f"{self.weight_label} [{self.input_width} × {self.output_width}]", "Learned projection weights. The same matrix is applied to every row of X.", Position(100, 395), (
+                Metric("Shape", f"[{self.input_width} × {self.output_width}]"),
+                Metric("Values", self.input_width * self.output_width, "values"),
                 Metric("FP16 size", decimal_bytes(estimate.weight_bytes), calculation=calculations["weight_bytes"]),
             )).component(),
             OperationBlock(matmul_id, "Matrix multiplication", "Computes Y = XW. Push in to see which bytes cross the HBM boundary.", Position(500, 265), (
-                Metric("Equation", "Y = XW"),
+                Metric("Equation", self.equation),
                 Metric("Work", decimal_flops(estimate.flops), calculation=calculations["work"]),
             ), self.boundary_graph_id).component(),
-            TensorBlock(output_id, f"Y [{self.rows} × 4096]", "Output activation tensor produced by this projection.", Position(900, 265), (
-                Metric("Shape", f"[{self.rows} × 4096]"),
-                Metric("Values", self.rows * 4096, "values"),
+            TensorBlock(output_id, f"{self.output_label} [{self.rows} × {self.output_width}]", "Output activation tensor produced by this projection.", Position(900, 265), (
+                Metric("Shape", f"[{self.rows} × {self.output_width}]"),
+                Metric("Values", self.rows * self.output_width, "values"),
                 Metric("FP16 size", decimal_bytes(estimate.output_bytes), calculation=calculations["output_bytes"]),
             )).component(),
         )
@@ -99,10 +104,10 @@ class ProjectionPhaseModel(PhaseModel):
             OperationBlock(input_id, "Read X", "One modeled read of the input activation tensor from HBM.", Position(390, 65), input_metrics).component(),
             OperationBlock(weight_id, "Read W", "One modeled read of the learned projection matrix from HBM.", Position(390, 275), weight_metrics).component(),
             OperationBlock(matmul_id, "Matrix multiplication", "The operator remains visible here: read tiles of X and W are multiplied and accumulated to produce Y.", Position(650, 275), (
-                Metric("Equation", "Y = XW"),
+                Metric("Equation", self.equation),
                 Metric("Work", decimal_flops(estimate.flops), calculation=calculations["work"]),
             )).component(),
-            OperationBlock(output_id, "Write Y", "The output activation is explicitly written back across the HBM boundary.", Position(920, 485), output_metrics).component(),
+            OperationBlock(output_id, f"Write {self.output_label}", "The output activation is explicitly written back across the HBM boundary.", Position(920, 485), output_metrics).component(),
             AnalysisBlock(accounting_id, "Roofline performance model", "Analyzes the inference operator using FLOPs, HBM traffic, arithmetic intensity, and hardware limits. This block is not part of runtime execution.", Position(960, 65), (
                 Metric("Work", decimal_flops(estimate.flops), calculation=calculations["work"]),
                 Metric("HBM traffic", decimal_bytes(estimate.total_hbm_bytes), calculation=calculations["total_bytes"]),
@@ -118,7 +123,7 @@ class ProjectionPhaseModel(PhaseModel):
         connections = (
             Path.transfer(f"{prefix}-x-boundary", hbm_id, input_id, "Read X from HBM", badge=badge(estimate.input_bytes), metrics=input_metrics),
             Path.transfer(f"{prefix}-w-boundary", hbm_id, weight_id, "Read W from HBM", badge=badge(estimate.weight_bytes), metrics=weight_metrics),
-            Path.transfer(f"{prefix}-y-boundary", output_id, hbm_id, "Write Y to HBM", badge=badge(estimate.output_bytes), metrics=output_metrics),
+            Path.transfer(f"{prefix}-y-boundary", output_id, hbm_id, f"Write {self.output_label} to HBM", badge=badge(estimate.output_bytes), metrics=output_metrics),
             Path.logical(f"{prefix}-x-to-matmul", input_id, matmul_id, "Read X tiles into the operator"),
             Path.logical(f"{prefix}-w-to-matmul", weight_id, matmul_id, "Read W tiles into the operator"),
             Path.logical(f"{prefix}-matmul-to-y", matmul_id, output_id, "Matrix multiplication produces Y"),
@@ -137,7 +142,7 @@ class ProjectionPhaseModel(PhaseModel):
                 x_label="Token rows processed together (M)",
                 y_label="Ideal lower-bound time (µs)",
                 points=projection_roofline_points((1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048)),
-                parameters={"input_width": 4096, "output_width": 4096, "bytes_per_value": 2, "compute_tflops": 120, "hbm_bandwidth_gbps": 600, "selected_rows": self.rows},
+                parameters={"input_width": self.input_width, "output_width": self.output_width, "bytes_per_value": 2, "compute_tflops": 120, "hbm_bandwidth_gbps": 600, "selected_rows": self.rows},
             ),
         ))
 
@@ -152,7 +157,7 @@ class ProjectionPhaseModel(PhaseModel):
         unknown = "Unknown—measure or calibrate"
         components = (
             OperationBlock(matmul_id, "Matrix multiplication", "The same XW operator is now mapped onto the physical memory and compute path below.", Position(540, 70), (
-                Metric("Equation", "Y = XW"),
+                Metric("Equation", self.equation),
                 Metric("Work", decimal_flops(estimate.flops), calculation=calculations["work"]),
             )).component(),
             ResourceBlock(hbm_id, "HBM", ComponentKind.MEMORY, "Off-chip GPU memory. Boundary accounting counts X and W reads plus the Y write here.", Position(60, 280), (
