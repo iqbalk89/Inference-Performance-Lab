@@ -261,7 +261,7 @@ class InferencePipelinePhaseModel(PhaseModel):
         ids = {
             name: f"{prefix}-{name}"
             for name in (
-                "tokens", "embedding", "layers", "qkv", "attention", "cache",
+                "tokenizer", "tokens", "host-link", "embedding-table", "embedding", "layers", "qkv", "attention", "cache",
                 "output-projection", "mlp", "final-norm", "lm-head", "logits",
                 "sampling", "next-token",
             )
@@ -272,34 +272,59 @@ class InferencePipelinePhaseModel(PhaseModel):
             if self.phase_id == "decode" else
             "Receives the prompt K/V rows so later decode steps can reuse them."
         )
-        components = (
-            TensorBlock(ids["tokens"], "Token IDs", "The tokenizer converts the request into integer vocabulary IDs. Prompt rows are processed together in prefill; decode contributes one new ID at a time.", Position(40, 230), (
+        input_components = (
+            OperationBlock(ids["tokenizer"], "CPU tokenizer", "Runs on the host CPU in the normal serving path. Converts text into integer vocabulary IDs; it does not run on the GPU.", Position(30, 220)).component(),
+            TensorBlock(ids["tokens"], "Host token IDs", "CPU-produced integer IDs held in host memory before the prompt is sent to the accelerator.", Position(230, 220), (
                 Metric("Rows", self.rows, "rows", EvidenceKind.ASSUMED),
+                Metric("Storage", "host memory"),
             )).component(),
-            OperationBlock(ids["embedding"], "Embedding lookup", "Maps each token ID to its initial hidden vector. This is a lookup/gather, not a dense projection.", Position(240, 230)).component(),
-            OperationBlock(ids["layers"], "Transformer layer stack", "Repeats the same high-level layer pattern for every layer: norm, QKV, attention, output projection, norm, and MLP.", Position(450, 230), (
+            ResourceBlock(ids["host-link"], "Host → GPU transfer", ComponentKind.INTERCONNECT, "PCIe, NVLink, or another host link transports token IDs and runtime commands to device memory.", Position(430, 220), (
+                Metric("Path rate", "Hardware-specific", evidence=EvidenceKind.ASSUMED),
+            )).component(),
+        ) if self.phase_id == "prefill" else (
+            TensorBlock(ids["tokens"], "Device token ID", "The newly selected decode token is already a numerical ID; the ideal device-resident loop does not re-tokenize it on the CPU.", Position(30, 220), (
+                Metric("Rows", 1, "row", EvidenceKind.ASSUMED),
+                Metric("Storage", "device memory"),
+            )).component(),
+        )
+        components = input_components + (
+            ResourceBlock(ids["embedding-table"], "Embedding table in HBM", ComponentKind.MEMORY, "The learned vocabulary embedding table normally resides in GPU HBM and is read by a GPU gather kernel.", Position(650, 480), (
+                Metric("Location", "GPU HBM"),
+                Metric("Access", "GPU gather"),
+            )).component(),
+            OperationBlock(ids["embedding"], "GPU embedding lookup", "Runs on the GPU as a gather: each token ID selects one row from the embedding table and produces an initial hidden vector.", Position(650, 220)).component(),
+            OperationBlock(ids["layers"], "Transformer layer stack", "Repeats the same high-level layer pattern for every layer: norm, QKV, attention, output projection, norm, and MLP.", Position(870, 220), (
                 Metric("Rows per phase", self.rows, "rows", EvidenceKind.ASSUMED),
             )).component(),
-            OperationBlock(ids["qkv"], "QKV projection", "Creates Q, K, and V. This is one of the detailed operator models available in the workbench.", Position(680, 90), (
+            OperationBlock(ids["qkv"], "QKV projection", "Creates Q, K, and V. This is one of the detailed operator models available in the workbench.", Position(1080, 90), (
                 Metric("Fused work", decimal_flops(self.estimate.flops), calculation=calculations["work"]),
             ), self.qkv_graph_id).component(),
-            OperationBlock(ids["attention"], "Attention", "Forms attention scores from Q and K, applies the causal rule, normalizes scores, and mixes V.", Position(880, 90)).component(),
-            OperationBlock(ids["cache"], "KV cache", cache_summary, Position(880, 360), (
+            OperationBlock(ids["attention"], "Attention", "Forms attention scores from Q and K, applies the causal rule, normalizes scores, and mixes V.", Position(1280, 90)).component(),
+            OperationBlock(ids["cache"], "KV cache", cache_summary, Position(1280, 360), (
                 Metric("Role", "persistent K/V state"),
                 Metric("Capacity model", "Next modeling slice", evidence=EvidenceKind.ASSUMED),
             )).component(),
-            OperationBlock(ids["output-projection"], "Attention output projection", "Projects the attention result back to the model width, then participates in a residual connection.", Position(1100, 90)).component(),
-            OperationBlock(ids["mlp"], "MLP / feed-forward block", "Expands the hidden width, applies the nonlinear transformation, and projects back down.", Position(1100, 300)).component(),
-            OperationBlock(ids["final-norm"], "Final normalization", "Normalizes the final hidden state before vocabulary prediction.", Position(1310, 190)).component(),
-            OperationBlock(ids["lm-head"], "LM head", "Projects the final hidden vector into one score per vocabulary item.", Position(1510, 190)).component(),
-            TensorBlock(ids["logits"], "Vocabulary logits", "One score per possible next token. The highest-scoring entries are candidates, not yet a selected token.", Position(1710, 190), (
+            OperationBlock(ids["output-projection"], "Attention output projection", "Projects the attention result back to the model width, then participates in a residual connection.", Position(1510, 90)).component(),
+            OperationBlock(ids["mlp"], "MLP / feed-forward block", "Expands the hidden width, applies the nonlinear transformation, and projects back down.", Position(1510, 300)).component(),
+            OperationBlock(ids["final-norm"], "Final normalization", "Normalizes the final hidden state before vocabulary prediction.", Position(1740, 190)).component(),
+            OperationBlock(ids["lm-head"], "LM head", "Projects the final hidden vector into one score per vocabulary item.", Position(1940, 190)).component(),
+            TensorBlock(ids["logits"], "Vocabulary logits", "One score per possible next token. The highest-scoring entries are candidates, not yet a selected token.", Position(2140, 190), (
                 Metric("Output", "vocabulary scores"),
             )).component(),
-            OperationBlock(ids["sampling"], "Sampling / selection", "Applies the configured decoding policy—greedy, temperature, top-k, or top-p—to choose the next token ID.", Position(1910, 190)).component(),
-            TensorBlock(ids["next-token"], "Next token ID", "The selected ID is emitted or fed back into the decode loop.", Position(2110, 190)).component(),
+            OperationBlock(ids["sampling"], "Sampling / selection", "Applies the configured decoding policy—greedy, temperature, top-k, or top-p—to choose the next token ID.", Position(2340, 190)).component(),
+            TensorBlock(ids["next-token"], "Next token ID", "The selected ID is emitted or fed back into the decode loop.", Position(2540, 190)).component(),
         )
-        connections = (
-            Path.logical(f"{prefix}-tokens-embedding", ids["tokens"], ids["embedding"], "IDs select embedding rows"),
+        input_connections = (
+            (
+                Path.logical(f"{prefix}-tokenizer-tokens", ids["tokenizer"], ids["tokens"], "Text becomes integer IDs"),
+                Path.transfer(f"{prefix}-tokens-host-link", ids["tokens"], ids["host-link"], "Copy prompt IDs to host link", badge="host transfer", metrics=()),
+                Path.transfer(f"{prefix}-host-link-embedding", ids["host-link"], ids["embedding"], "Transfer IDs to GPU", badge="device input", metrics=()),
+            ) if self.phase_id == "prefill" else (
+                Path.state(f"{prefix}-token-loop-embedding", ids["next-token"], ids["embedding"], "Device-resident decode token"),
+            )
+        )
+        connections = input_connections + (
+            Path.mapping(f"{prefix}-embedding-table-lookup", ids["embedding-table"], ids["embedding"], "GPU gather reads embedding rows"),
             Path.logical(f"{prefix}-embedding-layers", ids["embedding"], ids["layers"], "Hidden states enter every layer"),
             Path.logical(f"{prefix}-layers-qkv", ids["layers"], ids["qkv"], "Layer hidden state enters QKV"),
             Path.logical(f"{prefix}-qkv-attention", ids["qkv"], ids["attention"], "Q/K/V feed attention"),

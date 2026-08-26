@@ -116,6 +116,31 @@ the model useful for sensitivity analysis instead of only displaying one
 hard-coded prefill or decode point. The chart remains an ideal model and does
 not claim measured kernel latency.
 
+## Host and GPU Ownership in the Full Pipeline
+
+The phase-level diagrams distinguish the normal serving ownership boundary:
+
+```text
+CPU: request text → tokenizer → host token IDs
+                                      │
+                              PCIe / host link
+                                      ▼
+GPU HBM: embedding table → GPU gather → hidden states
+                                      ▼
+                         Transformer layers → logits → selection
+```
+
+Embedding lookup normally runs on the GPU. The embedding table is a model
+weight stored in GPU memory, and the GPU executes a gather kernel that selects
+the row for each token ID. The CPU performs tokenization and orchestration. A
+deployment may offload embeddings or sampling, but those are explicit variant
+choices rather than assumptions hidden inside the base diagram.
+
+Prefill shows the prompt-ID transfer from host to GPU. Decode shows the common
+device-resident loop in which the newly selected token ID is fed directly into
+the next embedding lookup; it does not incorrectly tokenize the generated ID
+again on the CPU.
+
 ## Calculation Drill-Down
 
 Every derived projection metric carries structured calculation provenance. Its

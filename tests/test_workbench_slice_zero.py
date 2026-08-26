@@ -76,6 +76,13 @@ class SliceZeroTests(unittest.TestCase):
         self.assertIn("QKV projection", pipeline_labels)
         self.assertIn("Attention", pipeline_labels)
         self.assertIn("KV cache", pipeline_labels)
+        prefill_labels = {item["label"] for item in scenario["diagrams"]["prefill-detail"]["components"]}
+        decode_labels = {item["label"] for item in scenario["diagrams"]["decode-detail"]["components"]}
+        self.assertIn("CPU tokenizer", prefill_labels)
+        self.assertIn("GPU embedding lookup", prefill_labels)
+        self.assertIn("Embedding table in HBM", prefill_labels)
+        self.assertNotIn("CPU tokenizer", decode_labels)
+        self.assertIn("Device token ID", decode_labels)
 
     def test_memory_implementation_is_swappable_without_changing_consumers(self) -> None:
         hierarchical = build_slice_zero_scenario(memory_variant="hierarchical").to_dict()

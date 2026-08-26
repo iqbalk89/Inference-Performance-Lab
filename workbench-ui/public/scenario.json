@@ -1354,13 +1354,26 @@
       "parent_graph_id": "gpu-0-detail",
       "components": [
         {
-          "component_id": "prefill-tokens",
-          "label": "Token IDs",
-          "kind": "tensor",
-          "summary": "The tokenizer converts the request into integer vocabulary IDs. Prompt rows are processed together in prefill; decode contributes one new ID at a time.",
+          "component_id": "prefill-tokenizer",
+          "label": "CPU tokenizer",
+          "kind": "operation",
+          "summary": "Runs on the host CPU in the normal serving path. Converts text into integer vocabulary IDs; it does not run on the GPU.",
           "position": {
-            "x": 40,
-            "y": 230
+            "x": 30,
+            "y": 220
+          },
+          "metrics": [],
+          "drilldown_graph_id": null,
+          "lane": "process"
+        },
+        {
+          "component_id": "prefill-tokens",
+          "label": "Host token IDs",
+          "kind": "tensor",
+          "summary": "CPU-produced integer IDs held in host memory before the prompt is sent to the accelerator.",
+          "position": {
+            "x": 230,
+            "y": 220
           },
           "metrics": [
             {
@@ -1371,19 +1384,83 @@
               "description": "",
               "derivation": "",
               "calculation": null
+            },
+            {
+              "name": "Storage",
+              "value": "host memory",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
             }
           ],
           "drilldown_graph_id": null,
           "lane": "process"
         },
         {
-          "component_id": "prefill-embedding",
-          "label": "Embedding lookup",
-          "kind": "operation",
-          "summary": "Maps each token ID to its initial hidden vector. This is a lookup/gather, not a dense projection.",
+          "component_id": "prefill-host-link",
+          "label": "Host \u2192 GPU transfer",
+          "kind": "interconnect",
+          "summary": "PCIe, NVLink, or another host link transports token IDs and runtime commands to device memory.",
           "position": {
-            "x": 240,
-            "y": 230
+            "x": 430,
+            "y": 220
+          },
+          "metrics": [
+            {
+              "name": "Path rate",
+              "value": "Hardware-specific",
+              "unit": "",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "prefill-embedding-table",
+          "label": "Embedding table in HBM",
+          "kind": "memory",
+          "summary": "The learned vocabulary embedding table normally resides in GPU HBM and is read by a GPU gather kernel.",
+          "position": {
+            "x": 650,
+            "y": 480
+          },
+          "metrics": [
+            {
+              "name": "Location",
+              "value": "GPU HBM",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Access",
+              "value": "GPU gather",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "prefill-embedding",
+          "label": "GPU embedding lookup",
+          "kind": "operation",
+          "summary": "Runs on the GPU as a gather: each token ID selects one row from the embedding table and produces an initial hidden vector.",
+          "position": {
+            "x": 650,
+            "y": 220
           },
           "metrics": [],
           "drilldown_graph_id": null,
@@ -1395,8 +1472,8 @@
           "kind": "operation",
           "summary": "Repeats the same high-level layer pattern for every layer: norm, QKV, attention, output projection, norm, and MLP.",
           "position": {
-            "x": 450,
-            "y": 230
+            "x": 870,
+            "y": 220
           },
           "metrics": [
             {
@@ -1418,7 +1495,7 @@
           "kind": "operation",
           "summary": "Creates Q, K, and V. This is one of the detailed operator models available in the workbench.",
           "position": {
-            "x": 680,
+            "x": 1080,
             "y": 90
           },
           "metrics": [
@@ -1498,7 +1575,7 @@
           "kind": "operation",
           "summary": "Forms attention scores from Q and K, applies the causal rule, normalizes scores, and mixes V.",
           "position": {
-            "x": 880,
+            "x": 1280,
             "y": 90
           },
           "metrics": [],
@@ -1511,7 +1588,7 @@
           "kind": "operation",
           "summary": "Receives the prompt K/V rows so later decode steps can reuse them.",
           "position": {
-            "x": 880,
+            "x": 1280,
             "y": 360
           },
           "metrics": [
@@ -1543,7 +1620,7 @@
           "kind": "operation",
           "summary": "Projects the attention result back to the model width, then participates in a residual connection.",
           "position": {
-            "x": 1100,
+            "x": 1510,
             "y": 90
           },
           "metrics": [],
@@ -1556,7 +1633,7 @@
           "kind": "operation",
           "summary": "Expands the hidden width, applies the nonlinear transformation, and projects back down.",
           "position": {
-            "x": 1100,
+            "x": 1510,
             "y": 300
           },
           "metrics": [],
@@ -1569,7 +1646,7 @@
           "kind": "operation",
           "summary": "Normalizes the final hidden state before vocabulary prediction.",
           "position": {
-            "x": 1310,
+            "x": 1740,
             "y": 190
           },
           "metrics": [],
@@ -1582,7 +1659,7 @@
           "kind": "operation",
           "summary": "Projects the final hidden vector into one score per vocabulary item.",
           "position": {
-            "x": 1510,
+            "x": 1940,
             "y": 190
           },
           "metrics": [],
@@ -1595,7 +1672,7 @@
           "kind": "tensor",
           "summary": "One score per possible next token. The highest-scoring entries are candidates, not yet a selected token.",
           "position": {
-            "x": 1710,
+            "x": 2140,
             "y": 190
           },
           "metrics": [
@@ -1618,7 +1695,7 @@
           "kind": "operation",
           "summary": "Applies the configured decoding policy\u2014greedy, temperature, top-k, or top-p\u2014to choose the next token ID.",
           "position": {
-            "x": 1910,
+            "x": 2340,
             "y": 190
           },
           "metrics": [],
@@ -1631,7 +1708,7 @@
           "kind": "tensor",
           "summary": "The selected ID is emitted or fed back into the decode loop.",
           "position": {
-            "x": 2110,
+            "x": 2540,
             "y": 190
           },
           "metrics": [],
@@ -1641,12 +1718,42 @@
       ],
       "connections": [
         {
-          "connection_id": "prefill-tokens-embedding",
-          "source_id": "prefill-tokens",
-          "target_id": "prefill-embedding",
-          "label": "IDs select embedding rows",
+          "connection_id": "prefill-tokenizer-tokens",
+          "source_id": "prefill-tokenizer",
+          "target_id": "prefill-tokens",
+          "label": "Text becomes integer IDs",
           "direction": "forward",
           "category": "logical",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "prefill-tokens-host-link",
+          "source_id": "prefill-tokens",
+          "target_id": "prefill-host-link",
+          "label": "Copy prompt IDs to host link",
+          "direction": "forward",
+          "category": "transfer",
+          "metrics": [],
+          "badge": "host transfer"
+        },
+        {
+          "connection_id": "prefill-host-link-embedding",
+          "source_id": "prefill-host-link",
+          "target_id": "prefill-embedding",
+          "label": "Transfer IDs to GPU",
+          "direction": "forward",
+          "category": "transfer",
+          "metrics": [],
+          "badge": "device input"
+        },
+        {
+          "connection_id": "prefill-embedding-table-lookup",
+          "source_id": "prefill-embedding-table",
+          "target_id": "prefill-embedding",
+          "label": "GPU gather reads embedding rows",
+          "direction": "forward",
+          "category": "mapping",
           "metrics": [],
           "badge": ""
         },
@@ -1786,19 +1893,28 @@
       "components": [
         {
           "component_id": "decode-tokens",
-          "label": "Token IDs",
+          "label": "Device token ID",
           "kind": "tensor",
-          "summary": "The tokenizer converts the request into integer vocabulary IDs. Prompt rows are processed together in prefill; decode contributes one new ID at a time.",
+          "summary": "The newly selected decode token is already a numerical ID; the ideal device-resident loop does not re-tokenize it on the CPU.",
           "position": {
-            "x": 40,
-            "y": 230
+            "x": 30,
+            "y": 220
           },
           "metrics": [
             {
               "name": "Rows",
               "value": 1,
-              "unit": "rows",
+              "unit": "row",
               "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Storage",
+              "value": "device memory",
+              "unit": "",
+              "evidence": "theoretical",
               "description": "",
               "derivation": "",
               "calculation": null
@@ -1808,13 +1924,45 @@
           "lane": "process"
         },
         {
-          "component_id": "decode-embedding",
-          "label": "Embedding lookup",
-          "kind": "operation",
-          "summary": "Maps each token ID to its initial hidden vector. This is a lookup/gather, not a dense projection.",
+          "component_id": "decode-embedding-table",
+          "label": "Embedding table in HBM",
+          "kind": "memory",
+          "summary": "The learned vocabulary embedding table normally resides in GPU HBM and is read by a GPU gather kernel.",
           "position": {
-            "x": 240,
-            "y": 230
+            "x": 650,
+            "y": 480
+          },
+          "metrics": [
+            {
+              "name": "Location",
+              "value": "GPU HBM",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Access",
+              "value": "GPU gather",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "decode-embedding",
+          "label": "GPU embedding lookup",
+          "kind": "operation",
+          "summary": "Runs on the GPU as a gather: each token ID selects one row from the embedding table and produces an initial hidden vector.",
+          "position": {
+            "x": 650,
+            "y": 220
           },
           "metrics": [],
           "drilldown_graph_id": null,
@@ -1826,8 +1974,8 @@
           "kind": "operation",
           "summary": "Repeats the same high-level layer pattern for every layer: norm, QKV, attention, output projection, norm, and MLP.",
           "position": {
-            "x": 450,
-            "y": 230
+            "x": 870,
+            "y": 220
           },
           "metrics": [
             {
@@ -1849,7 +1997,7 @@
           "kind": "operation",
           "summary": "Creates Q, K, and V. This is one of the detailed operator models available in the workbench.",
           "position": {
-            "x": 680,
+            "x": 1080,
             "y": 90
           },
           "metrics": [
@@ -1929,7 +2077,7 @@
           "kind": "operation",
           "summary": "Forms attention scores from Q and K, applies the causal rule, normalizes scores, and mixes V.",
           "position": {
-            "x": 880,
+            "x": 1280,
             "y": 90
           },
           "metrics": [],
@@ -1942,7 +2090,7 @@
           "kind": "operation",
           "summary": "Reads prior K/V for every decode step and appends the new K/V rows.",
           "position": {
-            "x": 880,
+            "x": 1280,
             "y": 360
           },
           "metrics": [
@@ -1974,7 +2122,7 @@
           "kind": "operation",
           "summary": "Projects the attention result back to the model width, then participates in a residual connection.",
           "position": {
-            "x": 1100,
+            "x": 1510,
             "y": 90
           },
           "metrics": [],
@@ -1987,7 +2135,7 @@
           "kind": "operation",
           "summary": "Expands the hidden width, applies the nonlinear transformation, and projects back down.",
           "position": {
-            "x": 1100,
+            "x": 1510,
             "y": 300
           },
           "metrics": [],
@@ -2000,7 +2148,7 @@
           "kind": "operation",
           "summary": "Normalizes the final hidden state before vocabulary prediction.",
           "position": {
-            "x": 1310,
+            "x": 1740,
             "y": 190
           },
           "metrics": [],
@@ -2013,7 +2161,7 @@
           "kind": "operation",
           "summary": "Projects the final hidden vector into one score per vocabulary item.",
           "position": {
-            "x": 1510,
+            "x": 1940,
             "y": 190
           },
           "metrics": [],
@@ -2026,7 +2174,7 @@
           "kind": "tensor",
           "summary": "One score per possible next token. The highest-scoring entries are candidates, not yet a selected token.",
           "position": {
-            "x": 1710,
+            "x": 2140,
             "y": 190
           },
           "metrics": [
@@ -2049,7 +2197,7 @@
           "kind": "operation",
           "summary": "Applies the configured decoding policy\u2014greedy, temperature, top-k, or top-p\u2014to choose the next token ID.",
           "position": {
-            "x": 1910,
+            "x": 2340,
             "y": 190
           },
           "metrics": [],
@@ -2062,7 +2210,7 @@
           "kind": "tensor",
           "summary": "The selected ID is emitted or fed back into the decode loop.",
           "position": {
-            "x": 2110,
+            "x": 2540,
             "y": 190
           },
           "metrics": [],
@@ -2072,12 +2220,22 @@
       ],
       "connections": [
         {
-          "connection_id": "decode-tokens-embedding",
-          "source_id": "decode-tokens",
+          "connection_id": "decode-token-loop-embedding",
+          "source_id": "decode-next-token",
           "target_id": "decode-embedding",
-          "label": "IDs select embedding rows",
+          "label": "Device-resident decode token",
+          "direction": "both",
+          "category": "state",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "decode-embedding-table-lookup",
+          "source_id": "decode-embedding-table",
+          "target_id": "decode-embedding",
+          "label": "GPU gather reads embedding rows",
           "direction": "forward",
-          "category": "logical",
+          "category": "mapping",
           "metrics": [],
           "badge": ""
         },
