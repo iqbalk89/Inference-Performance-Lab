@@ -38,6 +38,7 @@ For every problem, use this sequence:
 | ---: | --- | --- | --- |
 | [01](problems/01-transformer-projection-cost/problem.md) | What does one Transformer projection cost? | Parameters, weight bytes, matrix-multiplication FLOPs | Ready |
 | [02](problems/02-decode-vs-prefill-roofline/problem.md) | Decode vs. prefill: memory-bound or compute-bound? | Arithmetic intensity, ridge point, latency bounds, bottleneck classification | **Do next** |
+| [03](problems/03-combined-qkv-projection/problem.md) | What does a combined QKV projection cost? | Fused projections, attention input shapes, QKV traffic | Next |
 
 ## Animated Solutions
 
