@@ -38,6 +38,7 @@ class HierarchicalMemoryModel(MemoryModel):
                     Metric("Capacity", self.hbm_capacity_gb, "GB"),
                     Metric("Peak bandwidth", self.hbm_bandwidth_gbps, "GB/s"),
                 ),
+                drilldown_graph_id="gpu-memory-residency",
                 lane="hardware",
             ),
             Component(
@@ -86,7 +87,7 @@ class FlatMemoryModel(MemoryModel):
                 (
                     Metric("Capacity", self.capacity_gb, "GB"),
                     Metric("Peak bandwidth", self.bandwidth_gbps, "GB/s"),
-                ), lane="hardware",
+                ), drilldown_graph_id="gpu-memory-residency", lane="hardware",
             ),
         )
 

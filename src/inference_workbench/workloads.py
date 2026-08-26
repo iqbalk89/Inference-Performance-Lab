@@ -126,6 +126,7 @@ class ProjectionPhaseModel(PhaseModel):
             ),
         )
 
+
     def _transfer_metrics(self, name: str, byte_count: int, calculation_key: str) -> tuple[Metric, ...]:
         estimate = self._required_estimate()
         calculations = projection_calculations(estimate)
@@ -348,5 +349,48 @@ class InferencePipelinePhaseModel(PhaseModel):
                 "The layer stack is shown once but executes repeatedly for every Transformer layer.",
                 "The QKV block links to its detailed fused-projection branch view.",
                 "Prefill ends when final prompt-position logits are ready; only Decode samples and feeds a selected token back into another iteration.",
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class HBMResidencyModel(PhaseModel):
+    """Educational inventory of what normally resides in accelerator HBM."""
+
+    def diagram(self) -> Diagram:
+        hbm_id = "gpu-hbm-residency"
+        storage = (
+            ("embedding-table", "Embedding table", "Persistent model state. A GPU gather reads rows selected by token IDs.", "persistent · read-heavy", Position(80, 90)),
+            ("transformer-weights", "Transformer weights", "Q/K/V, O projection, MLP, normalization, and other layer parameters.", "persistent · read-heavy", Position(80, 290)),
+            ("lm-head-weights", "LM-head / output weights", "Projects final hidden states into vocabulary logits. It may be tied to the embedding table.", "persistent · read-heavy", Position(80, 490)),
+            ("kv-cache", "KV cache", "Per-request K/V state retained across Decode steps. Prefill creates rows; Decode reads old rows and appends one row per layer.", "dynamic · grows with context", Position(1110, 110)),
+            ("activations", "Activations", "Intermediate hidden states and residual values. Mostly transient within a layer or operator.", "transient · workload-dependent", Position(1110, 310)),
+            ("workspace", "Kernel workspace / allocator buffers", "Temporary scratch space, staging buffers, communication buffers, and allocator-reserved memory.", "transient · implementation-dependent", Position(1110, 510)),
+        )
+        components = (
+            ResourceBlock(hbm_id, "GPU HBM", ComponentKind.MEMORY, "The device's high-bandwidth memory stores persistent model state, dynamic per-request state, and temporary runtime allocations.", Position(650, 310), (
+                Metric("Capacity", "GPU-specific", evidence=EvidenceKind.ASSUMED),
+                Metric("Persistent state", "Weights + embedding + LM head"),
+                Metric("Dynamic state", "KV cache + activations"),
+                Metric("Accounting", "Requires model and request configuration", evidence=EvidenceKind.ASSUMED),
+            )).component(),
+        ) + tuple(
+            ResourceBlock(
+                f"gpu-hbm-{item_id}", label, ComponentKind.MEMORY, summary, position,
+                (Metric("Residency", residency), Metric("Size", "Model/config dependent", evidence=EvidenceKind.ASSUMED)),
+            ).component()
+            for item_id, label, summary, residency, position in storage
+        )
+        connections = tuple(
+            Path.residency(f"gpu-hbm-resides-{item_id}", f"gpu-hbm-{item_id}", hbm_id, f"{label} resides in HBM")
+            for item_id, label, _summary, _residency, _position in storage
+        )
+        return Diagram(
+            "gpu-memory-residency", "GPU HBM residency model",
+            "HBM is not just a weight store: it holds persistent model state, dynamic KV-cache state, transient activations, and implementation workspace.",
+            "gpu-0-detail", components, connections, (
+                "Exact byte split depends on model dimensions, precision, batching, context length, allocator behavior, and runtime implementation.",
+                "Embedding and LM-head weights may be tied and share storage in some models.",
+                "The KV cache is request-dependent and grows with context; it is not part of the static parameter count.",
             ),
         )

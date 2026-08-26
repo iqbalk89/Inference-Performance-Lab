@@ -39,6 +39,7 @@ button { font: inherit; }
 .edge-transfer .react-flow__edge-path { stroke: #58d8d0; stroke-width: 3; }
 .edge-physical .react-flow__edge-path { stroke: #7794b7; stroke-width: 2.5; }
 .edge-state .react-flow__edge-path { stroke: #bd8bf4; stroke-width: 2.7; stroke-dasharray: 5 4; }
+.edge-residency .react-flow__edge-path { stroke: #56a9ef; stroke-width: 2.2; stroke-dasharray: 3 5; opacity: .8; }
 .react-flow__arrowhead polyline { stroke: currentColor; }
 
 .component-node { width: 165px; min-height: 112px; padding: 13px 14px 12px; background: linear-gradient(145deg, #142a48, #102038); border: 1px solid #40638a; border-radius: 13px; box-shadow: 0 12px 32px #02071366; transition: transform .15s, border-color .15s, box-shadow .15s; }

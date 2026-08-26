@@ -7,7 +7,7 @@ from .estimates import decimal_bytes, decimal_flops, problem_02_estimate, projec
 from .hardware import ComposableGPU, FlatMemoryModel, HierarchicalMemoryModel, SMArrayComputeModel
 from .estimates import problem_02_estimate
 from .system import SingleAcceleratorSystem
-from .workloads import InferencePipelinePhaseModel, ProjectionPhaseModel
+from .workloads import HBMResidencyModel, InferencePipelinePhaseModel, ProjectionPhaseModel
 
 
 memory_variants: VariantRegistry = VariantRegistry()
@@ -131,6 +131,7 @@ def build_slice_zero_scenario(
         output_label="[Q K V]",
         equation="[Q K V] = XW_QKV",
     )
+    hbm_residency_model = HBMResidencyModel()
 
     return WorkbenchScenario(
         "slice-0-problem-02",
@@ -138,6 +139,7 @@ def build_slice_zero_scenario(
         "system",
         (
             system.diagram(gpu), gpu.diagram(),
+            hbm_residency_model.diagram(),
             *prefill.diagrams(), *decode.diagrams(),
             *(prefill_operator.diagrams() if prefill_model is None else ()),
             *(decode_operator.diagrams() if decode_model is None else ()),

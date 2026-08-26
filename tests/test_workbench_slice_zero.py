@@ -58,6 +58,7 @@ class SliceZeroTests(unittest.TestCase):
         self.assertEqual(scenario["initial_graph_id"], "system")
         self.assertEqual(set(scenario["diagrams"]), {
             "system", "gpu-0-detail",
+            "gpu-memory-residency",
             "prefill-detail", "decode-detail",
             "prefill-projection-detail", "prefill-projection-hbm-boundary", "prefill-projection-execution-path",
             "decode-projection-detail", "decode-projection-hbm-boundary", "decode-projection-execution-path",
@@ -71,6 +72,8 @@ class SliceZeroTests(unittest.TestCase):
             {"hbm", "l2", "sm-array", "prefill", "decode"},
             component_ids(scenario, "gpu-0-detail"),
         )
+        hbm = next(item for item in scenario["diagrams"]["gpu-0-detail"]["components"] if item["component_id"] == "hbm")
+        self.assertEqual(hbm["drilldown_graph_id"], "gpu-memory-residency")
 
         pipeline_labels = {item["label"] for item in scenario["diagrams"]["prefill-detail"]["components"]}
         self.assertIn("QKV projection", pipeline_labels)

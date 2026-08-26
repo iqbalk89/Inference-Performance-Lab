@@ -1154,7 +1154,7 @@
               "calculation": null
             }
           ],
-          "drilldown_graph_id": null,
+          "drilldown_graph_id": "gpu-memory-residency",
           "lane": "hardware"
         },
         {
@@ -1344,6 +1344,324 @@
       "assumptions": [
         "Problem 02 values are executable idealized estimates, not measured performance.",
         "Dashed mapping edges mean a process uses a resource; they are not physical buses."
+      ],
+      "charts": []
+    },
+    "gpu-memory-residency": {
+      "graph_id": "gpu-memory-residency",
+      "title": "GPU HBM residency model",
+      "subtitle": "HBM is not just a weight store: it holds persistent model state, dynamic KV-cache state, transient activations, and implementation workspace.",
+      "parent_graph_id": "gpu-0-detail",
+      "components": [
+        {
+          "component_id": "gpu-hbm-residency",
+          "label": "GPU HBM",
+          "kind": "memory",
+          "summary": "The device's high-bandwidth memory stores persistent model state, dynamic per-request state, and temporary runtime allocations.",
+          "position": {
+            "x": 650,
+            "y": 310
+          },
+          "metrics": [
+            {
+              "name": "Capacity",
+              "value": "GPU-specific",
+              "unit": "",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Persistent state",
+              "value": "Weights + embedding + LM head",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Dynamic state",
+              "value": "KV cache + activations",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Accounting",
+              "value": "Requires model and request configuration",
+              "unit": "",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "gpu-hbm-embedding-table",
+          "label": "Embedding table",
+          "kind": "memory",
+          "summary": "Persistent model state. A GPU gather reads rows selected by token IDs.",
+          "position": {
+            "x": 80,
+            "y": 90
+          },
+          "metrics": [
+            {
+              "name": "Residency",
+              "value": "persistent \u00b7 read-heavy",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Size",
+              "value": "Model/config dependent",
+              "unit": "",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "gpu-hbm-transformer-weights",
+          "label": "Transformer weights",
+          "kind": "memory",
+          "summary": "Q/K/V, O projection, MLP, normalization, and other layer parameters.",
+          "position": {
+            "x": 80,
+            "y": 290
+          },
+          "metrics": [
+            {
+              "name": "Residency",
+              "value": "persistent \u00b7 read-heavy",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Size",
+              "value": "Model/config dependent",
+              "unit": "",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "gpu-hbm-lm-head-weights",
+          "label": "LM-head / output weights",
+          "kind": "memory",
+          "summary": "Projects final hidden states into vocabulary logits. It may be tied to the embedding table.",
+          "position": {
+            "x": 80,
+            "y": 490
+          },
+          "metrics": [
+            {
+              "name": "Residency",
+              "value": "persistent \u00b7 read-heavy",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Size",
+              "value": "Model/config dependent",
+              "unit": "",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "gpu-hbm-kv-cache",
+          "label": "KV cache",
+          "kind": "memory",
+          "summary": "Per-request K/V state retained across Decode steps. Prefill creates rows; Decode reads old rows and appends one row per layer.",
+          "position": {
+            "x": 1110,
+            "y": 110
+          },
+          "metrics": [
+            {
+              "name": "Residency",
+              "value": "dynamic \u00b7 grows with context",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Size",
+              "value": "Model/config dependent",
+              "unit": "",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "gpu-hbm-activations",
+          "label": "Activations",
+          "kind": "memory",
+          "summary": "Intermediate hidden states and residual values. Mostly transient within a layer or operator.",
+          "position": {
+            "x": 1110,
+            "y": 310
+          },
+          "metrics": [
+            {
+              "name": "Residency",
+              "value": "transient \u00b7 workload-dependent",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Size",
+              "value": "Model/config dependent",
+              "unit": "",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        },
+        {
+          "component_id": "gpu-hbm-workspace",
+          "label": "Kernel workspace / allocator buffers",
+          "kind": "memory",
+          "summary": "Temporary scratch space, staging buffers, communication buffers, and allocator-reserved memory.",
+          "position": {
+            "x": 1110,
+            "y": 510
+          },
+          "metrics": [
+            {
+              "name": "Residency",
+              "value": "transient \u00b7 implementation-dependent",
+              "unit": "",
+              "evidence": "theoretical",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            },
+            {
+              "name": "Size",
+              "value": "Model/config dependent",
+              "unit": "",
+              "evidence": "assumed",
+              "description": "",
+              "derivation": "",
+              "calculation": null
+            }
+          ],
+          "drilldown_graph_id": null,
+          "lane": "hardware"
+        }
+      ],
+      "connections": [
+        {
+          "connection_id": "gpu-hbm-resides-embedding-table",
+          "source_id": "gpu-hbm-embedding-table",
+          "target_id": "gpu-hbm-residency",
+          "label": "Embedding table resides in HBM",
+          "direction": "forward",
+          "category": "residency",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "gpu-hbm-resides-transformer-weights",
+          "source_id": "gpu-hbm-transformer-weights",
+          "target_id": "gpu-hbm-residency",
+          "label": "Transformer weights resides in HBM",
+          "direction": "forward",
+          "category": "residency",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "gpu-hbm-resides-lm-head-weights",
+          "source_id": "gpu-hbm-lm-head-weights",
+          "target_id": "gpu-hbm-residency",
+          "label": "LM-head / output weights resides in HBM",
+          "direction": "forward",
+          "category": "residency",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "gpu-hbm-resides-kv-cache",
+          "source_id": "gpu-hbm-kv-cache",
+          "target_id": "gpu-hbm-residency",
+          "label": "KV cache resides in HBM",
+          "direction": "forward",
+          "category": "residency",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "gpu-hbm-resides-activations",
+          "source_id": "gpu-hbm-activations",
+          "target_id": "gpu-hbm-residency",
+          "label": "Activations resides in HBM",
+          "direction": "forward",
+          "category": "residency",
+          "metrics": [],
+          "badge": ""
+        },
+        {
+          "connection_id": "gpu-hbm-resides-workspace",
+          "source_id": "gpu-hbm-workspace",
+          "target_id": "gpu-hbm-residency",
+          "label": "Kernel workspace / allocator buffers resides in HBM",
+          "direction": "forward",
+          "category": "residency",
+          "metrics": [],
+          "badge": ""
+        }
+      ],
+      "assumptions": [
+        "Exact byte split depends on model dimensions, precision, batching, context length, allocator behavior, and runtime implementation.",
+        "Embedding and LM-head weights may be tied and share storage in some models.",
+        "The KV cache is request-dependent and grows with context; it is not part of the static parameter count."
       ],
       "charts": []
     },

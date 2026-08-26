@@ -126,3 +126,7 @@ class Path:
     @staticmethod
     def state(path_id: str, source: str, target: str, name: str) -> Connection:
         return Connection(path_id, source, target, name, direction="both", category="state")
+
+    @staticmethod
+    def residency(path_id: str, source: str, target: str, name: str) -> Connection:
+        return Connection(path_id, source, target, name, category="residency")
