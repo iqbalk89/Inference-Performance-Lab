@@ -485,14 +485,63 @@ the individual request or call may wait longer for the larger batch to finish.
 
 ## Part E — Crossover
 
-Let `d = K = N = 4096`; `M` remains the unknown row count.
+### What is `d`?
+
+`d` is a new **shorthand symbol** for the width of this square projection. It
+is not another tensor and it does not introduce another matrix dimension.
+
+The original matrix shapes are:
+
+```text
+X [M × K] × W [K × N] → Y [M × N]
+```
+
+In this particular problem, both feature dimensions happen to have the same
+value:
+
+```text
+K = 4096    input width
+N = 4096    output width
+```
+
+Because `K` and `N` are equal, we can give their common value the shorter name
+`d`:
+
+```text
+d = 4096
+K = d
+N = d
+
+therefore:
+
+X [M × d] × W [d × d] → Y [M × d]
+```
+
+You can read `d` here as **the model/projection width**. Using it makes the
+algebra shorter while we solve for `M`, the unknown number of token rows.
+
+This substitution would not be valid for a non-square projection where
+`K ≠ N`. For example, if `W` had shape `[4096 × 11008]`, we would need to keep
+`K = 4096` and `N = 11008` as separate symbols.
 
 ### E1. Work
 
+Start with the general matrix-multiplication formula:
+
 ```text
 FLOPs = 2MKN
-      = 2 × M × d × d
+
+Replace K with d and N with d because K = N = d:
+
+FLOPs = 2 × M × d × d
       = 2Md²
+```
+
+The `d²` appears because `d × d = d²`. Substituting the actual width would
+produce the same expression numerically:
+
+```text
+FLOPs = 2 × M × 4096 × 4096
 ```
 
 ### E2. Traffic
