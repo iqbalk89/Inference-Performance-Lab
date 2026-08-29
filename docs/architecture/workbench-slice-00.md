@@ -43,7 +43,7 @@ Interactions:
 
 ```text
 Inference System
-└── Educational GPU
+└── GPU
     ├── Prefill
     │   └── Level 1: Problem 02 operator math
     │       └── Level 2: HBM-boundary ledger

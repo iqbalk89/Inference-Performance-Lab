@@ -74,7 +74,7 @@ def build_slice_zero_scenario(
             Metric("Prefill QKV work", decimal_flops(qkv.flops), calculation=projection_calculations(qkv)["work"]),
         ),
     }
-    gpu = accelerator_model or ComposableGPU("gpu-0", "Educational GPU", memory, compute, phase_metrics)
+    gpu = accelerator_model or ComposableGPU("gpu-0", "GPU", memory, compute, phase_metrics)
     system = system_model or SingleAcceleratorSystem(
             Component("client", "Client", ComponentKind.SYSTEM, "Creates an inference request.", Position(30, 260)),
             Component("server", "Inference Server", ComponentKind.SERVICE, "Queues, batches, and dispatches requests.", Position(280, 260)),
