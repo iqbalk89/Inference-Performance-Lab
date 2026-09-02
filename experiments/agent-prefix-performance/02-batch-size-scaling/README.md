@@ -9,8 +9,10 @@ NVIDIA A10.
 
 The **batch size**, written as `B`, is the number of independent sequences
 included in one model call. With `B=1`, the model receives one request. With
-`B=4`, it receives four requests at the same time and performs the same layers
-and matrix operations for four rows of data in parallel. The requests do not
+`B=4`, it receives four independent requests (four batch items) at the same
+time and performs the same layers and matrix operations for those requests in
+parallel. Each request may itself contain hundreds of token rows; the batch
+dimension is separate from those token/matrix rows. The requests do not
 share words, attention scores, or KV entries; batching only gives the GPU more
 independent work to process together.
 
