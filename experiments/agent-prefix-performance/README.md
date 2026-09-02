@@ -97,6 +97,114 @@ Create `week1-findings.md` in this directory after the remote run. Include:
 The completed baseline analysis is available in
 [week1-findings.md](week1-findings.md).
 
+## Week 2: Batch-size scaling
+
+Week 2 studies what happens when the model serves several requests at once.
+Before running it, make sure the term **batch size** is clear: the batch size
+`B` is the number of independent sequences included in one model call. With
+`B=1`, the model receives one request. With `B=4`, it receives four requests
+at the same time and performs the same layers and matrix operations for four
+rows of data in parallel. The requests do not share words, attention scores, or
+KV entries; batching only gives the GPU more independent work to process
+together.
+
+![Detailed batch-size visualization](assets/week2-batch-size-visual.svg)
+
+### What changes when B increases
+
+For the Week 1 Qwen configuration, one request with a 512-token prompt has
+these representative shapes:
+
+```text
+input_ids       [1, 512]
+hidden states   [1, 512, 1536]
+K per layer     [1, 2, 512, 128]
+V per layer     [1, 2, 512, 128]
+```
+
+With four equal-length requests, the leading batch dimension changes to 4:
+
+```text
+input_ids       [4, 512]
+hidden states   [4, 512, 1536]
+K per layer     [4, 2, 512, 128]
+V per layer     [4, 2, 512, 128]
+```
+
+The model weights are not duplicated. The same weights process every batch
+item, while the request-dependent tensors gain four times as many rows. The
+KV-cache equation makes the memory consequence explicit:
+
+```text
+KV bytes = 2 × B × L × H_kv × T × D × bytes_per_element
+```
+
+At `T=512`, the Week 1 cache was 14 MiB for `B=1`. Holding every other factor
+constant gives approximately 28 MiB at `B=2`, 56 MiB at `B=4`, and 112 MiB at
+`B=8`. This is only the KV cache; weights, activations, logits, CUDA
+workspaces, and allocator reserve also consume memory.
+
+### Why batching can improve throughput
+
+A GPU is most efficient when it has enough independent matrix work to keep its
+many streaming multiprocessors busy. A single short decode step can leave much
+of the GPU idle. Processing four requests together makes the batch dimension
+larger, so matrix multiplications have more rows and the fixed cost of launching
+and scheduling work is shared across requests. The result can be higher
+**aggregate throughput** (tokens/second across all requests), even though each
+individual request may take longer to complete.
+
+### Why batching can hurt latency or capacity
+
+Every additional request adds input/activation storage and a separate K/V
+history. Larger batches therefore increase peak memory and can cause queueing:
+an arriving request may wait for an existing batch to finish. The goal is not
+to choose the largest possible `B`; it is to find the largest useful batch that
+meets a latency and memory target.
+
+### Equal and unequal sequence lengths
+
+The first experiment should use equal-length prompts so the effect of `B` is
+isolated. Real serving traffic has different prompt and generation lengths. A
+framework can handle that with padding (wasted computation on placeholder
+tokens), packing/variable-length kernels, or continuous batching (admitting
+new sequences as other sequences finish). Those are separate effects to study
+after the controlled sweep.
+
+### Prefill versus decode batching
+
+Batching has two different meanings in the two phases:
+
+- **Prefill:** each request may contribute hundreds or thousands of prompt
+  tokens. Increasing `B` increases the large matrix operations and the KV cache
+  created for each prompt.
+- **Decode:** each active request contributes approximately one new token per
+  step. Batching active sequences is especially important here because it turns
+  many small one-token operations into a larger GPU workload.
+
+### Week 2 objective and measurements
+
+Run the same cached-generation workload at prompt lengths 512 and 2,048 while
+sweeping `B=1, 2, 4, 8, ...` until the A10 approaches its memory limit. Record:
+
+- aggregate tokens/second;
+- per-request tokens/second;
+- prefill, decode, and end-to-end latency;
+- peak allocated and reserved CUDA memory;
+- measured KV-cache bytes; and
+- the first batch size that fails or violates the chosen latency target.
+
+Use these definitions when interpreting the results:
+
+```text
+aggregate throughput = total generated tokens / elapsed seconds
+per-request throughput = aggregate throughput / B
+KV bytes = 2 × B × L × H_kv × T × D × bytes_per_element
+```
+
+The deliverable is a plot or table showing where aggregate throughput improves,
+where it flattens, and where memory or latency becomes the limiting constraint.
+
 Before you write the findings note, perform these calculations from the
 measured run:
 

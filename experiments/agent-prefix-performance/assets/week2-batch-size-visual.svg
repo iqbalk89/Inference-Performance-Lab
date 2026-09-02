@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1050" viewBox="0 0 1600 1050" role="img" aria-labelledby="title desc">
+  <title id="title">Batch size in language-model inference</title>
+  <desc id="desc">A high-quality diagram showing individual requests stacked into a batch tensor, the batch dimension on model inputs and outputs, and the linear growth of KV-cache memory.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#071426"/><stop offset="1" stop-color="#17334d"/></linearGradient>
+    <linearGradient id="req1" x2="1" y2="1"><stop stop-color="#2563eb"/><stop offset="1" stop-color="#1e40af"/></linearGradient>
+    <linearGradient id="req2" x2="1" y2="1"><stop stop-color="#0d9488"/><stop offset="1" stop-color="#115e59"/></linearGradient>
+    <linearGradient id="req3" x2="1" y2="1"><stop stop-color="#c2410c"/><stop offset="1" stop-color="#9a3412"/></linearGradient>
+    <linearGradient id="req4" x2="1" y2="1"><stop stop-color="#7c3aed"/><stop offset="1" stop-color="#5b21b6"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity=".45"/></filter>
+    <style>
+      .title{font:700 34px Inter,system-ui,sans-serif;fill:#f8fafc}.sub{font:500 18px Inter,system-ui,sans-serif;fill:#c7dcf2}
+      .h{font:700 21px Inter,system-ui,sans-serif;fill:#f8fafc}.label{font:700 17px Inter,system-ui,sans-serif;fill:#f8fafc}
+      .body{font:500 16px Inter,system-ui,sans-serif;fill:#dbeafe}.small{font:500 14px Inter,system-ui,sans-serif;fill:#cbd5e1}
+      .tiny{font:600 13px Inter,system-ui,sans-serif;fill:#d5e5f3}.mono{font:700 18px 'SFMono-Regular',Menlo,monospace;fill:#f8fafc}
+      .panel{fill:#0d1d31;stroke:#38546e;stroke-width:2}.line{stroke:#8bdcf3;stroke-width:3;fill:none;stroke-linecap:round}.dash{stroke:#8ba8c0;stroke-width:2;stroke-dasharray:7 7;fill:none}
+    </style>
+  </defs>
+  <rect width="1600" height="1050" fill="url(#bg)"/>
+  <text x="58" y="60" class="title">Batch size: multiple requests processed together</text>
+  <text x="58" y="94" class="sub">The batch dimension B is the number of independent sequences carried through one model call.</text>
+
+  <rect x="50" y="130" width="1500" height="120" rx="22" class="panel" filter="url(#shadow)"/>
+  <text x="82" y="171" class="h">A simple definition</text>
+  <text x="82" y="209" class="body">B = 1 means one request per forward pass. B = 4 means four requests share the same forward pass, while their token sequences remain separate.</text>
+
+  <rect x="50" y="280" width="910" height="700" rx="22" class="panel" filter="url(#shadow)"/>
+  <text x="82" y="322" class="h">From separate requests to one batched tensor</text>
+  <text x="82" y="350" class="small">Assume equal prompt length T = 512 for this picture. Padding or packing handles unequal lengths in real serving systems.</text>
+
+  <!-- individual requests -->
+  <text x="90" y="398" class="label">Before batching: four independent requests</text>
+  <g transform="translate(90 425)">
+    <rect x="0" y="0" width="220" height="72" rx="12" fill="url(#req1)"/><text x="110" y="30" text-anchor="middle" class="label">Request A</text><text x="110" y="55" text-anchor="middle" class="mono">[1, 512]</text>
+    <rect x="0" y="88" width="220" height="72" rx="12" fill="url(#req2)"/><text x="110" y="118" text-anchor="middle" class="label">Request B</text><text x="110" y="143" text-anchor="middle" class="mono">[1, 512]</text>
+    <rect x="0" y="176" width="220" height="72" rx="12" fill="url(#req3)"/><text x="110" y="206" text-anchor="middle" class="label">Request C</text><text x="110" y="231" text-anchor="middle" class="mono">[1, 512]</text>
+    <rect x="0" y="264" width="220" height="72" rx="12" fill="url(#req4)"/><text x="110" y="294" text-anchor="middle" class="label">Request D</text><text x="110" y="319" text-anchor="middle" class="mono">[1, 512]</text>
+  </g>
+  <path d="M335 460 C390 460 395 515 450 515 M335 548 C390 548 395 548 450 548 M335 636 C390 636 395 581 450 581 M335 724 C390 724 395 614 450 614" class="line"/>
+  <text x="350" y="415" class="tiny">stack along new B axis</text>
+
+  <!-- batch tensor -->
+  <text x="470" y="398" class="label">After batching: one input tensor</text>
+  <g transform="translate(470 440)" filter="url(#shadow)">
+    <polygon points="0,0 265,0 315,28 50,28" fill="#37698c"/><polygon points="265,0 315,28 315,390 265,362" fill="#0a1c2f"/><polygon points="0,0 50,28 50,390 0,362" fill="#204b6d"/><rect x="50" y="28" width="215" height="362" fill="#163956"/>
+    <rect x="70" y="48" width="175" height="72" rx="8" fill="url(#req1)"/><rect x="70" y="132" width="175" height="72" rx="8" fill="url(#req2)"/><rect x="70" y="216" width="175" height="72" rx="8" fill="url(#req3)"/><rect x="70" y="300" width="175" height="72" rx="8" fill="url(#req4)"/>
+    <text x="157" y="77" text-anchor="middle" class="label">B=0 • A</text><text x="157" y="101" text-anchor="middle" class="tiny">512 token IDs</text><text x="157" y="161" text-anchor="middle" class="label">B=1 • B</text><text x="157" y="185" text-anchor="middle" class="tiny">512 token IDs</text><text x="157" y="245" text-anchor="middle" class="label">B=2 • C</text><text x="157" y="269" text-anchor="middle" class="tiny">512 token IDs</text><text x="157" y="329" text-anchor="middle" class="label">B=3 • D</text><text x="157" y="353" text-anchor="middle" class="tiny">512 token IDs</text>
+  </g>
+  <text x="620" y="862" text-anchor="middle" class="mono">input_ids shape = [B, T] = [4, 512]</text>
+  <text x="620" y="892" text-anchor="middle" class="small">The model performs one batched operation, but attention does not mix A with B, C, or D.</text>
+  <path d="M790 585 L865 585" class="line"/><text x="805" y="558" class="tiny">one call</text>
+  <rect x="770" y="610" width="145" height="100" rx="12" fill="#18354a" stroke="#22d3ee" stroke-width="2"/><text x="842" y="646" text-anchor="middle" class="label">Model</text><text x="842" y="674" text-anchor="middle" class="small">same weights</text><text x="842" y="696" text-anchor="middle" class="small">parallel rows</text>
+
+  <rect x="990" y="280" width="560" height="700" rx="22" class="panel" filter="url(#shadow)"/>
+  <text x="1020" y="322" class="h">What B changes in inference</text>
+  <text x="1020" y="365" class="small">Input and output shapes</text>
+  <text x="1020" y="402" class="mono">input_ids: [B, T]</text><text x="1020" y="433" class="mono">hidden states: [B, T, 1536]</text><text x="1020" y="464" class="mono">K/V per layer: [B, 2, T, 128]</text>
+  <path d="M1020 488 H1518" class="dash"/>
+  <text x="1020" y="530" class="small">KV-cache scaling</text>
+  <text x="1020" y="568" class="mono">KV bytes ∝ B</text><text x="1020" y="598" class="body">Double B → double cache storage.</text>
+  <rect x="1020" y="630" width="490" height="54" rx="10" fill="#164e63" stroke="#22d3ee"/><text x="1045" y="665" class="mono">B=1 → 14 MiB</text><text x="1320" y="665" class="small">T=512</text>
+  <rect x="1020" y="700" width="490" height="54" rx="10" fill="#164e63" stroke="#22d3ee"/><text x="1045" y="735" class="mono">B=4 → 56 MiB</text><text x="1320" y="735" class="small">T=512</text>
+  <text x="1020" y="800" class="small">Why batching helps throughput</text><text x="1020" y="836" class="body">GPU matrix operations have more parallel work,</text><text x="1020" y="861" class="body">so fixed model overhead is shared across requests.</text>
+  <text x="1020" y="908" class="small">Why batching eventually hurts</text><text x="1020" y="944" class="body">Memory, queueing delay, and work per call grow with B.</text>
+</svg>
