@@ -151,3 +151,88 @@ KV bytes = 2 × B × L × H_kv × T × D × bytes_per_element
 
 The deliverable is a table or plot showing where aggregate throughput improves,
 where it flattens, and where memory or latency becomes the limiting constraint.
+
+## Before running: predict memory and performance
+
+The experiment should make a prediction before collecting measurements. A
+prediction does not need to be exact to be useful: it should identify the
+dominant terms, estimate a safe batch-size range, and predict whether throughput
+will still improve or has begun to saturate.
+
+### Memory prediction
+
+For a prefill call, use this practical peak-memory model:
+
+```text
+peak_bytes ≈ weight_bytes
+           + KV_cache_bytes
+           + prefill_logits_bytes
+           + temporary_activation_and_workspace_bytes
+```
+
+The first three terms are directly calculable:
+
+```text
+weight_bytes       ≈ 1.54B parameters × 2 bytes       ≈ 3.09 GB
+KV_cache_bytes     = 2 × B × L × H_kv × T × D × 2
+prefill_logits     = B × T × vocabulary_size × 2
+```
+
+For Qwen2.5-1.5B, `L=28`, `H_kv=2`, `D=128`, and the vocabulary is about
+151,936 tokens. At `T=512`, the KV cache is 14 MiB per batch item and the
+prefill logits are about 0.156 GB per batch item. At `T=2,048`, those values are
+56 MiB and about 0.622 GB per batch item. The temporary term is measured rather
+than known in advance because it depends on the attention kernel, framework,
+CUDA workspaces, and allocator behavior.
+
+A first estimate of the largest safe batch is therefore:
+
+```text
+B_max ≈ floor(
+    (VRAM_budget - weight_bytes - fixed_overhead)
+    / (KV_bytes_per_request + logits_bytes_per_request)
+)
+```
+
+Use a safety budget such as 85–90% of usable VRAM rather than the advertised
+capacity. The estimate should be treated as a screening tool: the actual run
+must still verify both PyTorch allocated and reserved memory and stop before an
+out-of-memory failure.
+
+### Latency and throughput prediction
+
+Exact latency cannot be derived from tensor shapes alone. It depends on GPU
+clock state, kernel selection, launch overhead, memory bandwidth, attention
+implementation, and contention between requests. We can nevertheless predict
+the useful shape of the result:
+
+```text
+prefill attention work ∝ B × T²
+prefill projection/MLP ∝ B × T
+decode work/step       ∝ B       (one new token per active request)
+KV read traffic        ∝ B × current_sequence_length
+aggregate work         ≈ B × single-request work
+```
+
+At small `B`, aggregate throughput often rises because the GPU is under-filled
+and fixed launch costs are amortized. At larger `B`, throughput flattens when
+the GPU reaches its compute or memory-bandwidth limit. Per-request latency and
+queueing delay generally continue to rise.
+
+For a more quantitative model, use the first measured point to estimate a
+single-request service cost and fit a saturation curve to later points:
+
+```text
+predicted_aggregate_tokens_per_second(B)
+    = B × single_request_rate / (1 + α × (B - 1))
+```
+
+Here `α` captures contention and can be fitted from the `B=2` and `B=4`
+measurements. This is not a hardware law; it is an intentionally simple model
+whose value is that it makes the assumptions visible and can be falsified.
+
+The comparison deliverable should place predicted and actual memory beside each
+other, and plot predicted versus actual aggregate throughput and latency for
+each batch size. A good prediction need not match every millisecond; it should
+correctly identify the memory-limited region, the throughput knee, and the
+latency tradeoff.
