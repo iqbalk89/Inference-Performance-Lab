@@ -1,0 +1,164 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1120" viewBox="0 0 1400 1120" role="img" aria-labelledby="title desc">
+  <title id="title">Qwen2.5-1.5B KV-cache tensor shapes during prefill and decode</title>
+  <desc id="desc">A detailed diagram showing hidden states projected into query, key, and value tensors; the per-layer KV cache; the 28-layer stack; memory arithmetic; and sequence growth during autoregressive decoding.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1220"/>
+      <stop offset="1" stop-color="#17233a"/>
+    </linearGradient>
+    <linearGradient id="qFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#5b21b6"/>
+    </linearGradient>
+    <linearGradient id="kFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0891b2"/>
+      <stop offset="1" stop-color="#155e75"/>
+    </linearGradient>
+    <linearGradient id="vFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#059669"/>
+      <stop offset="1" stop-color="#065f46"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+    <style>
+      .title { font: 700 30px system-ui, sans-serif; fill: #f8fafc; }
+      .subtitle { font: 600 19px system-ui, sans-serif; fill: #cbd5e1; }
+      .section { font: 700 21px system-ui, sans-serif; fill: #f8fafc; }
+      .label { font: 600 17px system-ui, sans-serif; fill: #f8fafc; }
+      .body { font: 15px system-ui, sans-serif; fill: #cbd5e1; }
+      .small { font: 14px system-ui, sans-serif; fill: #cbd5e1; }
+      .mono { font: 600 16px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #f8fafc; }
+      .monoSmall { font: 600 14px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #e2e8f0; }
+      .card { fill: #111c30; stroke: #334155; stroke-width: 1.5; }
+      .line { stroke: #94a3b8; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .guide { stroke: #64748b; stroke-width: 1.5; stroke-dasharray: 5 5; fill: none; }
+    </style>
+  </defs>
+
+  <rect width="1400" height="1120" rx="24" fill="url(#background)"/>
+  <text x="55" y="55" class="title">Qwen2.5-1.5B: how KV-cache shapes are formed and grow</text>
+  <text x="55" y="86" class="subtitle">First run: batch 1 • prompt 512 tokens • FP16 • grouped-query attention • 28 layers</text>
+
+  <!-- Prefill projections -->
+  <rect x="45" y="115" width="1310" height="315" rx="18" class="card"/>
+  <text x="70" y="151" class="section">1  Prefill inside one transformer layer</text>
+
+  <rect x="75" y="185" width="235" height="120" rx="12" fill="#273449" stroke="#64748b" stroke-width="1.5"/>
+  <text x="192" y="218" text-anchor="middle" class="label">Hidden states X</text>
+  <text x="192" y="252" text-anchor="middle" class="mono">[1, 512, 1536]</text>
+  <text x="192" y="282" text-anchor="middle" class="small">[batch, tokens, hidden]</text>
+
+  <path d="M 310 245 L 380 245" class="line"/>
+  <text x="345" y="228" text-anchor="middle" class="small">linear</text>
+  <text x="345" y="272" text-anchor="middle" class="small">projections</text>
+
+  <rect x="390" y="170" width="250" height="72" rx="11" fill="url(#qFill)"/>
+  <text x="515" y="198" text-anchor="middle" class="label">Query Q</text>
+  <text x="515" y="225" text-anchor="middle" class="mono">[1, 12, 512, 128]</text>
+
+  <rect x="390" y="256" width="250" height="72" rx="11" fill="url(#kFill)"/>
+  <text x="515" y="284" text-anchor="middle" class="label">Key K</text>
+  <text x="515" y="311" text-anchor="middle" class="mono">[1, 2, 512, 128]</text>
+
+  <rect x="390" y="342" width="250" height="72" rx="11" fill="url(#vFill)"/>
+  <text x="515" y="370" text-anchor="middle" class="label">Value V</text>
+  <text x="515" y="397" text-anchor="middle" class="mono">[1, 2, 512, 128]</text>
+
+  <path d="M 640 206 C 730 206 710 188 790 188" class="line"/>
+  <rect x="800" y="157" width="250" height="72" rx="11" fill="#312e81" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="925" y="181" text-anchor="middle" class="label">Used for attention</text>
+  <text x="925" y="204" text-anchor="middle" class="small">in this prefill step</text>
+  <text x="925" y="222" text-anchor="middle" class="small">Q is not retained</text>
+
+  <path d="M 640 292 C 730 292 710 305 790 305" class="line"/>
+  <path d="M 640 378 C 730 378 710 337 790 337" class="line"/>
+  <rect x="800" y="270" width="250" height="102" rx="11" fill="#133044" stroke="#22d3ee" stroke-width="1.5"/>
+  <text x="925" y="296" text-anchor="middle" class="label">Stored in this layer</text>
+  <text x="925" y="316" text-anchor="middle" class="small">for future decode steps</text>
+  <text x="925" y="340" text-anchor="middle" class="monoSmall">K [1, 2, 512, 128]</text>
+  <text x="925" y="362" text-anchor="middle" class="monoSmall">V [1, 2, 512, 128]</text>
+
+  <rect x="1085" y="157" width="235" height="215" rx="12" fill="#1d293b" stroke="#475569" stroke-width="1.5"/>
+  <text x="1202" y="187" text-anchor="middle" class="label">Read each dimension</text>
+  <text x="1105" y="220" class="monoSmall">1</text><text x="1130" y="220" class="small">one request</text>
+  <text x="1105" y="252" class="monoSmall">2</text><text x="1130" y="252" class="small">two shared KV heads</text>
+  <text x="1105" y="284" class="monoSmall">512</text><text x="1150" y="284" class="small">cached positions</text>
+  <text x="1105" y="316" class="monoSmall">128</text><text x="1150" y="316" class="small">values per head</text>
+  <text x="1105" y="350" class="small">Q has 12 heads; GQA lets</text>
+  <text x="1105" y="369" class="small">them share only 2 K/V heads.</text>
+
+  <!-- Layer stack -->
+  <rect x="45" y="455" width="635" height="310" rx="18" class="card"/>
+  <text x="70" y="492" class="section">2  The cache is repeated across 28 layers</text>
+
+  <g transform="translate(85 525)">
+    <rect x="30" y="0" width="320" height="58" rx="9" fill="#18354a" stroke="#22d3ee"/>
+    <text x="190" y="24" text-anchor="middle" class="label">Layer 1</text>
+    <text x="190" y="46" text-anchor="middle" class="monoSmall" font-size="12">K + V, each [1, 2, 512, 128]</text>
+    <rect x="20" y="70" width="320" height="58" rx="9" fill="#18354a" stroke="#22d3ee"/>
+    <text x="180" y="94" text-anchor="middle" class="label">Layer 2</text>
+    <text x="180" y="116" text-anchor="middle" class="monoSmall" font-size="12">K + V, each [1, 2, 512, 128]</text>
+    <text x="175" y="163" text-anchor="middle" class="title">⋮</text>
+    <rect x="0" y="178" width="320" height="58" rx="9" fill="#18354a" stroke="#22d3ee"/>
+    <text x="160" y="202" text-anchor="middle" class="label">Layer 28</text>
+    <text x="160" y="224" text-anchor="middle" class="monoSmall" font-size="12">K + V, each [1, 2, 512, 128]</text>
+  </g>
+
+  <path d="M 455 575 L 540 575" class="line"/>
+  <rect x="505" y="610" width="135" height="85" rx="10" fill="#312e81" stroke="#8b5cf6"/>
+  <text x="572" y="641" text-anchor="middle" class="label">56 tensors</text>
+  <text x="572" y="667" text-anchor="middle" class="small">28 keys</text>
+  <text x="572" y="687" text-anchor="middle" class="small">+ 28 values</text>
+
+  <!-- Memory calculation -->
+  <rect x="705" y="455" width="650" height="310" rx="18" class="card"/>
+  <text x="730" y="492" class="section">3  Exact initial-cache memory</text>
+  <text x="745" y="535" class="mono">2 bytes</text><text x="850" y="535" class="body">FP16 element</text>
+  <text x="745" y="570" class="mono">× 1</text><text x="850" y="570" class="body">batch</text>
+  <text x="745" y="605" class="mono">× 28</text><text x="850" y="605" class="body">layers</text>
+  <text x="745" y="640" class="mono">× 2</text><text x="850" y="640" class="body">K and V tensors</text>
+  <text x="745" y="675" class="mono">× 2</text><text x="850" y="675" class="body">KV heads</text>
+  <text x="1035" y="535" class="mono">× 512</text><text x="1130" y="535" class="body">positions</text>
+  <text x="1035" y="570" class="mono">× 128</text><text x="1130" y="570" class="body">head dimension</text>
+  <line x1="1025" y1="600" x2="1305" y2="600" stroke="#64748b" stroke-width="1.5"/>
+  <text x="1035" y="638" class="mono">14,680,064 bytes</text>
+  <text x="1035" y="672" class="title" fill="#67e8f9">14 MiB</text>
+  <text x="1035" y="707" class="small">Per cached token across all layers:</text>
+  <text x="1035" y="734" class="monoSmall">28,672 bytes = 28 KiB</text>
+
+  <!-- Decode growth -->
+  <rect x="45" y="790" width="1310" height="280" rx="18" class="card"/>
+  <text x="70" y="828" class="section">4  Decode appends along only the cached-position axis</text>
+
+  <rect x="80" y="870" width="250" height="82" rx="11" fill="#273449" stroke="#64748b"/>
+  <text x="205" y="900" text-anchor="middle" class="label">New decode input</text>
+  <text x="205" y="931" text-anchor="middle" class="mono">token IDs [1, 1]</text>
+
+  <path d="M 330 911 L 395 911" class="line"/>
+  <rect x="405" y="852" width="245" height="118" rx="11" fill="#18354a" stroke="#22d3ee"/>
+  <text x="527" y="882" text-anchor="middle" class="label">New K and V</text>
+  <text x="527" y="913" text-anchor="middle" class="mono">[1, 2, 1, 128]</text>
+  <text x="527" y="944" text-anchor="middle" class="small">one new position per layer</text>
+
+  <path d="M 650 911 L 715 911" class="line"/>
+  <rect x="725" y="842" width="270" height="138" rx="11" fill="#164e63" stroke="#22d3ee" stroke-width="1.5"/>
+  <text x="860" y="874" text-anchor="middle" class="label">Append to cached K and V</text>
+  <text x="860" y="909" text-anchor="middle" class="monoSmall">[1, 2, 512, 128]</text>
+  <text x="860" y="934" text-anchor="middle" class="monoSmall">→ [1, 2, 513, 128]</text>
+  <text x="860" y="959" text-anchor="middle" class="small">other dimensions stay fixed</text>
+
+  <path d="M 995 911 L 1060 911" class="line"/>
+  <rect x="1070" y="842" width="245" height="138" rx="11" fill="#1d293b" stroke="#8b5cf6"/>
+  <text x="1192" y="874" text-anchor="middle" class="label">After 32 output tokens</text>
+  <text x="1192" y="909" text-anchor="middle" class="mono">T: 512 → 543</text>
+  <text x="1192" y="936" text-anchor="middle" class="small">31 outputs are fed back;</text>
+  <text x="1192" y="958" text-anchor="middle" class="small">token 1 came from prefill.</text>
+
+  <path d="M 530 1003 L 1105 1003" class="guide"/>
+  <text x="817" y="1027" text-anchor="middle" class="body">Cache bytes grow with batch × layers × K/V × KV heads</text>
+  <text x="817" y="1049" text-anchor="middle" class="body">× positions × head dimension.</text>
+  <text x="817" y="1071" text-anchor="middle" class="small">Q is discarded after attention; K and V remain so old projections are reused.</text>
+
+  <text x="55" y="1100" class="small">Shapes are the observed Qwen2.5-1.5B FP16 Week 1 configuration. Diagram dimensions are conceptual, not geometrically proportional.</text>
+</svg>

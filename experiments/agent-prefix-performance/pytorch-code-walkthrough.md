@@ -152,6 +152,12 @@ This uses deterministic greedy decoding rather than sampling.
 
 ## 5. Understand the KV-Cache Shape
 
+![Detailed Qwen KV-cache shape visualization](assets/week1-kv-cache-shapes.svg)
+
+The visualization follows one tensor through four levels: the projections in a
+single layer, the repetition across all 28 layers, the resulting memory
+calculation, and the one-position-at-a-time growth during decode.
+
 The first run observed key and value tensors shaped:
 
 ```text
@@ -184,6 +190,20 @@ giving 56 cache tensors. The initial cache size is therefore:
 
 The cache grows linearly with batch size and cached sequence length. It prevents
 the model from recalculating earlier keys and values during every decode step.
+
+### Shape changes from prefill to decode
+
+| Phase | Q shape | New K/V shape | Stored K/V shape | What changes? |
+|---|---|---|---|---|
+| Prefill | `[1, 12, 512, 128]` | `[1, 2, 512, 128]` | `[1, 2, 512, 128]` | All 512 prompt positions are created together. |
+| First feedback step | `[1, 12, 1, 128]` | `[1, 2, 1, 128]` | `[1, 2, 513, 128]` | One position is appended to K and V. |
+| Later decode step | `[1, 12, 1, 128]` | `[1, 2, 1, 128]` | `[1, 2, T, 128]` | Only `T`, the cached-position dimension, grows. |
+
+The query tensor has 12 heads because every query head can ask a different
+question of the context. K and V have only two heads because grouped-query
+attention lets groups of query heads share the same keys and values. Q is used
+for the current attention calculation and discarded. K and V represent the
+reusable history, so they are retained.
 
 ## 6. Run KV-Cached Decode
 
