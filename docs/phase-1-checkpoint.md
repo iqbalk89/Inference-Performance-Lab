@@ -1,14 +1,13 @@
 # Phase 1 Checkpoint
 
-**Checkpoint date:** August 1, 2026
+**Checkpoint date:** September 1, 2026
 
 ## Current Position
 
 Phase 1 Part A is in progress. The remote GPU platform and profiling access are
-accepted, but model-level inference work has not started yet. The next session
-should complete the concept-only GPU architecture module before beginning the
-first small decoder-only model—not repeat provider research or environment
-troubleshooting.
+accepted, and the first model-level inference experiment is scaffolded. The next
+remote session should run the Week 1 direct PyTorch baseline—not repeat provider
+research or environment troubleshooting.
 
 The canonical resumption path is:
 
@@ -16,6 +15,8 @@ The canonical resumption path is:
 2. [Module 01 exercises](../curriculum/phase-01-gpu-inference-foundations/modules/01-gpu-architecture/exercises.md)
 3. [Module 01 concept-map lab](../curriculum/phase-01-gpu-inference-foundations/modules/01-gpu-architecture/lab.md)
 4. [Module 02 — First Model and Profiling](../curriculum/phase-01-gpu-inference-foundations/modules/02-first-model-and-profiling/README.md)
+5. [Agent workload performance roadmap](agent-prefix-performance-roadmap.md)
+6. [Week 1 experiment](../experiments/agent-prefix-performance/README.md)
 
 ## Completed
 
@@ -58,23 +59,16 @@ The goal is to explain their roles, not to write CUDA kernels.
 
 ### Next Build Block — First Model
 
-1. Select one small decoder-only Hugging Face model that fits comfortably in
-   24 GB VRAM. Prefer direct PyTorch/Transformers execution for this learning
-   step so tokenization, model loading, generation, and profiling remain
-   visible. Do not begin with an opaque desktop wrapper.
-2. Define and pin the remote Python dependencies. Decide whether to use Lambda
-   Stack's system PyTorch directly or a project environment that deliberately
-   preserves CUDA support.
-3. Add a reproducible model-loading and generation script under `scripts/` or
-   `experiments/`.
-4. Record model ID, revision, dtype, device, prompt, generation settings, input
-   tokens, output tokens, elapsed time, and peak allocated GPU memory.
-5. Watch `nvidia-smi` during model loading and generation and record observed
-   VRAM and utilization.
-6. Capture the first PyTorch Profiler trace, preserving a summary in Git and
-   keeping the raw trace under ignored `profile-results/`.
-7. Capture a model-level Nsight Systems trace using the already validated
-   workflow and compare it with the PyTorch trace.
+1. Follow the Week 1 experiment instructions and preserve Lambda Stack's
+   CUDA-enabled PyTorch in a `--system-site-packages` virtual environment.
+2. Run the discovery measurement for `Qwen/Qwen2.5-1.5B-Instruct`, record its
+   resolved commit hash, and pin that hash for subsequent measurements.
+3. Run the 512/2,048 prompt-token by 32/128 output-token matrix.
+4. Observe `nvidia-smi` during execution and compare its memory view with
+   PyTorch allocated and reserved memory.
+5. Summarize prefill, cached decode, full recomputation, tensor/cache shapes,
+   and peak memory in `experiments/agent-prefix-performance/week1-findings.md`.
+6. Use the results to state focused profiling questions for Week 2.
 
 ### After the First Model
 

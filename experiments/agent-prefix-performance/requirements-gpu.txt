@@ -1,0 +1,3 @@
+# Lambda Stack supplies CUDA-enabled torch. Install this file from a virtual
+# environment created with --system-site-packages so pip does not replace it.
+transformers==4.52.4

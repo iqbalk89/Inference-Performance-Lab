@@ -100,6 +100,12 @@ and optimization. The numbered
 [Phase 1 modules](curriculum/phase-01-gpu-inference-foundations/README.md) remain
 available as the foundational reference library.
 
+The applied performance project is the
+[Agent Workload Inference Performance Project](docs/agent-prefix-performance-roadmap.md):
+a four-week PyTorch-to-vLLM study focused on reducing tail TTFT for long,
+reusable agent prefixes without sacrificing output throughput. Week 1's direct
+PyTorch baseline is ready to run on the accepted Lambda A10.
+
 Remote GPU sessions follow the
 [Lambda GPU Instance Runbook](docs/gpu-notes/lambda-instance-runbook.md), which
 covers launch, bootstrap validation, artifact preservation, and shutdown.
