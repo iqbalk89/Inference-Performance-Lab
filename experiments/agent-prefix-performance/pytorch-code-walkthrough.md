@@ -158,6 +158,21 @@ The visualization follows one tensor through four levels: the projections in a
 single layer, the repetition across all 28 layers, the resulting memory
 calculation, and the one-position-at-a-time growth during decode.
 
+### Detailed 3-D tensor atlas
+
+![Three-dimensional Qwen attention and KV-cache tensor atlas](assets/week1-kv-cache-3d-tensor-atlas.svg)
+
+Read each 3-D block as a visual encoding of tensor axes, not as a physically
+scaled object. A stack of slabs represents the head axis of a four-dimensional
+tensor. Within each slab, rows represent token positions and columns represent
+the 128-value head vector. The one-element batch axis wraps the entire stack.
+
+The atlas also includes the projection-weight matrices. PyTorch stores a
+`Linear` weight as `[out_features, in_features]`, which is why `Wq` is
+`[1536, 1536]`, while `Wk` and `Wv` are `[256, 1536]`. The latter output only
+`2 × 128 = 256` values per position because grouped-query attention uses two KV
+heads.
+
 The first run observed key and value tensors shaped:
 
 ```text
