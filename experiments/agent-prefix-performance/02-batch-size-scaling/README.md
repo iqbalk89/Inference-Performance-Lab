@@ -128,9 +128,12 @@ one.
 
 ## Experiment objective
 
-Find the batch-size operating point that maximizes aggregate token throughput
-without exceeding a latency or memory limit. Use prompt lengths 512 and 2,048,
-and sweep `B=1, 2, 4, 8, ...` until the A10 approaches its memory limit.
+Predict and then find the batch-size operating point that maximizes aggregate
+token throughput without exceeding a latency or memory limit. Use prompt
+lengths 512 and 2,048, and sweep `B=1, 2, 4, 8, ...` until the A10 approaches
+its memory limit. The key result is the **throughput knee**: the batch size
+after which adding more requests produces little additional aggregate
+throughput.
 
 Record for every case:
 
@@ -139,6 +142,7 @@ Record for every case:
 - prefill, decode, and end-to-end latency;
 - peak allocated and reserved CUDA memory;
 - measured KV-cache bytes; and
+- GPU utilization sampled during the measured interval; and
 - the first batch size that fails or violates the chosen latency target.
 
 Use these definitions:
@@ -151,6 +155,7 @@ KV bytes = 2 × B × L × H_kv × T × D × bytes_per_element
 
 The deliverable is a table or plot showing where aggregate throughput improves,
 where it flattens, and where memory or latency becomes the limiting constraint.
+Annotate the predicted throughput knee and the measured knee separately.
 
 ## Before running: predict memory and performance
 
@@ -252,6 +257,40 @@ predicted_aggregate_tokens_per_second(B)
 Here `α` captures contention and can be fitted from the `B=2` and `B=4`
 measurements. This is not a hardware law; it is an intentionally simple model
 whose value is that it makes the assumptions visible and can be falsified.
+
+### Roofline estimate for the throughput knee
+
+Use a roofline check to predict whether the important kernels are limited by
+compute or by memory bandwidth:
+
+```text
+arithmetic_intensity = FLOPs / bytes_moved
+achievable_performance ≤ min(peak_compute,
+                             memory_bandwidth × arithmetic_intensity)
+```
+
+As `B` increases, decode GEMMs usually gain arithmetic intensity because the
+same weight matrices are reused across more request items. Throughput should
+rise while the GPU is under-filled, then flatten when the dominant kernels
+approach either the compute ceiling or the bandwidth ceiling. A rough crossover
+batch is where:
+
+```text
+arithmetic_intensity(B) ≈ peak_compute / memory_bandwidth
+```
+
+Use this as a regime prediction, not an exact answer. Prefill commonly reaches
+high utilization at smaller `B` because each request contributes many prompt
+tokens. Decode often needs a larger `B`, but its KV reads grow with
+`B × current_sequence_length`. Kernel fusion, launch overhead, clock state, and
+attention implementation can move the measured knee away from the simple
+roofline estimate.
+
+For each sweep point, compare the prediction with measured aggregate
+tokens/second, latency, peak memory, and GPU utilization. A strong conclusion is
+phrased as a range—for example, “the roofline predicts diminishing returns
+between `B=4` and `B=8`, and measurements place the knee in that interval”—not
+as a claim that the model can determine an exact batch size without a run.
 
 The comparison deliverable should place predicted and actual memory beside each
 other, and plot predicted versus actual aggregate throughput and latency for
