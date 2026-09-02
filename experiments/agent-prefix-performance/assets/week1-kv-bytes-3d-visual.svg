@@ -1,51 +1,71 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1050" viewBox="0 0 1600 1050" role="img" aria-labelledby="title desc">
-  <title id="title">How the KV-cache bytes equation maps to tensor dimensions</title>
-  <desc id="desc">A three-dimensional tensor diagram showing a key and value cache for every layer, KV head, token position, and head dimension, followed by a worked byte calculation.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1000" viewBox="0 0 1500 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Detailed KV-cache rows, heads, and byte calculation</title>
+  <desc id="desc">A detailed tensor diagram with token-position rows and two KV-head columns for K and V, repeated across 28 layers, plus a worked KV-cache byte calculation.</desc>
   <defs>
-    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#081426"/><stop offset="1" stop-color="#102b43"/></linearGradient>
-    <linearGradient id="front" x2="0" y2="1"><stop stop-color="#1e4264"/><stop offset="1" stop-color="#12263f"/></linearGradient>
-    <linearGradient id="top" x2="1" y2="1"><stop stop-color="#4b86b5"/><stop offset="1" stop-color="#275579"/></linearGradient>
-    <linearGradient id="side" x2="1" y2="1"><stop stop-color="#102238"/><stop offset="1" stop-color="#071321"/></linearGradient>
-    <filter id="shadow"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity=".42"/></filter>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#091525"/><stop offset="1" stop-color="#152d46"/></linearGradient>
+    <linearGradient id="k" x2="1" y2="1"><stop stop-color="#12b8c4"/><stop offset="1" stop-color="#126782"/></linearGradient>
+    <linearGradient id="v" x2="1" y2="1"><stop stop-color="#5ed39b"/><stop offset="1" stop-color="#16705b"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#000" flood-opacity=".42"/></filter>
     <style>
-      .title{font:700 34px Inter,system-ui,sans-serif;fill:#f8fafc}.sub{font:500 18px Inter,system-ui,sans-serif;fill:#bfdbfe}
-      .h{font:700 21px Inter,system-ui,sans-serif;fill:#f8fafc}.body{font:500 16px Inter,system-ui,sans-serif;fill:#dbeafe}
-      .mono{font:700 19px 'SFMono-Regular',Menlo,monospace;fill:#f8fafc}.small{font:500 14px Inter,system-ui,sans-serif;fill:#cbd5e1}
-      .tiny{font:600 13px Inter,system-ui,sans-serif;fill:#cbd5e1}.panel{fill:#0e1d31;stroke:#35516d;stroke-width:2}
-      .line{stroke:#7dd3fc;stroke-width:3;fill:none;stroke-linecap:round}.dash{stroke:#9fb8cf;stroke-width:2;stroke-dasharray:7 7;fill:none}
+      .title{font:700 31px Inter,system-ui,sans-serif;fill:#f8fafc}.sub{font:500 17px Inter,system-ui,sans-serif;fill:#c7dcf2}
+      .h{font:700 20px Inter,system-ui,sans-serif;fill:#f8fafc}.label{font:700 16px Inter,system-ui,sans-serif;fill:#f8fafc}
+      .body{font:500 15px Inter,system-ui,sans-serif;fill:#dbeafe}.small{font:500 13px Inter,system-ui,sans-serif;fill:#cbd5e1}
+      .mono{font:700 17px 'SFMono-Regular',Menlo,monospace;fill:#f8fafc}.tiny{font:600 12px Inter,system-ui,sans-serif;fill:#d5e5f3}
+      .panel{fill:#0e1d31;stroke:#38546e;stroke-width:2}.guide{stroke:#8ba8c0;stroke-width:2;stroke-dasharray:6 6;fill:none}.arrow{stroke:#8bdcf3;stroke-width:3;fill:none;stroke-linecap:round}
     </style>
   </defs>
-  <rect width="1600" height="1050" fill="url(#bg)"/>
-  <text x="60" y="62" class="title">KV-cache bytes: from tensor axes to VRAM</text>
-  <text x="60" y="96" class="sub">Every stored scalar is identified by batch, layer, KV head, token position, and head dimension.</text>
-  <rect x="50" y="130" width="1500" height="142" rx="22" class="panel" filter="url(#shadow)"/>
-  <text x="82" y="170" class="h">The equation</text>
-  <text x="82" y="218" class="mono">KV bytes = 2 × B × L × Hₖᵥ × T × D × bytes/element</text>
-  <text x="82" y="250" class="small">2 = K and V. The remaining factors count how many FP16 scalars are stored.</text>
+  <rect width="1500" height="1000" fill="url(#bg)"/>
+  <text x="52" y="54" class="title">KV-cache bytes: see every row and KV head</text>
+  <text x="52" y="84" class="sub">One layer is two tensors, K and V. Each tensor has 2 KV-head columns and one row for every cached token position.</text>
+  <rect x="44" y="112" width="1412" height="106" rx="18" class="panel" filter="url(#shadow)"/>
+  <text x="72" y="151" class="h">KV bytes = 2 × B × L × Hₖᵥ × T × D × bytes/element</text>
+  <text x="72" y="184" class="body">2 = K + V • B = requests • L = layers • Hₖᵥ = head columns • T = rows/positions • D = values along each row cell • FP16 = 2 bytes/value</text>
 
-  <rect x="50" y="302" width="820" height="690" rx="22" class="panel" filter="url(#shadow)"/>
-  <text x="82" y="346" class="h">What one layer stores</text>
-  <text x="82" y="374" class="small">For one request, one layer contains two tensors with shape [Hₖᵥ, T, D].</text>
-  <g transform="translate(155 470)" filter="url(#shadow)">
-    <g opacity=".38" transform="translate(90 -105)"><polygon points="0,0 390,0 470,45 80,45" fill="url(#top)"/><polygon points="390,0 470,45 470,220 390,175" fill="url(#side)"/><polygon points="80,45 470,45 470,220 80,220" fill="#19314d"/></g>
-    <g opacity=".55" transform="translate(55 -55)"><polygon points="0,0 390,0 470,45 80,45" fill="url(#top)"/><polygon points="390,0 470,45 470,220 390,175" fill="url(#side)"/><polygon points="80,45 470,45 470,220 80,220" fill="#1b3856"/></g>
-    <text x="335" y="-22" class="tiny">… repeated for L = 28 layers …</text>
-    <polygon points="0,0 390,0 470,45 80,45" fill="url(#top)"/><polygon points="390,0 470,45 470,220 390,175" fill="url(#side)"/><polygon points="0,0 80,45 80,220 0,175" fill="#17304b"/><polygon points="80,45 470,45 470,220 80,220" fill="url(#front)"/>
-    <rect x="105" y="72" width="170" height="125" rx="8" fill="#20b9a5" opacity=".9"/><rect x="295" y="72" width="150" height="125" rx="8" fill="#8b6be8" opacity=".92"/>
-    <text x="190" y="114" text-anchor="middle" class="h">K</text><text x="190" y="141" text-anchor="middle" class="tiny">[Hₖᵥ, T, D]</text><text x="370" y="114" text-anchor="middle" class="h">V</text><text x="370" y="141" text-anchor="middle" class="tiny">[Hₖᵥ, T, D]</text><text x="275" y="190" text-anchor="middle" class="tiny">one layer = K + V</text>
+  <rect x="44" y="244" width="850" height="700" rx="18" class="panel" filter="url(#shadow)"/>
+  <text x="70" y="282" class="h">Inside one layer: rows × heads × head dimension</text>
+  <text x="70" y="309" class="small">Shown with 8 representative rows; the real prompt has T = 512 rows. Each colored cell is a vector of D = 128 FP16 values.</text>
+
+  <!-- K matrix -->
+  <text x="105" y="359" class="h">Key cache K</text><text x="105" y="383" class="mono">[B=1, Hₖᵥ=2, T=512, D=128]</text>
+  <text x="105" y="414" class="tiny">token position (T) ↓</text><text x="320" y="414" class="tiny">head 0</text><text x="472" y="414" class="tiny">head 1</text><text x="650" y="414" class="tiny">each cell → 128 values</text>
+  <g transform="translate(105 430)">
+    <g fill="url(#k)" stroke="#8de6ee" stroke-width="1.5">
+      <rect x="80" y="0" width="135" height="34" rx="4"/><rect x="230" y="0" width="135" height="34" rx="4"/>
+      <rect x="80" y="40" width="135" height="34" rx="4"/><rect x="230" y="40" width="135" height="34" rx="4"/>
+      <rect x="80" y="80" width="135" height="34" rx="4"/><rect x="230" y="80" width="135" height="34" rx="4"/>
+      <rect x="80" y="120" width="135" height="34" rx="4"/><rect x="230" y="120" width="135" height="34" rx="4"/>
+      <rect x="80" y="160" width="135" height="34" rx="4"/><rect x="230" y="160" width="135" height="34" rx="4"/>
+      <rect x="80" y="200" width="135" height="34" rx="4"/><rect x="230" y="200" width="135" height="34" rx="4"/>
+      <rect x="80" y="240" width="135" height="34" rx="4"/><rect x="230" y="240" width="135" height="34" rx="4"/>
+      <rect x="80" y="280" width="135" height="34" rx="4"/><rect x="230" y="280" width="135" height="34" rx="4"/>
+    </g>
+    <g class="tiny" text-anchor="end"><text x="68" y="22">t=0</text><text x="68" y="62">t=1</text><text x="68" y="102">t=2</text><text x="68" y="142">t=3</text><text x="68" y="182">t=4</text><text x="68" y="222">t=5</text><text x="68" y="262">t=6</text><text x="68" y="302">t=7</text></g>
+    <text x="182" y="22" text-anchor="middle" class="label">K[t,0,:]</text><text x="297" y="22" text-anchor="middle" class="label">K[t,1,:]</text>
+    <text x="182" y="348" text-anchor="middle" class="tiny">2 head columns × 512 rows × 128 values</text>
   </g>
-  <path d="M235 690 L235 785 L155 785" class="line"/><text x="82" y="811" class="mono">Hₖᵥ = 2</text><text x="82" y="835" class="small">two KV-head lanes</text>
-  <path d="M430 690 L430 880 L335 880" class="line"/><text x="262" y="906" class="mono">T = 512</text><text x="262" y="930" class="small">cached token positions</text>
-  <path d="M600 650 L760 650 L760 600" class="line"/><text x="625" y="570" class="mono">D = 128</text><text x="625" y="594" class="small">values per head vector</text>
-  <path d="M630 465 L785 420" class="line"/><text x="610" y="404" class="mono">L = 28</text><text x="610" y="428" class="small">layer slabs in depth</text>
 
-  <rect x="910" y="302" width="640" height="690" rx="22" class="panel" filter="url(#shadow)"/>
-  <text x="944" y="346" class="h">Count the scalars, then the bytes</text>
-  <text x="944" y="390" class="small">Step 1 — one layer, one request</text>
-  <text x="944" y="425" class="mono">K: 2 × 512 × 128 = 131,072 values</text><text x="944" y="458" class="mono">V: 2 × 512 × 128 = 131,072 values</text><text x="944" y="491" class="mono">K + V = 262,144 values</text>
-  <path d="M944 520 H1510" class="dash"/>
-  <text x="944" y="560" class="small">Step 2 — repeat for all 28 layers</text><text x="944" y="598" class="mono">262,144 × 28 = 7,340,032 values</text>
-  <text x="944" y="631" class="small">Step 3 — FP16 stores 2 bytes per value</text><text x="944" y="669" class="mono">7,340,032 × 2 = 14,680,064 bytes</text>
-  <rect x="944" y="710" width="540" height="104" rx="16" fill="#123b52" stroke="#38bdf8" stroke-width="2"/><text x="974" y="751" class="h">512-token prompt</text><text x="974" y="786" class="mono">14,680,064 bytes = 14 MiB</text>
-  <text x="944" y="864" class="small">If T grows from 512 to 2048 (4×):</text><text x="944" y="901" class="mono">14 MiB × 4 = 56 MiB</text><text x="944" y="937" class="tiny">Logical cache storage; allocator peaks also include weights and temporary tensors.</text>
+  <!-- V matrix -->
+  <text x="105" y="820" class="h">Value cache V</text><text x="105" y="845" class="mono">[B=1, Hₖᵥ=2, T=512, D=128]</text>
+  <rect x="585" y="791" width="175" height="74" rx="10" fill="url(#v)" stroke="#a7f3d0" stroke-width="2"/><text x="672" y="822" text-anchor="middle" class="label">V[t,0,:]  V[t,1,:]</text><text x="672" y="846" text-anchor="middle" class="tiny">same rows and heads</text>
+  <path d="M480 694 C520 755 560 788 585 814" class="arrow"/><text x="500" y="747" class="small">K and V have identical shape;</text><text x="500" y="766" class="small">the leading 2 counts both.</text>
+
+  <!-- depth/layer explanation -->
+  <path d="M790 475 L850 445 L850 385" class="arrow"/><text x="705" y="392" class="mono">L = 28</text><text x="705" y="414" class="small">repeat this K+V pair for every layer</text>
+  <g opacity=".35"><rect x="690" y="480" width="130" height="150" rx="8" fill="#2b6082"/><rect x="710" y="460" width="130" height="150" rx="8" fill="#2b6082"/></g>
+  <text x="707" y="650" class="tiny">layer 1 … layer 28</text>
+
+  <rect x="930" y="244" width="526" height="700" rx="18" class="panel" filter="url(#shadow)"/>
+  <text x="958" y="282" class="h">Turn the picture into bytes</text>
+  <text x="958" y="324" class="small">One layer, one request, T = 512:</text>
+  <text x="958" y="360" class="mono">K: 2 × 512 × 128</text><text x="1240" y="360" class="body">= 131,072 values</text>
+  <text x="958" y="394" class="mono">V: 2 × 512 × 128</text><text x="1240" y="394" class="body">= 131,072 values</text>
+  <text x="958" y="428" class="mono">K + V</text><text x="1240" y="428" class="body">= 262,144 values</text>
+  <path d="M958 450 H1428" class="guide"/>
+  <text x="958" y="488" class="small">Repeat the pictured slab for 28 layers:</text>
+  <text x="958" y="524" class="mono">262,144 × 28</text><text x="1240" y="524" class="body">= 7,340,032 values</text>
+  <text x="958" y="576" class="small">Store each value as FP16:</text>
+  <text x="958" y="612" class="mono">7,340,032 × 2 bytes</text><text x="1240" y="612" class="body">= 14,680,064 bytes</text>
+  <rect x="958" y="660" width="470" height="98" rx="14" fill="#13445b" stroke="#38bdf8" stroke-width="2"/><text x="985" y="700" class="h">512-token prompt</text><text x="985" y="733" class="mono">14,680,064 bytes = 14 MiB</text>
+  <text x="958" y="806" class="small">When T grows 4× (512 → 2048):</text><text x="958" y="843" class="mono">14 MiB × 4 = 56 MiB</text>
+  <text x="958" y="890" class="tiny">Rows grow; heads, layers, and D stay fixed.</text><text x="958" y="912" class="tiny">This is logical KV storage, not total peak allocator memory.</text>
 </svg>
