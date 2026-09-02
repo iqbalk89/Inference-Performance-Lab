@@ -7,6 +7,11 @@ This directory contains the executable work for the
 
 Run this on the accepted Lambda A10, not on the local Intel Mac.
 
+Before or after the first run, read the
+[Week 1 PyTorch code walkthrough](pytorch-code-walkthrough.md). It explains how
+Transformers constructs Qwen, how PyTorch moves its tensors to the A10, how the
+prefill and decode loops use the KV cache, and why vLLM is not involved yet.
+
 ### 1. Prepare the instance
 
 Follow the [Lambda runbook](../../docs/gpu-notes/lambda-instance-runbook.md),
