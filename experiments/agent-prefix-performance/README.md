@@ -85,5 +85,8 @@ Create `week1-findings.md` in this directory after the remote run. Include:
 5. Why no-cache generation repeatedly pays for the growing prefix.
 6. At least one surprising result and a proposed profiler question for Week 2.
 
+The completed baseline analysis is available in
+[week1-findings.md](week1-findings.md).
+
 Do not commit model weights or raw benchmark JSON. Commit the exact commands and
 the summarized findings.
