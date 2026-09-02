@@ -178,6 +178,28 @@ KV_cache_bytes     = 2 × B × L × H_kv × T × D × 2
 prefill_logits     = B × T × vocabulary_size × 2
 ```
 
+Here `T` is the number of prompt positions processed during prefill, and the
+factor `2` is the two bytes used by FP16 logits. The corresponding tensor shape
+is:
+
+```text
+logits = [B, T, vocabulary_size]
+```
+
+This estimate applies to the direct Transformers call used in the baseline,
+which commonly materializes logits for every prompt position. A serving engine
+can select only the final position before retaining or transferring logits:
+
+```text
+last-token logits = [B, 1, vocabulary_size]
+                  = B × 1 × vocabulary_size × 2 bytes
+```
+
+That optimized form is roughly `T` times smaller than the full prefill-logits
+tensor. During cached decode, the model normally produces one new-position
+logit per step, so use `T=1` for this term even though the KV cache still spans
+the entire sequence history.
+
 For Qwen2.5-1.5B, `L=28`, `H_kv=2`, `D=128`, and the vocabulary is about
 151,936 tokens. At `T=512`, the KV cache is 14 MiB per batch item and the
 prefill logits are about 0.156 GB per batch item. At `T=2,048`, those values are
