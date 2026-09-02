@@ -12,6 +12,11 @@ Before or after the first run, read the
 Transformers constructs Qwen, how PyTorch moves its tensors to the A10, how the
 prefill and decode loops use the KV cache, and why vLLM is not involved yet.
 
+For the shortest commented example, see
+[`week1_pytorch_minimal.py`](week1_pytorch_minimal.py). It contains the same
+prefill and cached-decode ideas as the benchmark, without timing or measurement
+bookkeeping.
+
 ### 1. Prepare the instance
 
 Follow the [Lambda runbook](../../docs/gpu-notes/lambda-instance-runbook.md),
