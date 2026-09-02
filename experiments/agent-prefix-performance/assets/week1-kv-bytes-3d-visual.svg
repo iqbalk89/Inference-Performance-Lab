@@ -1,229 +1,51 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1080" viewBox="0 0 1600 1080" role="img" aria-labelledby="title desc">
-  <title id="title">3D KV-cache bytes equation visual</title>
-  <desc id="desc">A detailed three-dimensional diagram showing how batch size, layers, KV heads, prompt positions, head dimension, and bytes per element combine to produce KV-cache bytes.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1050" viewBox="0 0 1600 1050" role="img" aria-labelledby="title desc">
+  <title id="title">How the KV-cache bytes equation maps to tensor dimensions</title>
+  <desc id="desc">A three-dimensional tensor diagram showing a key and value cache for every layer, KV head, token position, and head dimension, followed by a worked byte calculation.</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#07111f"/>
-      <stop offset="55%" stop-color="#0d1d33"/>
-      <stop offset="100%" stop-color="#102b43"/>
-    </linearGradient>
-    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#14233a"/>
-      <stop offset="100%" stop-color="#0c1627"/>
-    </linearGradient>
-    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#7dd3fc"/>
-      <stop offset="100%" stop-color="#38bdf8"/>
-    </linearGradient>
-    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#fde68a"/>
-      <stop offset="100%" stop-color="#f59e0b"/>
-    </linearGradient>
-    <linearGradient id="mint" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#99f6e4"/>
-      <stop offset="100%" stop-color="#14b8a6"/>
-    </linearGradient>
-    <linearGradient id="violet" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#c4b5fd"/>
-      <stop offset="100%" stop-color="#8b5cf6"/>
-    </linearGradient>
-    <linearGradient id="coral" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#fecaca"/>
-      <stop offset="100%" stop-color="#fb7185"/>
-    </linearGradient>
-    <linearGradient id="slabFront" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#20324e"/>
-      <stop offset="100%" stop-color="#15233a"/>
-    </linearGradient>
-    <linearGradient id="slabTop" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#2f4f74"/>
-      <stop offset="100%" stop-color="#1f3552"/>
-    </linearGradient>
-    <linearGradient id="slabSide" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#0f1a2b"/>
-      <stop offset="100%" stop-color="#0a1120"/>
-    </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#000814" flood-opacity="0.45"/>
-    </filter>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#081426"/><stop offset="1" stop-color="#102b43"/></linearGradient>
+    <linearGradient id="front" x2="0" y2="1"><stop stop-color="#1e4264"/><stop offset="1" stop-color="#12263f"/></linearGradient>
+    <linearGradient id="top" x2="1" y2="1"><stop stop-color="#4b86b5"/><stop offset="1" stop-color="#275579"/></linearGradient>
+    <linearGradient id="side" x2="1" y2="1"><stop stop-color="#102238"/><stop offset="1" stop-color="#071321"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity=".42"/></filter>
     <style>
-      .title { font: 700 34px/1.2 Inter, system-ui, sans-serif; fill: #f8fafc; }
-      .subtitle { font: 500 18px/1.4 Inter, system-ui, sans-serif; fill: #bfdbfe; }
-      .label { font: 700 18px/1.2 Inter, system-ui, sans-serif; fill: #e2e8f0; }
-      .body { font: 500 16px/1.45 Inter, system-ui, sans-serif; fill: #dbeafe; }
-      .mono { font: 700 16px/1.3 "SFMono-Regular", Menlo, Consolas, monospace; fill: #f8fafc; }
-      .small { font: 500 13px/1.35 Inter, system-ui, sans-serif; fill: #cbd5e1; }
-      .tiny { font: 600 12px/1.2 Inter, system-ui, sans-serif; fill: #cbd5e1; letter-spacing: .02em; }
-      .panel { fill: url(#panel); stroke: rgba(148, 163, 184, 0.24); stroke-width: 2; rx: 28; }
-      .grid { stroke: rgba(148, 163, 184, 0.12); stroke-width: 1; }
-      .outline { stroke: rgba(125, 211, 252, 0.55); stroke-width: 2.25; fill: none; }
-      .callout { fill: rgba(8, 15, 28, 0.72); stroke: rgba(125, 211, 252, 0.35); stroke-width: 1.5; rx: 14; }
+      .title{font:700 34px Inter,system-ui,sans-serif;fill:#f8fafc}.sub{font:500 18px Inter,system-ui,sans-serif;fill:#bfdbfe}
+      .h{font:700 21px Inter,system-ui,sans-serif;fill:#f8fafc}.body{font:500 16px Inter,system-ui,sans-serif;fill:#dbeafe}
+      .mono{font:700 19px 'SFMono-Regular',Menlo,monospace;fill:#f8fafc}.small{font:500 14px Inter,system-ui,sans-serif;fill:#cbd5e1}
+      .tiny{font:600 13px Inter,system-ui,sans-serif;fill:#cbd5e1}.panel{fill:#0e1d31;stroke:#35516d;stroke-width:2}
+      .line{stroke:#7dd3fc;stroke-width:3;fill:none;stroke-linecap:round}.dash{stroke:#9fb8cf;stroke-width:2;stroke-dasharray:7 7;fill:none}
     </style>
   </defs>
+  <rect width="1600" height="1050" fill="url(#bg)"/>
+  <text x="60" y="62" class="title">KV-cache bytes: from tensor axes to VRAM</text>
+  <text x="60" y="96" class="sub">Every stored scalar is identified by batch, layer, KV head, token position, and head dimension.</text>
+  <rect x="50" y="130" width="1500" height="142" rx="22" class="panel" filter="url(#shadow)"/>
+  <text x="82" y="170" class="h">The equation</text>
+  <text x="82" y="218" class="mono">KV bytes = 2 × B × L × Hₖᵥ × T × D × bytes/element</text>
+  <text x="82" y="250" class="small">2 = K and V. The remaining factors count how many FP16 scalars are stored.</text>
 
-  <rect width="1600" height="1080" fill="url(#bg)"/>
-  <g opacity="0.28">
-    <path class="grid" d="M0 180 H1600"/>
-    <path class="grid" d="M0 360 H1600"/>
-    <path class="grid" d="M0 540 H1600"/>
-    <path class="grid" d="M0 720 H1600"/>
-    <path class="grid" d="M0 900 H1600"/>
-    <path class="grid" d="M200 0 V1080"/>
-    <path class="grid" d="M400 0 V1080"/>
-    <path class="grid" d="M600 0 V1080"/>
-    <path class="grid" d="M800 0 V1080"/>
-    <path class="grid" d="M1000 0 V1080"/>
-    <path class="grid" d="M1200 0 V1080"/>
-    <path class="grid" d="M1400 0 V1080"/>
+  <rect x="50" y="302" width="820" height="690" rx="22" class="panel" filter="url(#shadow)"/>
+  <text x="82" y="346" class="h">What one layer stores</text>
+  <text x="82" y="374" class="small">For one request, one layer contains two tensors with shape [Hₖᵥ, T, D].</text>
+  <g transform="translate(155 470)" filter="url(#shadow)">
+    <g opacity=".38" transform="translate(90 -105)"><polygon points="0,0 390,0 470,45 80,45" fill="url(#top)"/><polygon points="390,0 470,45 470,220 390,175" fill="url(#side)"/><polygon points="80,45 470,45 470,220 80,220" fill="#19314d"/></g>
+    <g opacity=".55" transform="translate(55 -55)"><polygon points="0,0 390,0 470,45 80,45" fill="url(#top)"/><polygon points="390,0 470,45 470,220 390,175" fill="url(#side)"/><polygon points="80,45 470,45 470,220 80,220" fill="#1b3856"/></g>
+    <text x="335" y="-22" class="tiny">… repeated for L = 28 layers …</text>
+    <polygon points="0,0 390,0 470,45 80,45" fill="url(#top)"/><polygon points="390,0 470,45 470,220 390,175" fill="url(#side)"/><polygon points="0,0 80,45 80,220 0,175" fill="#17304b"/><polygon points="80,45 470,45 470,220 80,220" fill="url(#front)"/>
+    <rect x="105" y="72" width="170" height="125" rx="8" fill="#20b9a5" opacity=".9"/><rect x="295" y="72" width="150" height="125" rx="8" fill="#8b6be8" opacity=".92"/>
+    <text x="190" y="114" text-anchor="middle" class="h">K</text><text x="190" y="141" text-anchor="middle" class="tiny">[Hₖᵥ, T, D]</text><text x="370" y="114" text-anchor="middle" class="h">V</text><text x="370" y="141" text-anchor="middle" class="tiny">[Hₖᵥ, T, D]</text><text x="275" y="190" text-anchor="middle" class="tiny">one layer = K + V</text>
   </g>
+  <path d="M235 690 L235 785 L155 785" class="line"/><text x="82" y="811" class="mono">Hₖᵥ = 2</text><text x="82" y="835" class="small">two KV-head lanes</text>
+  <path d="M430 690 L430 880 L335 880" class="line"/><text x="262" y="906" class="mono">T = 512</text><text x="262" y="930" class="small">cached token positions</text>
+  <path d="M600 650 L760 650 L760 600" class="line"/><text x="625" y="570" class="mono">D = 128</text><text x="625" y="594" class="small">values per head vector</text>
+  <path d="M630 465 L785 420" class="line"/><text x="610" y="404" class="mono">L = 28</text><text x="610" y="428" class="small">layer slabs in depth</text>
 
-  <text x="64" y="68" class="title">KV-cache bytes as a 3D tensor product</text>
-  <text x="64" y="102" class="subtitle">Batch 1, Qwen2.5-1.5B, 28 layers, 2 KV heads, 128-dimensional heads, FP16 storage</text>
-
-  <rect x="58" y="132" width="1484" height="220" class="panel" filter="url(#shadow)"/>
-  <text x="90" y="178" class="label">Equation</text>
-  <text x="90" y="230" class="mono">KV bytes = 2 x B x L x H_kv x T x D_head x bytes_per_element</text>
-  <text x="90" y="270" class="body">The 2 is for separate key and value tensors. Each factor is one axis of the cache volume or one storage scale applied to every element.</text>
-  <g transform="translate(90 294)">
-    <rect x="0" y="0" width="204" height="42" class="callout"/>
-    <text x="18" y="26" class="tiny">B = batch size</text>
-    <rect x="224" y="0" width="204" height="42" class="callout"/>
-    <text x="242" y="26" class="tiny">L = transformer layers</text>
-    <rect x="448" y="0" width="220" height="42" class="callout"/>
-    <text x="466" y="26" class="tiny">H_kv = KV heads</text>
-    <rect x="688" y="0" width="220" height="42" class="callout"/>
-    <text x="706" y="26" class="tiny">T = cached positions</text>
-    <rect x="928" y="0" width="220" height="42" class="callout"/>
-    <text x="946" y="26" class="tiny">D = head dimension</text>
-    <rect x="1168" y="0" width="252" height="42" class="callout"/>
-    <text x="1186" y="26" class="tiny">bytes_per_element = 2</text>
-  </g>
-
-  <rect x="58" y="384" width="700" height="620" class="panel" filter="url(#shadow)"/>
-  <text x="90" y="430" class="label">3D cache volume</text>
-  <text x="90" y="458" class="small">Think of the logical KV cache as a stack of layer slabs. Each slab contains two channels: key and value.</text>
-
-  <!-- 3D stacked cache blocks -->
-  <g transform="translate(112 520)">
-    <!-- back blocks -->
-    <g opacity="0.92">
-      <g transform="translate(24 0)">
-        <polygon points="0,0 190,0 250,34 60,34" fill="#1f3757"/>
-        <polygon points="190,0 250,34 250,150 190,116" fill="#0d1728"/>
-        <polygon points="0,0 60,34 60,150 0,116" fill="#243d60"/>
-        <polygon points="60,34 250,34 250,150 60,150" fill="#16253d"/>
-        <text x="124" y="19" text-anchor="middle" class="tiny">Layer slab 28</text>
-      </g>
-      <g transform="translate(14 28)">
-        <polygon points="0,0 190,0 250,34 60,34" fill="#20385b"/>
-        <polygon points="190,0 250,34 250,150 190,116" fill="#0b1424"/>
-        <polygon points="0,0 60,34 60,150 0,116" fill="#29446c"/>
-        <polygon points="60,34 250,34 250,150 60,150" fill="#182942"/>
-      </g>
-      <g transform="translate(4 56)">
-        <polygon points="0,0 190,0 250,34 60,34" fill="#243f62"/>
-        <polygon points="190,0 250,34 250,150 190,116" fill="#09101c"/>
-        <polygon points="0,0 60,34 60,150 0,116" fill="#31507a"/>
-        <polygon points="60,34 250,34 250,150 60,150" fill="#1b2f4b"/>
-      </g>
-    </g>
-
-    <!-- front block with channel stripes -->
-    <g transform="translate(0 120)" filter="url(#shadow)">
-      <polygon points="0,0 290,0 382,52 92,52" fill="url(#slabTop)"/>
-      <polygon points="290,0 382,52 382,230 290,178" fill="url(#slabSide)"/>
-      <polygon points="0,0 92,52 92,230 0,178" fill="url(#slabFront)"/>
-      <polygon points="92,52 382,52 382,230 92,230" fill="#17273e"/>
-
-      <!-- KV head lanes -->
-      <g>
-        <rect x="118" y="76" width="46" height="126" fill="url(#mint)" opacity="0.95"/>
-        <rect x="174" y="76" width="46" height="126" fill="url(#violet)" opacity="0.95"/>
-        <rect x="230" y="76" width="46" height="126" fill="url(#mint)" opacity="0.95"/>
-        <rect x="286" y="76" width="46" height="126" fill="url(#violet)" opacity="0.95"/>
-        <rect x="342" y="76" width="24" height="126" fill="rgba(255,255,255,0.08)"/>
-      </g>
-      <g fill="rgba(255,255,255,0.1)">
-        <rect x="118" y="76" width="46" height="126"/>
-        <rect x="174" y="76" width="46" height="126"/>
-        <rect x="230" y="76" width="46" height="126"/>
-        <rect x="286" y="76" width="46" height="126"/>
-        <rect x="342" y="76" width="24" height="126"/>
-      </g>
-      <text x="196" y="18" class="tiny">L = 28 layers deep</text>
-      <text x="124" y="208" class="tiny">H_kv = 2 heads</text>
-      <text x="240" y="208" class="tiny">T = cached positions</text>
-    </g>
-
-    <!-- depth arrow -->
-    <path d="M430 244 C505 212, 560 170, 616 114" stroke="url(#edge)" stroke-width="5" fill="none" stroke-linecap="round"/>
-    <polygon points="616,114 600,118 607,100" fill="#7dd3fc"/>
-    <text x="490" y="198" class="body">Depth multiplies every key and value slice by the layer count</text>
-  </g>
-
-  <rect x="804" y="384" width="738" height="620" class="panel" filter="url(#shadow)"/>
-  <text x="838" y="430" class="label">Factor breakdown</text>
-  <text x="838" y="458" class="small">Each factor contributes a precise multiplicative axis, and the product gives the logical cache bytes before allocator overhead.</text>
-
-  <!-- factor cards -->
-  <g transform="translate(838 500)">
-    <g>
-      <rect x="0" y="0" width="180" height="136" rx="20" fill="rgba(125,211,252,0.16)" stroke="rgba(125,211,252,0.55)" stroke-width="2"/>
-      <text x="22" y="34" class="label">B</text>
-      <text x="22" y="64" class="mono">1</text>
-      <text x="22" y="92" class="small">Batch size</text>
-      <text x="22" y="116" class="tiny">One request at a time</text>
-    </g>
-    <g transform="translate(204 0)">
-      <rect x="0" y="0" width="180" height="136" rx="20" fill="rgba(34,197,94,0.14)" stroke="rgba(52,211,153,0.52)" stroke-width="2"/>
-      <text x="22" y="34" class="label">L</text>
-      <text x="22" y="64" class="mono">28</text>
-      <text x="22" y="92" class="small">Transformer layers</text>
-      <text x="22" y="116" class="tiny">One KV pair per layer</text>
-    </g>
-    <g transform="translate(408 0)">
-      <rect x="0" y="0" width="180" height="136" rx="20" fill="rgba(168,85,247,0.14)" stroke="rgba(192,132,252,0.54)" stroke-width="2"/>
-      <text x="22" y="34" class="label">H_kv</text>
-      <text x="22" y="64" class="mono">2</text>
-      <text x="22" y="92" class="small">KV heads</text>
-      <text x="22" y="116" class="tiny">Grouped-query cache</text>
-    </g>
-    <g transform="translate(612 0)">
-      <rect x="0" y="0" width="180" height="136" rx="20" fill="rgba(245,158,11,0.14)" stroke="rgba(251,191,36,0.56)" stroke-width="2"/>
-      <text x="22" y="34" class="label">T</text>
-      <text x="22" y="64" class="mono">512 / 2048</text>
-      <text x="22" y="92" class="small">Cached positions</text>
-      <text x="22" y="116" class="tiny">Growth is linear in T</text>
-    </g>
-
-    <g transform="translate(0 172)">
-      <rect x="0" y="0" width="240" height="136" rx="20" fill="rgba(14,165,233,0.14)" stroke="rgba(56,189,248,0.5)" stroke-width="2"/>
-      <text x="22" y="34" class="label">D</text>
-      <text x="22" y="64" class="mono">128</text>
-      <text x="22" y="92" class="small">Head dimension</text>
-      <text x="22" y="116" class="tiny">Values per token per head</text>
-    </g>
-    <g transform="translate(268 172)">
-      <rect x="0" y="0" width="240" height="136" rx="20" fill="rgba(251,113,133,0.14)" stroke="rgba(251,113,133,0.52)" stroke-width="2"/>
-      <text x="22" y="34" class="label">bytes/element</text>
-      <text x="22" y="64" class="mono">2</text>
-      <text x="22" y="92" class="small">FP16 storage</text>
-      <text x="22" y="116" class="tiny">2 bytes per scalar</text>
-    </g>
-    <g transform="translate(536 172)">
-      <rect x="0" y="0" width="258" height="136" rx="20" fill="rgba(148,163,184,0.14)" stroke="rgba(203,213,225,0.42)" stroke-width="2"/>
-      <text x="22" y="34" class="label">Factor product</text>
-      <text x="22" y="70" class="mono">2 x 1 x 28 x 2 x T x 128 x 2</text>
-      <text x="22" y="98" class="small">Multiply every factor once</text>
-      <text x="22" y="122" class="tiny">This is logical cache capacity, not allocator reserve</text>
-    </g>
-  </g>
-
-  <!-- worked example -->
-  <g transform="translate(838 838)">
-    <rect x="0" y="0" width="680" height="120" rx="22" fill="rgba(8,15,28,0.78)" stroke="rgba(125,211,252,0.35)" stroke-width="2"/>
-    <text x="24" y="34" class="label">Worked example</text>
-    <text x="24" y="64" class="mono">T = 512  →  14,680,064 bytes  = 14 MiB</text>
-    <text x="24" y="92" class="mono">T = 2048 →  58,720,256 bytes  = 56 MiB</text>
-  </g>
+  <rect x="910" y="302" width="640" height="690" rx="22" class="panel" filter="url(#shadow)"/>
+  <text x="944" y="346" class="h">Count the scalars, then the bytes</text>
+  <text x="944" y="390" class="small">Step 1 — one layer, one request</text>
+  <text x="944" y="425" class="mono">K: 2 × 512 × 128 = 131,072 values</text><text x="944" y="458" class="mono">V: 2 × 512 × 128 = 131,072 values</text><text x="944" y="491" class="mono">K + V = 262,144 values</text>
+  <path d="M944 520 H1510" class="dash"/>
+  <text x="944" y="560" class="small">Step 2 — repeat for all 28 layers</text><text x="944" y="598" class="mono">262,144 × 28 = 7,340,032 values</text>
+  <text x="944" y="631" class="small">Step 3 — FP16 stores 2 bytes per value</text><text x="944" y="669" class="mono">7,340,032 × 2 = 14,680,064 bytes</text>
+  <rect x="944" y="710" width="540" height="104" rx="16" fill="#123b52" stroke="#38bdf8" stroke-width="2"/><text x="974" y="751" class="h">512-token prompt</text><text x="974" y="786" class="mono">14,680,064 bytes = 14 MiB</text>
+  <text x="944" y="864" class="small">If T grows from 512 to 2048 (4×):</text><text x="944" y="901" class="mono">14 MiB × 4 = 56 MiB</text><text x="944" y="937" class="tiny">Logical cache storage; allocator peaks also include weights and temporary tensors.</text>
 </svg>
