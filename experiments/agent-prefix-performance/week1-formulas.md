@@ -68,6 +68,23 @@ For equal sequence length across the batch:
 KV bytes = 2 × B × L × H_kv × T × D × bytes_per_element
 ```
 
+![3D KV-cache bytes visualization](assets/week1-kv-bytes-3d-visual.svg)
+
+Read the figure left to right:
+
+1. `B` selects how many requests are in the batch.
+2. `L` duplicates the cache across transformer layers.
+3. `H_kv` duplicates each token position across the KV heads.
+4. `T` is the cached position axis, which grows with the prompt and each new
+   decode token.
+5. `D` is the width of each head vector.
+6. `bytes_per_element` converts stored values into bytes.
+
+The front face of the 3D block shows the per-layer KV structure. The stack in
+depth shows that the same cache pattern repeats across all layers, and the
+factor strip on the right shows how each dimension contributes to the final
+product.
+
 Where:
 
 ```text
@@ -154,4 +171,3 @@ When the JSON result comes back, compare:
 3. `logits_shape` against `[B, T, vocab_size]`;
 4. the cached/uncached time ratio against `no-cache time / cached time`; and
 5. the prompt-length sweep against linear cache growth and slower prefill.
-
