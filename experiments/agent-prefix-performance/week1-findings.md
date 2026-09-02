@@ -86,6 +86,25 @@ speedup   = no-cache time / cached time
 For cached decode, the first token is produced by prefill, so the separate
 decode-rate estimate uses the remaining `new_tokens - 1` decode steps.
 
+## Theoretical memory versus actual memory
+
+The table below puts the formula result beside the value observed by the
+benchmark. The KV-cache rows are directly comparable: the benchmark reports
+the bytes allocated for the initial cache, before decode adds new positions.
+
+| Quantity | Theoretical calculation | Actual result | How to interpret the difference |
+|---|---:|---:|---|
+| KV cache, `T=512` | `2 × 1 × 28 × 2 × 512 × 128 × 2` = **14,680,064 bytes (14 MiB)** | **14,680,064 bytes (14 MiB)** | Exact match; the cache contains one K and one V tensor for each of 28 layers. |
+| KV cache, `T=2,048` | `2 × 1 × 28 × 2 × 2048 × 128 × 2` = **58,720,256 bytes (56 MiB)** | **58,720,256 bytes (56 MiB)** | Exact match; increasing `T` by 4× increases cache storage by 4×. |
+| Peak cached allocation, `T=512` | Weights + 14 MiB KV cache + temporary tensors | **~3.34 GB** PyTorch allocator peak | This is not just KV memory: it also includes model weights, activations, logits, inputs, and allocator overhead. |
+| Peak cached allocation, `T=2,048` | Weights + 56 MiB KV cache + larger temporary tensors | **~4.14–4.27 GB** PyTorch allocator peak | The extra peak over the 512-token case is primarily longer-sequence activations and attention work; it should not be attributed to KV alone. |
+
+The first two rows are a validation of the KV formula. The last two rows are
+end-to-end allocator measurements, so their theoretical value is best treated
+as a decomposition (what should contribute) rather than as an exact prediction
+of the peak. In particular, `nvidia-smi` process memory, PyTorch allocated
+memory, and PyTorch reserved memory measure different things.
+
 ## Tensor and memory evidence
 
 For a 512-token prompt, the first layer's K and V tensors were each:
