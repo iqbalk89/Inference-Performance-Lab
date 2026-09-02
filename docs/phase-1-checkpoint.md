@@ -67,7 +67,7 @@ The goal is to explain their roles, not to write CUDA kernels.
 4. Observe `nvidia-smi` during execution and compare its memory view with
    PyTorch allocated and reserved memory.
 5. Summarize prefill, cached decode, full recomputation, tensor/cache shapes,
-   and peak memory in `experiments/agent-prefix-performance/week1-findings.md`.
+   and peak memory in `experiments/agent-prefix-performance/01-pytorch-baseline/week1-findings.md`.
 6. Use the results to state focused profiling questions for Week 2.
 
 ### After the First Model

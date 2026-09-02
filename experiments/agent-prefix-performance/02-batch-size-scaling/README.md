@@ -2,7 +2,7 @@
 
 This experiment measures how serving multiple requests together changes GPU
 throughput, per-request latency, and memory use. It follows the [Week 1 direct
-PyTorch baseline](../README.md) and uses the same Qwen2.5-1.5B FP16 model on an
+PyTorch baseline](../01-pytorch-baseline/README.md) and uses the same Qwen2.5-1.5B FP16 model on an
 NVIDIA A10.
 
 ## What is batch size?
