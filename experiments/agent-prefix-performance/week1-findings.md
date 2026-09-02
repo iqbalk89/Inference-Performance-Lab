@@ -94,6 +94,7 @@ the bytes allocated for the initial cache, before decode adds new positions.
 
 | Quantity | Theoretical calculation | Actual result | How to interpret the difference |
 |---|---:|---:|---|
+| Model weights | `≈1.54B parameters × 2 bytes` = **≈3.09 billion bytes (≈2.88 GiB)** | **≈3.09 GB** parameter tensor storage | FP16 weights are loaded once and remain resident; this excludes activations, KV cache, and allocator overhead. |
 | KV cache, `T=512` | `2 × 1 × 28 × 2 × 512 × 128 × 2` = **14,680,064 bytes (14 MiB)** | **14,680,064 bytes (14 MiB)** | Exact match; the cache contains one K and one V tensor for each of 28 layers. |
 | KV cache, `T=2,048` | `2 × 1 × 28 × 2 × 2048 × 128 × 2` = **58,720,256 bytes (56 MiB)** | **58,720,256 bytes (56 MiB)** | Exact match; increasing `T` by 4× increases cache storage by 4×. |
 | Peak cached allocation, `T=512` | Weights + 14 MiB KV cache + temporary tensors | **~3.34 GB** PyTorch allocator peak | This is not just KV memory: it also includes model weights, activations, logits, inputs, and allocator overhead. |
