@@ -28,6 +28,64 @@ The first discovery run was repeated once at 512/32; it measured 590.3 ms
 cached total and 1,295.6 ms without cache. It is retained as a separate raw
 file but is not used in the table above.
 
+## Calculations Used
+
+The findings above are backed by these explicit calculations:
+
+```text
+parameter_bytes = parameter_count × bytes_per_parameter
+```
+
+For the chosen FP16 model:
+
+```text
+bytes_per_parameter = 2
+```
+
+The logical attention shapes for batch 1 and prompt length `T` are:
+
+```text
+Q = [1, 12, T, 128]
+K = [1, 2, T, 128]
+V = [1, 2, T, 128]
+S = [1, 12, T, T]
+P = [1, 12, T, T]
+C = [1, 12, T, 128]
+```
+
+The KV-cache size is:
+
+```text
+KV bytes = 2 × B × L × H_kv × T × D_head × bytes_per_element
+```
+
+With the Week 1 constants:
+
+```text
+B = 1
+L = 28
+H_kv = 2
+D_head = 128
+bytes_per_element = 2
+```
+
+So:
+
+```text
+T = 512  → 14,680,064 bytes = 14 MiB
+T = 2048 → 58,720,256 bytes = 56 MiB
+```
+
+Throughput and comparison metrics use:
+
+```text
+tokens/s = output_tokens / seconds
+speedup   = no-cache time / cached time
+```
+
+For cached decode, the first token is produced by prefill, so the separate
+decode-rate estimate uses the remaining `new_tokens - 1` decode steps.
+
 ## Tensor and memory evidence
 
 For a 512-token prompt, the first layer's K and V tensors were each:

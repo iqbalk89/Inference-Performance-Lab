@@ -4,6 +4,9 @@ This note explains what the Week 1 baseline does, which software component owns
 each step, and when data moves onto the GPU. The executable source is
 [`week1_pytorch_baseline.py`](week1_pytorch_baseline.py).
 
+For the shared equations behind the tensor shapes and cache sizes, see
+[Week 1 Formula Page](week1-formulas.md).
+
 ## The Stack Used in Week 1
 
 ```text
@@ -206,6 +209,22 @@ giving 56 cache tensors. The initial cache size is therefore:
 The cache grows linearly with batch size and cached sequence length. It prevents
 the model from recalculating earlier keys and values during every decode step.
 
+The same calculation can be written in attention notation:
+
+```text
+Q = XWq
+K = XWk
+V = XWv
+S = QK^T / sqrt(D)
+P = softmax(S)
+C = PV
+```
+
+For this model, `X` has hidden size 1536, `Q` has 12 heads, `K` and `V` have
+2 KV heads, and `D = 128`. The score tensor `S` is the full token-by-token
+comparison matrix for each query head, while `P` has the same logical shape
+after softmax. `C` is the weighted sum of values returned to the next layer.
+
 ### Shape changes from prefill to decode
 
 | Phase | Q shape | New K/V shape | Stored K/V shape | What changes? |
@@ -219,6 +238,10 @@ question of the context. K and V have only two heads because grouped-query
 attention lets groups of query heads share the same keys and values. Q is used
 for the current attention calculation and discarded. K and V represent the
 reusable history, so they are retained.
+
+The benchmark script does not materialize all of these intermediate tensors as
+separate Python objects. The equations describe the logical shapes of the model
+math that PyTorch and CUDA execute underneath the loop.
 
 ## 6. Run KV-Cached Decode
 

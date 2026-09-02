@@ -240,6 +240,29 @@ def main() -> None:
     cpu_inputs = make_exact_length_inputs(tokenizer, args.prompt_tokens)
     inputs = {name: tensor.to("cuda") for name, tensor in cpu_inputs.items()}
     parameter_bytes = sum(tensor_bytes(parameter) for parameter in model.parameters())
+    batch_size = int(inputs["input_ids"].shape[0])
+    prompt_tokens = int(inputs["input_ids"].shape[1])
+    hidden_size = getattr(model.config, "hidden_size", None)
+    num_attention_heads = getattr(model.config, "num_attention_heads", None)
+    num_key_value_heads = getattr(model.config, "num_key_value_heads", None)
+    num_layers = getattr(model.config, "num_hidden_layers", None)
+    head_dim = getattr(model.config, "head_dim", None)
+    if head_dim is None and hidden_size and num_attention_heads:
+        head_dim = hidden_size // num_attention_heads
+    if num_key_value_heads is None:
+        num_key_value_heads = num_attention_heads
+    bytes_per_element = torch.tensor([], dtype=dtype).element_size()
+    expected_kv_cache_bytes = None
+    if None not in (batch_size, num_layers, num_key_value_heads, prompt_tokens, head_dim):
+        expected_kv_cache_bytes = (
+            2
+            * batch_size
+            * int(num_layers)
+            * int(num_key_value_heads)
+            * prompt_tokens
+            * int(head_dim)
+            * bytes_per_element
+        )
 
     for _ in range(args.warmups):
         generate_cached(model, **inputs, new_tokens=min(args.new_tokens, 4))
@@ -292,14 +315,56 @@ def main() -> None:
             "parameter_bytes": parameter_bytes,
         },
         "workload": {
-            "batch_size": int(inputs["input_ids"].shape[0]),
-            "prompt_tokens": int(inputs["input_ids"].shape[1]),
+            "batch_size": batch_size,
+            "prompt_tokens": prompt_tokens,
             "new_tokens": args.new_tokens,
             "input_ids_shape": list(inputs["input_ids"].shape),
             "attention_mask_shape": list(inputs["attention_mask"].shape),
             "warmups": args.warmups,
             "repeats": args.repeats,
             "decoding": "greedy argmax",
+            "derived_attention": {
+                "hidden_size": hidden_size,
+                "num_attention_heads": num_attention_heads,
+                "num_key_value_heads": num_key_value_heads,
+                "head_dim": head_dim,
+                "query_to_kv_head_ratio": (
+                    None
+                    if not num_attention_heads or not num_key_value_heads
+                    else num_attention_heads / num_key_value_heads
+                ),
+                "q_shape": (
+                    None
+                    if None in (batch_size, num_attention_heads, prompt_tokens, head_dim)
+                    else [batch_size, num_attention_heads, prompt_tokens, head_dim]
+                ),
+                "k_shape": (
+                    None
+                    if None in (batch_size, num_key_value_heads, prompt_tokens, head_dim)
+                    else [batch_size, num_key_value_heads, prompt_tokens, head_dim]
+                ),
+                "v_shape": (
+                    None
+                    if None in (batch_size, num_key_value_heads, prompt_tokens, head_dim)
+                    else [batch_size, num_key_value_heads, prompt_tokens, head_dim]
+                ),
+                "score_shape": (
+                    None
+                    if None in (batch_size, num_attention_heads, prompt_tokens)
+                    else [batch_size, num_attention_heads, prompt_tokens, prompt_tokens]
+                ),
+                "probability_shape": (
+                    None
+                    if None in (batch_size, num_attention_heads, prompt_tokens)
+                    else [batch_size, num_attention_heads, prompt_tokens, prompt_tokens]
+                ),
+                "context_shape": (
+                    None
+                    if None in (batch_size, num_attention_heads, prompt_tokens, head_dim)
+                    else [batch_size, num_attention_heads, prompt_tokens, head_dim]
+                ),
+                "expected_kv_cache_bytes": expected_kv_cache_bytes,
+            },
         },
         "cached": {
             "summary": median_metrics(cached_runs),

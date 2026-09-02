@@ -3,6 +3,10 @@
 This directory contains the executable work for the
 [four-week project roadmap](../../docs/agent-prefix-performance-roadmap.md).
 
+For the shared math behind Week 1, read
+[the formula page](week1-formulas.md). It collects the tensor-shape, KV-cache,
+throughput, and storage equations used throughout this experiment.
+
 ## Week 1: Direct PyTorch Baseline
 
 Run this on the accepted Lambda A10, not on the local Intel Mac.
@@ -92,6 +96,15 @@ Create `week1-findings.md` in this directory after the remote run. Include:
 
 The completed baseline analysis is available in
 [week1-findings.md](week1-findings.md).
+
+Before you write the findings note, perform these calculations from the
+measured run:
+
+1. model parameter bytes;
+2. Q/K/V, score, probability, and context tensor shapes;
+3. expected KV-cache bytes at each prompt length;
+4. cached-versus-uncached speedup; and
+5. the reason prompt length changes prefill and cache memory more than decode.
 
 Do not commit model weights or raw benchmark JSON. Commit the exact commands and
 the summarized findings.
