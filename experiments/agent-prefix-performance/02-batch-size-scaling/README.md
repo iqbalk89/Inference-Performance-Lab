@@ -48,23 +48,6 @@ Here is what each shape means:
   same shape but contain different projections and serve different roles in
   attention.
 
-Yes, hidden states were discussed in the previous experiment. In the [Week 1
-walkthrough](../01-pytorch-baseline/pytorch-code-walkthrough.md), they were
-called `X` and shown as the input to the Q/K/V projections. This section repeats
-that shape because batching changes its first dimension. The attention
-projection relationship is:
-
-```text
-X              [B, T, 1536]
-Q = reshape(XWq) [B, 12, T, 128]
-K = reshape(XWk) [B,  2, T, 128]
-V = reshape(XWv) [B,  2, T, 128]
-```
-
-Qwen uses grouped-query attention: 12 query heads share 2 K/V heads. That is
-why K and V have `2` in their head dimension while the hidden state retains the
-full `1536 = 12 × 128` features.
-
 With four equal-length requests, the leading batch dimension changes to 4:
 
 ```text
