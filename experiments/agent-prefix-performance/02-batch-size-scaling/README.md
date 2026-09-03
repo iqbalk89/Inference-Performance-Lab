@@ -234,6 +234,35 @@ its memory limit. The key result is the **throughput knee**: the batch size
 after which adding more requests produces little additional aggregate
 throughput.
 
+### Experimental guardrails
+
+The phrase **latency target** in this experiment means a relative guardrail
+against the `B=1` result for the same prompt length and output-token count. A
+batch size passes the guardrail when both of these are true:
+
+```text
+median prefill service time(B) ≤ 1.25 × median prefill service time(B=1)
+median TPOT(B)                 ≤ 1.25 × median TPOT(B=1)
+```
+
+In other words, the experiment permits at most a 25% increase in prefill
+service time and time per output token in exchange for higher aggregate
+throughput. This 25% value is a deliberately chosen study criterion, not a
+customer or production SLO. The direct PyTorch experiment also excludes request
+queueing and network time, so its prefill timing is not a complete production
+TTFT measurement.
+
+The memory guardrail is:
+
+```text
+peak reserved CUDA memory ≤ 90% of usable GPU VRAM
+```
+
+Finally, define the measured throughput knee as the first tested batch size for
+which doubling `B` produces less than a 5% increase in aggregate output-token
+throughput. Report the best batch that satisfies all three conditions: latency,
+memory, and useful throughput gain.
+
 Record for every case:
 
 - aggregate tokens/second;
@@ -242,13 +271,14 @@ Record for every case:
 - peak allocated and reserved CUDA memory;
 - measured KV-cache bytes;
 - GPU utilization sampled during the measured interval; and
-- the first batch size that fails or violates the chosen latency target.
+- the first batch size that violates either explicit latency guardrail.
 
 Use these definitions:
 
 ```text
 aggregate throughput = total generated tokens / elapsed seconds
 per-request throughput = aggregate throughput / B
+TPOT = decode-only seconds / decode-generated tokens
 KV bytes = 2 × B × L × H_kv × T × D × bytes_per_element
 ```
 
