@@ -5,61 +5,135 @@ throughput, per-request latency, and memory use. It follows the [Week 1 direct
 PyTorch baseline](../01-pytorch-baseline/README.md) and uses the same Qwen2.5-1.5B FP16 model on an
 NVIDIA A10.
 
-## What is batch size?
+## Batching background
 
-The **batch size**, written as `B`, is the number of independent sequences
-included in one model call. With `B=1`, the model receives one request. With
-`B=4`, it receives four independent requests (four batch items) at the same
-time and performs the same layers and matrix operations for those requests in
-parallel. Each request may itself contain hundreds of token rows; the batch
-dimension is separate from those token/matrix rows. The requests do not
-share words, attention scores, or KV entries; batching only gives the GPU more
-independent work to process together.
+### What batching is
 
-![Detailed batch-size visualization](week2-batch-size-visual.svg)
+**Batching** means grouping multiple independent inference requests into one
+model invocation. The **batch size**, written `B`, is the number of requests in
+that invocation. `B=1` means one request is processed; `B=4` means four requests
+are represented as four items along the leading tensor dimension and processed
+by the same sequence of model operations.
 
-Read the visual from left to right. Requests A–D begin as separate items in a
-queue. A batcher selects four of them and stacks them along a new leading axis,
-so the model receives `[4, 512]` rather than four unrelated calls to
-`[1, 512]`. The model runs once using its shared weights, producing four
-request-specific outputs. The serving layer then separates those outputs and
-returns A, B, C, and D to their original clients. The batch axis is therefore a
-container for requests, not an extra token axis and not a concatenation of
-their text.
+A batcher performs four conceptual steps:
 
-Conceptually:
+1. Several requests wait or become ready for the same kind of model work.
+2. The batcher stacks their tensors along a new leading `B` dimension.
+3. The GPU executes larger operations over the combined tensor using the same
+   model weights.
+4. The resulting batch tensor is separated back into request-specific outputs.
+
+For equal 512-token prompts:
 
 ```text
-request A [1, 512] ┐
-request B [1, 512] ├─ batch together ─> one model call [4, 512]
-request C [1, 512] ┤                  └─ split outputs ─> A, B, C, D
-request D [1, 512] ┘
+A [1, 512] ┐
+B [1, 512] ├─ stack on the B axis ─> input_ids [4, 512]
+C [1, 512] ┤                         └─ one model invocation
+D [1, 512] ┘
 ```
 
-The GPU-architecture view below uses a highway metaphor for the same process.
-The “lanes” are independent batch items, the scheduler is the on-ramp, the
-streaming multiprocessors execute the batched kernels, and HBM/memory-bus traffic
-includes shared weight reads plus each request's separate KV-cache reads.
+Batching does **not** concatenate these into one 2,048-token conversation.
+Request A cannot attend to B, C, or D. Each request retains its own attention
+mask, activations, outputs, and KV-cache history; `B` is a container dimension
+for independent examples.
 
-![Batching as a GPU work highway](week2-batching-gpu-highway.svg)
+### What problem batching solves
 
-The highway is an analogy for parallel work and memory traffic—not a claim that
-request objects literally travel through the memory bus.
+GPUs are designed to execute a great deal of parallel arithmetic. A small
+inference operation—especially a `B=1` decode step that contributes only one
+new token—may not expose enough work to occupy all SMs and Tensor Cores. The GPU
+still pays kernel-launch and scheduling costs, and it must access the model
+weights, yet part of its compute capacity can remain idle.
 
-The next view compares the complete path in two stages. Stage 1 sends four
-requests through four separate `B=1` passes. Stage 2 forms one `B=4` tensor and
-sends it through a wider batched pass. Both stages use one model-weight
-allocation in VRAM; batching does not make four copies of the weights. The
-important difference is that a batched matrix operation can reuse the shared
-weights across four request rows during the same operation, while the K/V
-caches remain request-specific and grow with `B`.
+Running four requests as four separate calls repeats that small-workload pattern
+four times. The result is low aggregate throughput: fewer total tokens are
+completed per second than the GPU could process with a better-shaped workload.
+
+### How batching solves it
+
+Batching turns several small operations into a larger tensor operation. For a
+linear layer, the conceptual change is:
+
+```text
+unbatched: X_A × W, then X_B × W, then X_C × W, then X_D × W
+batched:   X_batch × W, where X_batch contains A, B, C, and D
+```
+
+This helps because the larger operation exposes more parallel work, amortizes
+launch overhead, and allows weight tiles fetched from VRAM to be reused across
+more input rows during the operation. There is still only one resident model-
+weight allocation; weights are not copied once per request. Physical HBM reads
+remain kernel- and cache-dependent, so “read once” should be understood as
+shared reuse within the batched operation rather than literally one hardware
+transaction for every weight byte.
 
 ![Unbatched versus batched paths through GPU architecture](week2-unbatched-vs-batched-gpu-path-v2.png)
 
-In this diagram, “one shared batched weight stream” is a conceptual statement
-about reuse. The model weights are resident once in VRAM and are shared by the
-batch, but the exact number of physical HBM reads depends on caches, tiling, and
-the kernels selected by PyTorch and CUDA.
+Batching improves **aggregate throughput** when one batched pass completes the
+group in less time than the equivalent separate passes:
+
+```text
+t_batch < B × t_single
+aggregate throughput = completed tokens / elapsed time
+```
+
+It does not guarantee lower latency for an individual request. A request may
+wait while a batch forms, and a larger operation may take longer than one
+`B=1` operation. Batching exchanges some latency and memory capacity for better
+total GPU utilization.
+
+## Does batching occur during prefill or decode?
+
+**Both.** Prefill and decode can each be batched, but the tensor shapes, work,
+and scheduling behavior differ.
+
+| Phase | What each request contributes | Batched input | Main work | Result |
+|---|---|---|---|---|
+| Prefill | Many prompt tokens | `[B, T]` token IDs | Large projections, MLPs, and attention across each prompt | Separate KV cache and first-token logits per request |
+| Decode | One current token per active sequence per step | `[B, 1]` token IDs | One-token projections plus reads from each sequence's existing KV cache | One next token and appended K/V per active request |
+
+![Prefill batching versus decode batching](week2-prefill-vs-decode-batching.png)
+
+### Prefill batching
+
+During prefill, the model processes the prompt tokens that arrived with each
+request. With four equal 512-token prompts, the input is `[4, 512]`, and hidden
+states are `[4, 512, hidden_size]`. The GPU performs one batched prefill forward
+pass, but attention remains isolated within each request. The pass creates a
+separate K/V history and a next-token prediction for each request.
+
+Prefill already contains many tokens and often forms large, compute-rich matrix
+operations at `B=1`. It can therefore reach good GPU utilization at a smaller
+batch size than decode. Batching may still increase throughput, but it also
+raises activation memory and can delay time to first token while requests wait
+for the prefill batch.
+
+### Decode batching
+
+During cached decode, each active sequence contributes approximately one
+current token at each iteration. Four active sequences therefore form token IDs
+with shape `[4, 1]`. The model executes one batched decode step, reads each
+sequence's own KV cache, produces four next-token results, and appends new K/V
+for each sequence. The process repeats for the following token step.
+
+Decode batching is particularly important because a single `B=1` decode step
+is small and frequently limited by moving weights and KV data rather than by
+available arithmetic. A larger active batch provides more work per weight
+access and per kernel launch.
+
+Production engines commonly use **continuous batching** during decode. When one
+sequence finishes, it can leave the active batch and a waiting request can join
+at a later iteration. The batch membership changes over time even though each
+individual GPU step still sees a concrete active batch size.
+
+### Can prefill and decode work coexist?
+
+Yes. A simple static PyTorch experiment can batch a fixed group through prefill
+and keep the same group together during decode. Serving engines use more
+flexible scheduling: they may batch prefills together, batch decode tokens
+together, split long prefills into chunks, or schedule some prefill work near
+ongoing decode work. This experiment begins with a fixed equal-length batch so
+the effect of `B` can be measured without mixing in scheduler policy.
 
 ## What changes when B increases
 
@@ -116,16 +190,7 @@ The model weights are not duplicated. The same weights process every batch
 item, while the request-dependent tensors gain four times as many rows. Each
 batch item still has its own attention computation and its own K/V history.
 
-## Why batching improves throughput
-
-A GPU is most efficient when it has enough independent matrix work to keep its
-many streaming multiprocessors busy. A single short decode step can leave much
-of the GPU idle. Processing four requests together makes matrix multiplications
-larger, so fixed launch and scheduling costs are shared across requests. This
-can increase **aggregate throughput** (tokens/second across all requests), even
-though each individual request may take longer.
-
-## Why batching costs memory and can hurt latency
+## Memory and latency tradeoffs
 
 Every request adds input/activation storage and a separate K/V history. Larger
 batches increase peak memory and can cause queueing: an arriving request may
@@ -160,15 +225,6 @@ kernels reduce that waste; continuous batching admits new sequences as others
 finish. These are follow-up experiments, not confounding variables for this
 one.
 
-## Prefill versus decode batching
-
-- **Prefill:** each request contributes hundreds or thousands of prompt tokens.
-  Increasing `B` increases the large matrix operations and the KV cache created
-  for each prompt.
-- **Decode:** each active request contributes approximately one new token per
-  step. Batching active sequences turns many small one-token operations into a
-  larger GPU workload, which is often the most important throughput benefit.
-
 ## Experiment objective
 
 Predict and then find the batch-size operating point that maximizes aggregate
@@ -184,7 +240,7 @@ Record for every case:
 - per-request tokens/second;
 - prefill, decode, and end-to-end latency;
 - peak allocated and reserved CUDA memory;
-- measured KV-cache bytes; and
+- measured KV-cache bytes;
 - GPU utilization sampled during the measured interval; and
 - the first batch size that fails or violates the chosen latency target.
 
