@@ -18,6 +18,24 @@ independent work to process together.
 
 ![Detailed batch-size visualization](week2-batch-size-visual.svg)
 
+Read the visual from left to right. Requests A–D begin as separate items in a
+queue. A batcher selects four of them and stacks them along a new leading axis,
+so the model receives `[4, 512]` rather than four unrelated calls to
+`[1, 512]`. The model runs once using its shared weights, producing four
+request-specific outputs. The serving layer then separates those outputs and
+returns A, B, C, and D to their original clients. The batch axis is therefore a
+container for requests, not an extra token axis and not a concatenation of
+their text.
+
+Conceptually:
+
+```text
+request A [1, 512] ┐
+request B [1, 512] ├─ batch together ─> one model call [4, 512]
+request C [1, 512] ┤                  └─ split outputs ─> A, B, C, D
+request D [1, 512] ┘
+```
+
 ## What changes when B increases
 
 The notation below is `[batch, tokens, features]` for ordinary model
