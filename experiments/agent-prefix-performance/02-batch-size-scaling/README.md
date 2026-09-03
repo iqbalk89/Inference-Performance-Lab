@@ -54,7 +54,7 @@ important difference is that a batched matrix operation can reuse the shared
 weights across four request rows during the same operation, while the K/V
 caches remain request-specific and grow with `B`.
 
-![Unbatched versus batched paths through GPU architecture](week2-unbatched-vs-batched-gpu-path.svg)
+![Unbatched versus batched paths through GPU architecture](week2-unbatched-vs-batched-gpu-path-v2.png)
 
 In this diagram, “one shared batched weight stream” is a conceptual statement
 about reuse. The model weights are resident once in VRAM and are shared by the
