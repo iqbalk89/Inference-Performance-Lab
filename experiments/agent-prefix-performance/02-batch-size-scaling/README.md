@@ -246,22 +246,38 @@ and fixed launch costs are amortized. At larger `B`, throughput flattens when
 the GPU reaches its compute or memory-bandwidth limit. Per-request latency and
 queueing delay generally continue to rise.
 
-For a more quantitative model, use the first measured point to estimate a
-single-request service cost and fit a saturation curve to later points:
+For a more quantitative prediction, use a small pilot (`B=1, 2, 4`) to fit a
+saturating throughput curve. A useful starting model is:
 
 ```text
-predicted_aggregate_tokens_per_second(B)
-    = B × single_request_rate / (1 + α × (B - 1))
+throughput(B) = R_max × B / (B + B₀)
 ```
 
-Here `α` captures contention and can be fitted from the `B=2` and `B=4`
-measurements. This is not a hardware law; it is an intentionally simple model
-whose value is that it makes the assumptions visible and can be falsified.
+`R_max` is the fitted high-batch asymptote and `B₀` controls how quickly the
+curve bends. At small `B`, the curve is approximately linear; at large `B`, it
+flattens. Define the practical knee as the first batch size whose measured
+increment is below a chosen threshold, such as a 5% throughput gain. Fit on the
+pilot points, predict the remaining batch sizes, and evaluate the prediction on
+held-out measurements. This is better suited to end-to-end inference than a
+pure hardware ceiling because it captures launch overhead and contention.
 
-### Roofline estimate for the throughput knee
+For the latency side, start with a simple service-time model and add a
+queueing term only if the experiment introduces arrivals over time:
 
-Use a roofline check to predict whether the important kernels are limited by
-compute or by memory bandwidth:
+```text
+batch_service_time(B) ≈ L_fixed + L_work × B^p
+```
+
+Use `p≈1` as the initial hypothesis, then fit `p` from the pilot. Per-request
+latency is the batch service time; user-visible latency can be higher when a
+request waits in a queue. Keeping service time and queueing delay separate
+prevents a batch-size effect from being confused with a scheduler effect.
+
+### Roofline as a secondary diagnostic
+
+Use roofline analysis to explain *why* the fitted curve bends, rather than as the
+sole predictor of the exact knee. It checks whether important kernels are
+limited by compute or memory bandwidth:
 
 ```text
 arithmetic_intensity = FLOPs / bytes_moved
@@ -279,18 +295,19 @@ batch is where:
 arithmetic_intensity(B) ≈ peak_compute / memory_bandwidth
 ```
 
-Use this as a regime prediction, not an exact answer. Prefill commonly reaches
-high utilization at smaller `B` because each request contributes many prompt
-tokens. Decode often needs a larger `B`, but its KV reads grow with
+This gives a useful regime prediction, not an exact end-to-end batch size.
+Prefill commonly reaches high utilization at smaller `B` because each request
+contributes many prompt tokens. Decode often needs a larger `B`, but its KV reads grow with
 `B × current_sequence_length`. Kernel fusion, launch overhead, clock state, and
 attention implementation can move the measured knee away from the simple
 roofline estimate.
 
-For each sweep point, compare the prediction with measured aggregate
-tokens/second, latency, peak memory, and GPU utilization. A strong conclusion is
-phrased as a range—for example, “the roofline predicts diminishing returns
-between `B=4` and `B=8`, and measurements place the knee in that interval”—not
-as a claim that the model can determine an exact batch size without a run.
+For each sweep point, compare the saturation-curve prediction with measured
+aggregate tokens/second, latency, peak memory, and GPU utilization. Then use the
+roofline result to interpret the knee. A strong conclusion is phrased as a
+range—for example, “the fitted curve predicts diminishing returns between
+`B=4` and `B=8`, while roofline data suggests bandwidth pressure”—not as a
+claim that either model determines an exact batch size without a run.
 
 The comparison deliverable should place predicted and actual memory beside each
 other, and plot predicted versus actual aggregate throughput and latency for
