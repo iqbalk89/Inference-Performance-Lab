@@ -46,6 +46,21 @@ includes shared weight reads plus each request's separate KV-cache reads.
 The highway is an analogy for parallel work and memory traffic—not a claim that
 request objects literally travel through the memory bus.
 
+The next view compares the complete path in two stages. Stage 1 sends four
+requests through four separate `B=1` passes. Stage 2 forms one `B=4` tensor and
+sends it through a wider batched pass. Both stages use one model-weight
+allocation in VRAM; batching does not make four copies of the weights. The
+important difference is that a batched matrix operation can reuse the shared
+weights across four request rows during the same operation, while the K/V
+caches remain request-specific and grow with `B`.
+
+![Unbatched versus batched paths through GPU architecture](week2-unbatched-vs-batched-gpu-path.svg)
+
+In this diagram, “one shared batched weight stream” is a conceptual statement
+about reuse. The model weights are resident once in VRAM and are shared by the
+batch, but the exact number of physical HBM reads depends on caches, tiling, and
+the kernels selected by PyTorch and CUDA.
+
 ## What changes when B increases
 
 The notation below is `[batch, tokens, features]` for ordinary model
