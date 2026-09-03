@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="940" viewBox="0 0 1600 940" role="img" aria-labelledby="title desc">
+  <title id="title">Batching as a GPU highway</title>
+  <desc id="desc">A technical highway metaphor for GPU batching: independent requests enter a scheduler, travel as parallel work lanes to streaming multiprocessors, reuse model weights from HBM, read separate KV-cache histories, and return separate outputs.</desc>
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#071426"/><stop offset="1" stop-color="#17334d"/></linearGradient>
+    <linearGradient id="road" x2="0" y2="1"><stop stop-color="#1f3348"/><stop offset="1" stop-color="#0b1725"/></linearGradient>
+    <linearGradient id="gpu" x2="1" y2="1"><stop stop-color="#153c52"/><stop offset="1" stop-color="#0d263a"/></linearGradient>
+    <linearGradient id="gold" x2="1" y2="1"><stop stop-color="#fcd34d"/><stop offset="1" stop-color="#f59e0b"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity=".45"/></filter>
+    <style>
+      .title{font:700 32px Inter,system-ui,sans-serif;fill:#f8fafc}.sub{font:500 17px Inter,system-ui,sans-serif;fill:#c7dcf2}
+      .h{font:700 20px Inter,system-ui,sans-serif;fill:#f8fafc}.label{font:700 16px Inter,system-ui,sans-serif;fill:#f8fafc}
+      .body{font:500 15px Inter,system-ui,sans-serif;fill:#dbeafe}.small{font:500 13px Inter,system-ui,sans-serif;fill:#cbd5e1}
+      .tiny{font:600 12px Inter,system-ui,sans-serif;fill:#d5e5f3}.mono{font:700 17px 'SFMono-Regular',Menlo,monospace;fill:#f8fafc}
+      .panel{fill:#0d1d31;stroke:#38546e;stroke-width:2}.arrow{stroke:#8bdcf3;stroke-width:3;fill:none;stroke-linecap:round}
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#8bdcf3"/></marker>
+  </defs>
+  <rect width="1600" height="940" fill="url(#sky)"/>
+  <text x="55" y="55" class="title">Batching on the GPU: a highway for parallel work</text>
+  <text x="55" y="87" class="sub">Metaphor: each request is a lane of work; the GPU scheduler merges lanes into one wider dispatch.</text>
+
+  <!-- input requests -->
+  <rect x="45" y="125" width="310" height="690" rx="20" class="panel" filter="url(#shadow)"/>
+  <text x="72" y="166" class="h">1  Requests arrive</text><text x="72" y="195" class="small">Independent clients bring their own</text><text x="72" y="216" class="small">prompt tokens and KV history.</text>
+  <g transform="translate(75 260)">
+    <rect width="250" height="72" rx="12" fill="#2563eb"/><text x="125" y="30" text-anchor="middle" class="label">Request A</text><text x="125" y="55" text-anchor="middle" class="mono">B item 0 • 512 tokens</text>
+    <rect y="92" width="250" height="72" rx="12" fill="#0d9488"/><text x="125" y="122" text-anchor="middle" class="label">Request B</text><text x="125" y="147" text-anchor="middle" class="mono">B item 1 • 512 tokens</text>
+    <rect y="184" width="250" height="72" rx="12" fill="#c2410c"/><text x="125" y="214" text-anchor="middle" class="label">Request C</text><text x="125" y="239" text-anchor="middle" class="mono">B item 2 • 512 tokens</text>
+    <rect y="276" width="250" height="72" rx="12" fill="#7c3aed"/><text x="125" y="306" text-anchor="middle" class="label">Request D</text><text x="125" y="331" text-anchor="middle" class="mono">B item 3 • 512 tokens</text>
+  </g>
+  <text x="72" y="690" class="tiny">The colors identify requests; they</text><text x="72" y="710" class="tiny">remain separate throughout execution.</text>
+
+  <!-- scheduler -->
+  <path d="M355 465 H420" class="arrow" marker-end="url(#arrow)"/><rect x="375" y="405" width="135" height="120" rx="14" fill="#18354a" stroke="#22d3ee" stroke-width="2"/><text x="442" y="440" text-anchor="middle" class="label">Scheduler</text><text x="442" y="468" text-anchor="middle" class="small">forms a batch</text><text x="442" y="493" text-anchor="middle" class="mono">B = 4</text>
+
+  <!-- highway -->
+  <rect x="530" y="125" width="510" height="690" rx="20" class="panel" filter="url(#shadow)"/>
+  <text x="558" y="166" class="h">2  Batched work highway</text><text x="558" y="195" class="small">One dispatch carries four independent</text><text x="558" y="216" class="small">request lanes through the same kernels.</text>
+  <polygon points="570,275 990,275 990,665 570,665" fill="url(#road)" stroke="#49647b" stroke-width="2"/>
+  <line x1="675" y1="275" x2="675" y2="665" stroke="#f9d86a" stroke-width="4" stroke-dasharray="24 18"/><line x1="780" y1="275" x2="780" y2="665" stroke="#f9d86a" stroke-width="4" stroke-dasharray="24 18"/><line x1="885" y1="275" x2="885" y2="665" stroke="#f9d86a" stroke-width="4" stroke-dasharray="24 18"/>
+  <path d="M620 625 V315 M725 625 V315 M830 625 V315 M935 625 V315" stroke="#8bdcf3" stroke-width="13" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <circle cx="620" cy="590" r="18" fill="#2563eb"/><circle cx="725" cy="590" r="18" fill="#0d9488"/><circle cx="830" cy="590" r="18" fill="#c2410c"/><circle cx="935" cy="590" r="18" fill="#7c3aed"/>
+  <text x="780" y="705" text-anchor="middle" class="mono">one kernel launch • four batch items</text><text x="780" y="733" text-anchor="middle" class="small">More lanes expose more parallel matrix work.</text>
+
+  <!-- GPU -->
+  <path d="M1040 465 H1100" class="arrow" marker-end="url(#arrow)"/>
+  <rect x="1100" y="125" width="455" height="690" rx="20" class="panel" filter="url(#shadow)"/>
+  <text x="1128" y="166" class="h">3  GPU execution</text>
+  <rect x="1130" y="215" width="395" height="155" rx="14" fill="url(#gpu)" stroke="#22d3ee" stroke-width="2"/><text x="1327" y="252" text-anchor="middle" class="label">Streaming multiprocessors (SMs)</text><text x="1327" y="282" text-anchor="middle" class="small">parallel threads execute GEMMs</text><text x="1327" y="318" text-anchor="middle" class="mono">[B, T, hidden] × weights</text><text x="1327" y="347" text-anchor="middle" class="tiny">four request lanes share the same program</text>
+  <rect x="1130" y="405" width="395" height="145" rx="14" fill="#3b2d16" stroke="#fbbf24" stroke-width="2"/><text x="1327" y="442" text-anchor="middle" class="label">HBM / memory bus</text><text x="1327" y="472" text-anchor="middle" class="small">weights are reused; each request</text><text x="1327" y="497" text-anchor="middle" class="small">reads its own KV-cache history</text><text x="1327" y="529" text-anchor="middle" class="mono">KV traffic ∝ B × sequence_length</text>
+  <path d="M1327 370 V405" class="arrow" marker-end="url(#arrow)"/><path d="M1327 550 V585" class="arrow" marker-end="url(#arrow)"/>
+  <rect x="1130" y="585" width="395" height="145" rx="14" fill="#18354a" stroke="#8bdcf3" stroke-width="2"/><text x="1327" y="622" text-anchor="middle" class="label">Separate output lanes</text><text x="1327" y="653" text-anchor="middle" class="small">logits and generated tokens are</text><text x="1327" y="678" text-anchor="middle" class="small">returned to A, B, C, and D</text><text x="1327" y="711" text-anchor="middle" class="mono">outputs [4, ...] → 4 clients</text>
+
+  <rect x="55" y="850" width="1490" height="58" rx="14" fill="#0b1b2d" stroke="#38546e"/><text x="800" y="886" text-anchor="middle" class="small">Analogy boundary: requests do not literally travel as cars on the memory bus. The metaphor represents parallel work, shared weights, and per-request KV memory traffic.</text>
+</svg>

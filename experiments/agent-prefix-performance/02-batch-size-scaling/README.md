@@ -36,6 +36,16 @@ request C [1, 512] ┤                  └─ split outputs ─> A, B, C, D
 request D [1, 512] ┘
 ```
 
+The GPU-architecture view below uses a highway metaphor for the same process.
+The “lanes” are independent batch items, the scheduler is the on-ramp, the
+streaming multiprocessors execute the batched kernels, and HBM/memory-bus traffic
+includes shared weight reads plus each request's separate KV-cache reads.
+
+![Batching as a GPU work highway](week2-batching-gpu-highway.svg)
+
+The highway is an analogy for parallel work and memory traffic—not a claim that
+request objects literally travel through the memory bus.
+
 ## What changes when B increases
 
 The notation below is `[batch, tokens, features]` for ordinary model
